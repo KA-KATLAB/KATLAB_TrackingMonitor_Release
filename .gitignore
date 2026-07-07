@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# Node / frontend build
+node_modules/
+.vite/
+*.local
+*.tsbuildinfo
+
+# Backup artifacts (never commit)
+*.bak
+
+# Runtime data — regenerated, never commit
+data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+events.jsonl
+
+# Logs
+*.log
+logs/
+Logs/
+
+# Environment / secrets
+.env
+.env.*
+
+# Claude Code folder
+.claude/
+
+# Temporary files
+temp/
+temp_*
+*.tmp
+*.temp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS specific
+.DS_Store
+Thumbs.db
+nul

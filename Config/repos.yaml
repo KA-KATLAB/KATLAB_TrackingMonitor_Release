@@ -1,0 +1,21 @@
+# KATLAB TrackingMonitor - repo registry + server settings.
+# Read ONCE at startup (F25: restart the server after changing this file).
+# Adding a repo = add an entry below, restart. Zero code changes.
+
+server:
+  host: 127.0.0.1
+  port: 8100
+  status_poll_seconds: 30
+
+repos:
+  - id: EA_Dev
+    name: "EA repo - Development Workspace"
+    path: 'C:\Users\ADMIN\AppData\Roaming\MetaQuotes\Terminal\7ED840DDCFDDCD9E053E1BDBFEACD96A\MQL5\Experts\MQL5_SuperRepo'
+    plan_globs:
+      - "temp/*/PLAN_*.txt"
+
+  - id: EA_Exec
+    name: "EA repo - Execution Workspace"
+    path: 'D:\KATLAB_Reiky\_Execution_Workspace\MQL5_SuperRepo'
+    plan_globs:
+      - "temp/Plan/PLAN_*.txt"

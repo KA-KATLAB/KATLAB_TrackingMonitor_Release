@@ -1,0 +1,199 @@
+"""SQLite data layer (PLAN v0.1.0.0 C.2). stdlib sqlite3 + WAL, no ORM."""
+
+import json
+import sqlite3
+import threading
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = REPO_ROOT / "data"
+DB_PATH = DATA_DIR / "tracking.db"
+SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
+
+_local = threading.local()
+
+
+def _connect () -> sqlite3.Connection:
+    # F56: data/ is gitignored -> absent on fresh clones; create it or the
+    # very first run crashes with "unable to open database file".
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
+def get_conn () -> sqlite3.Connection:
+    conn = getattr(_local, "conn", None)
+    if conn is None:
+        conn = _connect()
+        _local.conn = conn
+    return conn
+
+
+def init_db (repos: list) -> None:
+    conn = get_conn()
+    conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+    for repo in repos:
+        conn.execute(
+            "INSERT INTO repos (id, name, path) VALUES (?, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET name = excluded.name, path = excluded.path",
+            (repo.id, repo.name, str(repo.path)),
+        )
+    conn.commit()
+
+
+# --- tasks (F11/F16: atomic per-plan sync) ----------------------------------
+
+def sync_plan_tasks (repo_id: str, plan_file: str, tasks: list[dict]) -> None:
+    """Replace ALL tasks of one plan file atomically. tasks=[] removes them (F16)."""
+    conn = get_conn()
+    with conn:
+        conn.execute(
+            "DELETE FROM tasks WHERE repo_id = ? AND plan_file = ?",
+            (repo_id, plan_file),
+        )
+        conn.executemany(
+            "INSERT INTO tasks (repo_id, plan_file, task_id, title, status, files_json, why) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                (repo_id, plan_file, t["id"], t["title"], t["status"],
+                 json.dumps(t["files"]), t["why"])
+                for t in tasks
+            ],
+        )
+
+
+def get_tasks (repo_id: str | None = None) -> list[sqlite3.Row]:
+    conn = get_conn()
+    if repo_id:
+        return conn.execute(
+            "SELECT * FROM tasks WHERE repo_id = ? ORDER BY plan_file, task_id",
+            (repo_id,),
+        ).fetchall()
+    return conn.execute("SELECT * FROM tasks ORDER BY repo_id, plan_file, task_id").fetchall()
+
+
+# --- events (F13: insert + offset in ONE transaction) ------------------------
+
+def insert_events_with_offset (repo_id: str, events: list[dict], new_offset: int) -> list[int]:
+    """Exactly-once ingest: event rows + offset update commit atomically."""
+    conn = get_conn()
+    ids: list[int] = []
+    with conn:
+        for e in events:
+            cur = conn.execute(
+                "INSERT INTO events (repo_id, ts, tool, file, task_ref, mode, candidates_json) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (repo_id, e["ts"], e["tool"], e["file"], e.get("task_ref"),
+                 e["mode"], json.dumps(e["candidates"]) if e.get("candidates") else None),
+            )
+            ids.append(cur.lastrowid)
+        conn.execute(
+            "INSERT INTO ingest_state (repo_id, events_offset) VALUES (?, ?) "
+            "ON CONFLICT(repo_id) DO UPDATE SET events_offset = excluded.events_offset",
+            (repo_id, new_offset),
+        )
+    return ids
+
+
+def get_offset (repo_id: str) -> int:
+    row = get_conn().execute(
+        "SELECT events_offset FROM ingest_state WHERE repo_id = ?", (repo_id,)
+    ).fetchone()
+    return row["events_offset"] if row else 0
+
+
+def get_events (repo_id: str | None = None, mode: str | None = None,
+                uncommitted_only: bool = False, limit: int = 500, offset: int = 0) -> list[sqlite3.Row]:
+    query = "SELECT * FROM events WHERE 1=1"
+    params: list = []
+    if repo_id:
+        query += " AND repo_id = ?"
+        params.append(repo_id)
+    if mode:
+        query += " AND mode = ?"
+        params.append(mode)
+    if uncommitted_only:
+        query += " AND commit_hash IS NULL"
+    query += " ORDER BY id DESC LIMIT ? OFFSET ?"  # F38 pagination
+    params += [limit, offset]
+    return get_conn().execute(query, params).fetchall()
+
+
+def get_event (event_id: int) -> sqlite3.Row | None:
+    return get_conn().execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
+
+
+def set_manual_task (event_id: int, task_ref: str) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE events SET task_ref = ?, mode = 'MANUAL' WHERE id = ?",
+            (task_ref, event_id),
+        )
+
+
+# --- commits + linking (F9/F32/F35/F36 sweep) --------------------------------
+
+def upsert_commit (repo_id: str, commit: dict) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO commits (repo_id, hash, message, ts, files_json) VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(repo_id, hash) DO UPDATE SET message = excluded.message, "
+            "ts = excluded.ts, files_json = excluded.files_json",
+            (repo_id, commit["hash"], commit["message"], commit["ts"],
+             json.dumps(commit["files"])),
+        )
+
+
+def link_events_to_commit (repo_id: str, commit_hash: str, commit_ts: str,
+                           files: list[str]) -> int:
+    if not files:
+        return 0
+    conn = get_conn()
+    placeholders = ",".join("?" * len(files))
+    with conn:
+        cur = conn.execute(
+            f"UPDATE events SET commit_hash = ? WHERE repo_id = ? AND commit_hash IS NULL "
+            f"AND ts <= ? AND file IN ({placeholders})",
+            [commit_hash, repo_id, commit_ts, *files],
+        )
+    return cur.rowcount
+
+
+def sweep_unlinked_events (repo_id: str, head_hash: str) -> int:
+    """F9/F32: on CLEAN, attach remaining unlinked events to HEAD with swept=1."""
+    conn = get_conn()
+    with conn:
+        cur = conn.execute(
+            "UPDATE events SET commit_hash = ?, swept = 1 "
+            "WHERE repo_id = ? AND commit_hash IS NULL",
+            (head_hash, repo_id),
+        )
+    return cur.rowcount
+
+
+def has_unlinked_events (repo_id: str) -> bool:
+    row = get_conn().execute(
+        "SELECT 1 FROM events WHERE repo_id = ? AND commit_hash IS NULL LIMIT 1",
+        (repo_id,),
+    ).fetchone()
+    return row is not None
+
+
+def get_history (repo_id: str, limit: int = 500, offset: int = 0) -> list[dict]:
+    """History tab: commits (paginated, newest first) with their linked events."""
+    conn = get_conn()
+    commits = conn.execute(
+        "SELECT * FROM commits WHERE repo_id = ? ORDER BY ts DESC LIMIT ? OFFSET ?",
+        (repo_id, limit, offset),
+    ).fetchall()
+    result = []
+    for c in commits:
+        events = conn.execute(
+            "SELECT * FROM events WHERE repo_id = ? AND commit_hash = ? ORDER BY ts",
+            (repo_id, c["hash"]),
+        ).fetchall()
+        result.append({"commit": dict(c), "events": [dict(e) for e in events]})
+    return result
