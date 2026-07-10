@@ -6,6 +6,7 @@ hardcoded anywhere else in the backend.
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -19,7 +20,9 @@ from .version import __version__
 from .watcher import Tracker
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = REPO_ROOT / "Config" / "repos.yaml"
+# KATLAB_TRACKER_CONFIG env override: used by demo mode (Scripts/start_demo.bat)
+CONFIG_PATH = Path(os.environ.get("KATLAB_TRACKER_CONFIG",
+                                  str(REPO_ROOT / "Config" / "repos.yaml")))
 FRONTEND_DIST = REPO_ROOT / "Frontend" / "dist"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")

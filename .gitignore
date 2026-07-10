@@ -21,6 +21,7 @@ node_modules/
 
 # Runtime data — regenerated, never commit
 data/
+Demo/runtime/
 *.db
 *.db-shm
 *.db-wal

@@ -67,6 +67,8 @@ Detailed docs live in `Claude_Info/` (mirrors the EA + UM repo pattern):
 
 **Run the tracker**: double-click `Scripts/start_tracking_monitor.bat` → UI at `http://127.0.0.1:8100` (host/port in `Config/repos.yaml`)
 
+**Demo mode (zero real repos)**: double-click `Scripts/start_demo.bat` → self-generated scratch data → UI at `http://127.0.0.1:8101` (coexists with the real tracker; regenerated fresh each launch under gitignored `Demo/runtime/`)
+
 ## 🧹 **CLEAN CODE STANDARDS**
 
 - UI text, docs, code comments: **English only**

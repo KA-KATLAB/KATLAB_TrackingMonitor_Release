@@ -1,13 +1,17 @@
 """SQLite data layer (PLAN v0.1.0.0 C.2). stdlib sqlite3 + WAL, no ORM."""
 
 import json
+import os
 import sqlite3
 import threading
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = REPO_ROOT / "data"
-DB_PATH = DATA_DIR / "tracking.db"
+# KATLAB_TRACKER_DB env override: demo mode uses its own DB so demo events
+# never pollute the real tracking database.
+DB_PATH = Path(os.environ.get("KATLAB_TRACKER_DB",
+                              str(REPO_ROOT / "data" / "tracking.db")))
+DATA_DIR = DB_PATH.parent
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 
 _local = threading.local()
