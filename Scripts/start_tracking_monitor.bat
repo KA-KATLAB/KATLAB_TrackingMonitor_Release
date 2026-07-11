@@ -25,7 +25,7 @@ if errorlevel 1 (
 
 echo [3/4] Checking frontend build...
 if not exist "Frontend\dist\index.html" (
-    echo     Frontend\dist missing - building (first run, F20)...
+    echo     Frontend\dist missing - building ^(first run, F20^)...
     pushd Frontend
     call npm install --no-fund --no-audit
     if errorlevel 1 (
@@ -45,7 +45,7 @@ if not exist "Frontend\dist\index.html" (
 echo [4/4] Starting TrackingMonitor (host/port from Config\repos.yaml)...
 "%PY%" -m Backend.app.main
 if errorlevel 1 (
-    echo [EXIT] Server stopped with an error (config problem? see message above).
+    echo [EXIT] Server stopped with an error ^(config problem? see message above^).
     exit /b 1
 )
 endlocal
