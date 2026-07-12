@@ -21,7 +21,7 @@ Older guideline versions registered the hook in each repo's `.claude/settings.js
 
 Add to this repo's `.gitignore` (the dir is tracker-owned runtime data):
 
-```
+```text
 # KATLAB TrackingMonitor runtime data
 .katlab_tracking/
 ```
@@ -33,6 +33,7 @@ Do this BEFORE any hooked session edits this repo — an un-ignored `events.json
 - Plans live in **`temp/Plan/PLAN_*.txt`** (enhanced format ONLY — legacy plans are invisible to the tracker: zero tasks, no errors)
 - Format spec: `TrackingMonitor/Docs/Plan_Format_Spec.md` (task blocks at column 0; required tags id/title/status; UTF-8; repo-relative `<files>` globs)
 - Discipline: keep **exactly ONE task `in-progress`** per repo at a time; flip statuses as you work — the tracker re-parses live
+- Full standing rules (flip-before-edit, empty manual-pick queue): `TrackingMonitor/Docs/Tracking_Discipline.md`
 
 ## Step 4 — Register the repo (user does this, BEFORE the smoke test)
 
