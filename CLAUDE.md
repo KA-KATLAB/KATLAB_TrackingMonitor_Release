@@ -29,7 +29,7 @@ When starting a new session, ALWAYS read documentation with CDD methodology:
 
 **Stack (locked by design docs in `Ref/`):**
 
-- **Capture**: PostToolUse hook (tiny Python script) in each monitored repo → appends raw events to `events.jsonl` (durable, works even if server is down)
+- **Capture**: ONE user-scope PostToolUse hook (tiny Python script, registered once per PC in `C:\Users\ADMIN\.claude\settings.json`) → fires in every Claude Code session, routes each event to the edited FILE's repo, captures only repos in `Config/repos.yaml` (allowlist, fail-open) → appends raw events to that repo's `events.jsonl` (durable, works even if server is down)
 - **Server**: FastAPI single process — `watchfiles` watchers, hybrid-C resolver, git module, SQLite (events · tasks · commits), REST + WebSocket
 - **UI**: React + Vite + Tailwind (English) — status bar (CLEAN / N uncommitted), task sidebar, changes-grouped-by-task with why + diff viewer + AMBIGUOUS manual-pick queue, History tab (commit → tasks → events)
 
@@ -40,7 +40,7 @@ When starting a new session, ALWAYS read documentation with CDD methodology:
 **This repo is the SINGLE SOURCE OF TRUTH** for the tracking system:
 
 - Server + UI + hook script + installation guideline ALL live HERE
-- Monitored repos install ONLY the minimum needed (hook registration per the guideline) — NO logic duplication
+- Monitored repos install ONLY the minimum needed (gitignore + plan rules per the guideline; hook registration is USER-SCOPE, once per PC — v0.1.1.0) — NO logic duplication
 - **NEVER edit monitored repos directly from this repo.** Instead, maintain the **Installation Guideline** doc; the Claude Code instance inside each monitored repo reads it and self-installs
 - Multi-repo by design: tracks N repos at the same time (see [Monitored_Repos.md](Claude_Info/Monitored_Repos.md))
 

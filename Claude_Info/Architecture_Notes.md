@@ -4,10 +4,11 @@ Source of truth: `Ref/system_architecture.mermaid` + `Ref/hybrid_C_resolution_fl
 
 ## 1. System Architecture (4 parts)
 
-### 1.1 Capture — inside each monitored repo's Claude Code
+### 1.1 Capture — one user-scope hook, every session (v0.1.1.0)
 
-- `Edit` / `Write` / `MultiEdit` fires a **PostToolUse hook** — a tiny Python script
-- The hook does ONE thing: append a raw event `{file, timestamp, tool}` to `events.jsonl`
+- `Edit` / `Write` / `MultiEdit` fires a **PostToolUse hook** — a tiny Python script registered ONCE per PC at user scope (`C:\Users\ADMIN\.claude\settings.json`), so it fires in EVERY Claude Code session regardless of the session's root (the real workflow is one session spanning several repos)
+- The hook routes each event to the repo that OWNS the edited file (nearest `.git` ancestor) and appends a raw event `{file, timestamp, tool}` to that repo's `events.jsonl`
+- **Allowlist**: only repos registered in `Config/repos.yaml` are captured (fail-open to capture-all when the registry is unreadable/empty; path lines must stay single-line + single-quoted — the hook reads the registry with a stdlib regex, not YAML)
 - **Durable by design**: pure file append — capture keeps working even when the server is down
 
 ### 1.2 Data sources (per monitored repo)
@@ -53,10 +54,10 @@ For every event, match the changed file path against ALL tasks' file-pattern dec
 
 ## 2b. As-Built Notes (v0.1.0.0, 2026-07-07)
 
-Implemented per the reviewed plan (57 findings baked in) + post-implementation CFT fixes CFT-1..CFT-12 (see plan Status log). Key as-built mappings: capture = `Hook/katlab_tracking_hook.py`; server = `Backend/app/` (config → db → plan_parser → resolver → git_module → watcher → api/routes + api/ws → main); UI = `Frontend/src/` (built to `Frontend/dist`, served by FastAPI). Startup order is FIXED (CFT-12 as-built): config → DB → per repo: tracking dir → parse ALL plans → catch-up ingest → commit backfill → initial git status → startup sweep (if CLEAN) → then watchers (events/plans watcher + dedicated `.git/logs` watcher per repo — watchfiles' default filter ignores `.git`) + poll loop. Status refresh: ingest + `.git/logs` change + poll (`status_poll_seconds`) + on `/api/repos`.
+Implemented per the reviewed plan (57 findings baked in) + post-implementation CFT fixes CFT-1..CFT-12 (see plan Status log). Key as-built mappings: capture = `Hook/katlab_tracking_hook.py`; server = `Backend/app/` (config → db → plan_parser → resolver → git_module → watcher → api/routes + api/ws → main); UI = `Frontend/src/` (built to `Frontend/dist`, served by FastAPI). Startup order is FIXED (CFT-12 as-built): config → DB → per repo: tracking dir → parse ALL plans → catch-up ingest → commit backfill → initial git status → startup sweep (if CLEAN) → then watchers (events/plans watcher + dedicated `.git/logs` watcher per repo — watchfiles' default filter ignores `.git`) + poll loop. Status refresh: ingest + `.git/logs` change + poll (`status_poll_seconds`) + on `/api/repos`. v0.1.1.0 (2026-07-12): hook registration moved to USER scope + registry allowlist inside the hook (per-repo registration RETIRED — it never fired in the real 1-session-N-repos workflow); UM_Dev registered as the 3rd monitored repo.
 
 ## 3. Multi-Repo Design
 
 - The server tracks **N repos simultaneously** — each with its own `events.jsonl`, plan files, and `.git`
 - Repo registry: see [Monitored_Repos.md](Monitored_Repos.md)
-- Divide-and-conquer: hook + guideline are authored HERE; each monitored repo self-installs per the **Installation Guideline** (authored with the hook implementation) — no logic duplication across repos
+- Divide-and-conquer: hook + guideline are authored HERE; the hook is registered ONCE at user scope (maintained here, v0.1.1.0); each monitored repo self-installs only gitignore + plan rules per the **Installation Guideline** — no logic duplication across repos; `Config/repos.yaml` doubles as the capture allowlist

@@ -1,6 +1,13 @@
 # KATLAB TrackingMonitor - repo registry + server settings.
 # Read ONCE at startup (F25: restart the server after changing this file).
 # Adding a repo = add an entry below, restart. Zero code changes.
+#
+# PATH CONVENTION (R1, v0.1.1.0): the capture hook reads this file with a
+# regex (stdlib, not YAML) - every repo "path:" line MUST stay SINGLE-LINE
+# and SINGLE-QUOTED, e.g.  path: 'X:\absolute\path'  (never folded/
+# multi-line/flow style; never unquoted when the path contains #).
+# This registry doubles as the hook's capture ALLOWLIST: only repos listed
+# here are captured (unreadable/empty file = fail-open, capture all).
 
 server:
   host: 127.0.0.1
@@ -14,8 +21,8 @@ repos:
     plan_globs:
       - "temp/*/PLAN_*.txt"
 
-  - id: EA_Exec
-    name: "EA repo - Execution Workspace"
-    path: 'D:\KATLAB_Reiky\_Execution_Workspace\MQL5_SuperRepo'
+  - id: UM_Dev
+    name: "UM repo - Development Workspace"
+    path: 'D:\KATLAB_Reiky\_Development_Workspace\KATLAB_UnderworldMerchant'
     plan_globs:
       - "temp/Plan/PLAN_*.txt"

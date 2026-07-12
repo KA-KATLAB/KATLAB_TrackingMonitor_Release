@@ -1,17 +1,26 @@
 """KATLAB TrackingMonitor - PostToolUse capture hook.
 
-Registered in each monitored repo's .claude/settings.json (see
-Docs/Installation_Guideline.md). Reads the Claude Code PostToolUse JSON from
-stdin and appends one event line to <repo_root>/.katlab_tracking/events.jsonl.
+Registered ONCE per PC at USER scope (C:\\Users\\<user>\\.claude\\settings.json,
+see Docs/Installation_Guideline.md) so it fires in EVERY Claude Code session
+regardless of where the session is rooted - the real workflow is one session
+spanning several repos. Reads the Claude Code PostToolUse JSON from stdin and
+appends one event line to .katlab_tracking/events.jsonl inside the repo that
+OWNS the edited file.
 
-Contract (PLAN v0.1.0.0 B.1):
+Contract (PLAN v0.1.0.0 B.1; user-scope + allowlist PLAN v0.1.1.0 A.1):
 - exit 0 ALWAYS - a hook failure must never block the user's tool call
 - stdlib only, no server dependency (durable local append)
 - repo root = nearest ancestor of file_path (fallback: cwd) containing .git
+- allowlist: append ONLY for repos registered in Config/repos.yaml
+  (KATLAB_TRACKER_CONFIG overrides the registry path; an unreadable or
+  empty registry fails OPEN = capture every repo, durability first);
+  registry path lines must stay single-line + quoted (R1 convention)
 - "file" stored repo-root-relative with FORWARD slashes
 """
 
 import json
+import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +28,10 @@ from pathlib import Path
 EVENT_VERSION = 1
 TRACKING_DIR = ".katlab_tracking"
 EVENTS_FILE = "events.jsonl"
+CONFIG_ENV = "KATLAB_TRACKER_CONFIG"
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "Config" / "repos.yaml"
+
+_PATH_LINE = re.compile(r"^\s*path:\s*(.+?)\s*$")
 
 
 def find_repo_root (start: Path) -> Path | None:
@@ -26,6 +39,30 @@ def find_repo_root (start: Path) -> Path | None:
         if (candidate / ".git").exists():
             return candidate
     return None
+
+
+def _unquote (raw: str) -> str:
+    if raw[:1] in ("'", '"') and raw.count(raw[0]) >= 2:
+        return raw[1:raw.index(raw[0], 1)]
+    return raw.split("#", 1)[0].strip()
+
+
+def load_registered_roots () -> list[Path] | None:
+    """Repo paths registered in repos.yaml; None = fail open (capture all)."""
+    config_path = Path(os.environ.get(CONFIG_ENV) or DEFAULT_CONFIG_PATH)
+    try:
+        lines = config_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    roots: list[Path] = []
+    for line in lines:
+        match = _PATH_LINE.match(line)
+        if not match:
+            continue
+        raw = _unquote(match.group(1))
+        if raw:
+            roots.append(Path(raw).resolve())
+    return roots or None
 
 
 def main () -> None:
@@ -45,6 +82,10 @@ def main () -> None:
         cwd = payload.get("cwd")
         repo_root = find_repo_root(Path(cwd)) if cwd else None
     if repo_root is None:
+        return
+
+    registered = load_registered_roots()
+    if registered is not None and repo_root.resolve() not in registered:
         return
 
     try:

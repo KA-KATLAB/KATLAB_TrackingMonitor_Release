@@ -1,5 +1,17 @@
 # Version Notes
 
+## v0.1.1.0 — User-Scope Capture (2026-07-12)
+
+**Key Highlights**
+
+- **Root cause fixed**: the real workflow is ONE Claude Code session (VS Code multi-root, rooted in EA) spanning ALL repos, but Claude Code loads project hooks only from the SESSION root — per-repo hook registration (old guideline Step 1) never fired for the other repos. Verified 2026-07-12: capture was DEAD in every repo (UM had an inert entry; EA had none; both EA `.katlab_tracking/` dirs existed empty from a real server run — server fine, capture dead)
+- **Capture**: hook registration moved to ONE user-scope entry (`C:\Users\ADMIN\.claude\settings.json`) — fires in every session, any root; the hook already routed events per edited file (F1), so only registration scope changed. Per-repo registration RETIRED (double-fire risk)
+- **Allowlist** (`Hook/katlab_tracking_hook.py`): captures ONLY repos in `Config/repos.yaml` (stdlib regex read; `KATLAB_TRACKER_CONFIG` override; unreadable/empty registry = fail-OPEN capture-all, durability first; supersedes stray-dir note F37). R1 convention: registry `path:` lines stay single-line + single-quoted — the server reads YAML, the hook reads regex
+- **UM_Dev registered** as the 3rd monitored repo (`temp/Plan/PLAN_*.txt`; already authoring enhanced-format plans — PLAN_v0.4.3.4 H.1..H.5; older legacy plans parse to zero tasks, harmless)
+- **Onboarding contract rewritten** (`Docs/Installation_Guideline.md` + `Guidelines/Onboarding_Prompt.txt`): per-repo steps shrink to legacy-hook cleanup + gitignore + plan rules; registration (user) strictly BEFORE smoke test (allowlist); ordered migration FOLLOW-UPS (EA gitignore BEFORE session restart — prevents tracker self-polluting EA git status)
+- **Plan review discipline**: PLAN_v0.1.1.0 passed a 9-pass CDD review loop (4-step methodology, 11 findings fixed, 5 consecutive clean) before implementation
+- Verification: V1 hook unit 5/5 (allowlist/fail-open/default-path/malformed-stdin on temp repos), V2 settings merge (all keys preserved), V3 server restart + 3 repos live, V5 guideline dry-read. V4 (real cross-repo smoke) pending user-side follow-ups: EA gitignores → UM legacy-entry removal → workspace session restart → smoke
+
 ## v0.1.0.0 — Foundation (2026-07-07)
 
 **Key Highlights**
