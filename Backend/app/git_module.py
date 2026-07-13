@@ -43,6 +43,26 @@ def file_diff (repo: Path, file_path: str) -> str:
     return _run(repo, "diff", "HEAD", "--", file_path)
 
 
+def commit_file_diff (repo: Path, commit_hash: str, file_path: str) -> str:
+    """v0.1.2.0 D3: ONE commit's change for ONE file. Empty --format
+    suppresses the commit header (P7) so the output is a pure diff like the
+    HEAD path. Empty output = file not part of that commit (swept events)."""
+    return _run(repo, "show", "--format=", commit_hash, "--", file_path)
+
+
+def file_state (repo: Path, file_path: str) -> str:
+    """v0.1.2.0 D3: 'ignored' | 'untracked' | 'tracked' for empty-diff
+    classification. PREFIX match only (P1): a file inside an ignored dir
+    reports the DIR ("!! temp/"), never the file path itself."""
+    out = _run(repo, "status", "--porcelain", "--ignored", "--", file_path)
+    for line in out.splitlines():
+        if line.startswith("!!"):
+            return "ignored"
+        if line.startswith("??"):
+            return "untracked"
+    return "tracked"
+
+
 def head_hash (repo: Path) -> str:
     return _run(repo, "rev-parse", "HEAD").strip()
 

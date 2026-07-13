@@ -8,6 +8,7 @@ export interface Repo {
   count: number;
   offline: boolean;
   warnings: { ts: string; message: string }[];
+  last_event_ts: string | null; // v0.1.2.0 D9 heartbeat
 }
 
 export interface Task {
@@ -61,9 +62,10 @@ export const api = {
   },
   history: (repo: string, limit = 500, offset = 0) =>
     call<HistoryEntry[]>(`/api/history?repo=${repo}&limit=${limit}&offset=${offset}`),
-  diff: (repo: string, file: string) =>
+  diff: (repo: string, file: string, commit?: string | null) =>
     call<{ file: string; diff: string }>(
-      `/api/diff?repo=${encodeURIComponent(repo)}&file=${encodeURIComponent(file)}`,
+      `/api/diff?repo=${encodeURIComponent(repo)}&file=${encodeURIComponent(file)}` +
+      (commit ? `&commit=${encodeURIComponent(commit)}` : ""),
     ),
   pickTask: (eventId: number, taskRef: string) =>
     call<TrackedEvent>(`/api/events/${eventId}/task`, {

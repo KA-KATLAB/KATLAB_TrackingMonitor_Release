@@ -38,6 +38,7 @@ def list_repos (request: Request):
             "path": str(repo.path),
             **tracker.status[repo.id],
             "warnings": list(tracker.warnings.get(repo.id, [])),  # F47 snapshot
+            "last_event_ts": db.get_last_event_ts(repo.id),      # D9 heartbeat
         }
         for repo in tracker.config.repos
     ]
@@ -74,16 +75,29 @@ def history (request: Request, repo: str, limit: int = 500, offset: int = 0):
 
 
 @router.get("/diff")
-def diff (request: Request, repo: str, file: str):
+def diff (request: Request, repo: str, file: str, commit: str | None = None):
     tracker = _tracker(request)
     match = next((r for r in tracker.config.repos if r.id == repo and not r.offline), None)
     if match is None:
         raise HTTPException(404, "unknown or offline repo")
     try:
-        text = git_module.file_diff(match.path, file)
+        if commit:
+            text = git_module.commit_file_diff(match.path, commit, file)
+            if not text.strip():
+                # P5: swept events attach to HEAD without being in the commit.
+                text = ("(file not part of this commit — auto-linked events "
+                        "land here when the repo went CLEAN)")
+        else:
+            text = git_module.file_diff(match.path, file)
+            if not text.strip():
+                state = git_module.file_state(match.path, file)  # D3 empty-diff classification
+                text = {
+                    "ignored": "gitignored file — git never sees it, no diff exists",
+                    "untracked": "new untracked file — no diff vs HEAD yet",
+                }.get(state, "(no changes vs HEAD)")
     except git_module.GitError as exc:
         return envelope(None, success=False, message=f"git diff failed: {exc}")  # F42
-    return envelope({"file": file, "diff": text or "(no diff vs HEAD - new/binary file?)"})
+    return envelope({"file": file, "diff": text})
 
 
 class ManualPick(BaseModel):

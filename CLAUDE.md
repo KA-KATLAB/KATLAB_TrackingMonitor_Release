@@ -65,6 +65,8 @@ Detailed docs live in `Claude_Info/` (mirrors the EA + UM repo pattern):
 
 **Normative specs in `Docs/`**: [Plan_Format_Spec.md](Docs/Plan_Format_Spec.md) (the enhanced format) · [Installation_Guideline.md](Docs/Installation_Guideline.md) (repo onboarding contract)
 
+**Release notes convention (every release)**: current version = `TrackingMonitor_v<X.Y.Z.W>_Release_Notes.md` at the REPO ROOT; on each new release, MOVE the previous one to `Docs/Release_Notes/Archive/`. Format mirrors the UM repo (Theme → intro → Highlights → Cross-repo).
+
 **Run the tracker**: double-click `Scripts/start_tracking_monitor.bat` → UI at `http://127.0.0.1:8100` (host/port in `Config/repos.yaml`)
 
 **Stop / restart the tracker**: double-click `Scripts/stop_tracking_monitor.bat` / `Scripts/restart_tracking_monitor.bat` (stop kills whatever LISTENs on the configured port; restart = stop + fresh start in its own window)

@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.1.2.0 — UI/UX Enhancement (2026-07-13)
+
+**Key Highlights**
+
+- Driven by 5 user findings (UF1-UF5, 2026-07-12) after the first real multi-repo day + 4 approved extras (X1-X4); plan passed a 13-pass CDD review loop (15 findings P1-P15 fixed, 5/5 consecutive clean) before implementation
+- **UF1 Terms/states**: badges relabeled to human terms with technical names in tooltips (Declared/B, Active task/A_SCOPED, Active task */A_GLOBAL, Pick: multi/AMBIGUOUS, Pick: none/UNKNOWN, Your pick/MANUAL, auto-linked/swept) + header "?" Legend popover; task chips gain derived commit-aware states: `done ✓` vs `done, uncommitted` + per-task uncommitted counts
+- **UF2 Diff everywhere**: `/api/diff?commit=` serves per-commit diffs via `git show --format=` (header suppressed); empty HEAD-diffs classified honestly (gitignored / untracked / no changes — prefix-parsed `git status --porcelain --ignored`, P1: ignored DIRS reported, not files); swept-event commit diffs get an explanatory message; History rows now have diff toggles
+- **UF3 Sidebar**: tasks grouped by plan file with x/y-done rollups; Active/Done sections (Done collapsed, behind the All chip); finished+committed plans stop cluttering the list
+- **UF4 Timestamps**: local `YYYY-MM-DD HH:mm:ss` + relative times ("3m ago") with raw ISO in tooltips (`Frontend/src/format.ts`); 60s re-render tick so idle UIs never freeze; API stays ISO-8601 UTC-Z
+- **UF5 Theme**: one hue per mode, 12px base rows, higher-contrast secondary text, colored section headers, hover/focus states
+- **X1** bulk-assign manual picks (select-all + one dropdown + candidate-safety + inline result note) · **X2** plan-file edit noise collapsed to one expandable line per task (exact plan_file-set match — covers EA_Dev's temp/<Component>/ layout) · **X3** capture heartbeat per repo ("last capture 3m ago" in the status bar, `last_event_ts` in /api/repos) · **X4** click a task to filter the Changes view (manual-pick queue exempt)
+- Zero schema changes; git usage stays strictly read-only (`show --format=`, `status --porcelain --ignored` added to the same allowed set)
+
 ## v0.1.1.0 — User-Scope Capture (2026-07-12)
 
 **Key Highlights**

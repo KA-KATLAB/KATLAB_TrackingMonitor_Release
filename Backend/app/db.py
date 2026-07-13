@@ -178,6 +178,14 @@ def sweep_unlinked_events (repo_id: str, head_hash: str) -> int:
     return cur.rowcount
 
 
+def get_last_event_ts (repo_id: str) -> str | None:
+    """v0.1.2.0 D9: newest capture timestamp for the heartbeat chip."""
+    row = get_conn().execute(
+        "SELECT MAX(ts) AS ts FROM events WHERE repo_id = ?", (repo_id,)
+    ).fetchone()
+    return row["ts"] if row and row["ts"] else None
+
+
 def has_unlinked_events (repo_id: str) -> bool:
     row = get_conn().execute(
         "SELECT 1 FROM events WHERE repo_id = ? AND commit_hash IS NULL LIMIT 1",

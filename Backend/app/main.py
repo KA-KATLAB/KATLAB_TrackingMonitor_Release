@@ -50,6 +50,13 @@ def create_app () -> FastAPI:
         @app.get("/")
         def index ():
             return FileResponse(FRONTEND_DIST / "index.html")
+
+        # C4: browsers probe /favicon.ico when no icon is declared/served -
+        # answer BOTH paths with the SVG icon (vite copies public/ to dist/).
+        @app.get("/favicon.svg")
+        @app.get("/favicon.ico")
+        def favicon ():
+            return FileResponse(FRONTEND_DIST / "favicon.svg", media_type="image/svg+xml")
     else:
         @app.get("/")
         def index_missing ():
