@@ -49,7 +49,12 @@ def create_app () -> FastAPI:
 
         @app.get("/")
         def index ():
-            return FileResponse(FRONTEND_DIST / "index.html")
+            # C6 (v0.1.3.0, user-reported): index.html must NOT be browser-
+            # cached, else a rebuild's new hashed bundle is never picked up
+            # (the stale index still points at the old assets). The hashed
+            # /assets/* files ARE immutable, so only index.html needs this.
+            return FileResponse(FRONTEND_DIST / "index.html",
+                                headers={"Cache-Control": "no-cache"})
 
         # C4: browsers probe /favicon.ico when no icon is declared/served -
         # answer BOTH paths with the SVG icon (vite copies public/ to dist/).

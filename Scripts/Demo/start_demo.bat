@@ -2,9 +2,10 @@
 REM KATLAB TrackingMonitor - DEMO launcher. Zero connection to real repos:
 REM generates a scratch demo repo under Demo\runtime\ (gitignored), uses a
 REM separate demo database, then starts the server on the configured port.
+REM Lives in Scripts\Demo\ -> repo root is two levels up.
 
 setlocal
-cd /d "%~dp0.."
+cd /d "%~dp0..\.."
 
 echo [1/5] Checking venv...
 if not exist ".venv\Scripts\python.exe" (

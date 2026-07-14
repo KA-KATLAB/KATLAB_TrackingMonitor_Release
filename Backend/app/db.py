@@ -194,6 +194,90 @@ def has_unlinked_events (repo_id: str) -> bool:
     return row is not None
 
 
+# --- v0.1.3.0 stats (D5): read-only aggregates for the Overview dashboard ---
+
+ALL_MODES = ["B", "A_SCOPED", "A_GLOBAL", "AMBIGUOUS", "UNKNOWN", "MANUAL"]
+
+
+def get_activity_buckets (repo_id: str, now_iso: str, buckets: int = 12,
+                          minutes: int = 5) -> list[int]:
+    """D3/R8/R10: last `buckets`x`minutes` event counts, oldest->newest,
+    anchored to now_iso (server time). number[buckets], zero-filled. The
+    ONLY home is /api/repos (per-repo sparkline)."""
+    from datetime import datetime, timedelta
+    now = datetime.fromisoformat(now_iso.replace("Z", "+00:00"))
+    start = now - timedelta(minutes=buckets * minutes)
+    out = [0] * buckets
+    rows = get_conn().execute(
+        "SELECT ts FROM events WHERE repo_id = ? AND ts >= ?",
+        (repo_id, start.isoformat().replace("+00:00", "Z")),
+    ).fetchall()
+    for r in rows:
+        try:
+            t = datetime.fromisoformat(r["ts"].replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        idx = int((t - start).total_seconds() // (minutes * 60))
+        if 0 <= idx < buckets:
+            out[idx] += 1
+    return out
+
+
+def get_stats (repo_ids: list[str], now_iso: str) -> dict:
+    """D5: fixed-shape aggregates over `repo_ids` (R23: caller passes the
+    CONFIGURED ids for ALL scope, or a single id for a repo scope).
+    R1 zero-fill: all 6 modes, exactly 14 UTC days oldest->newest."""
+    from datetime import datetime, timedelta
+    conn = get_conn()
+    if not repo_ids:
+        return {"mode_counts": {m: 0 for m in ALL_MODES},
+                "events_per_task": [],
+                "activity_daily": _empty_daily(now_iso)}
+    placeholders = ",".join("?" * len(repo_ids))
+
+    # mode_counts: zero-filled to all 6 (R1)
+    raw_modes = {
+        r["mode"]: r["c"]
+        for r in conn.execute(
+            f"SELECT mode, COUNT(*) c FROM events WHERE repo_id IN ({placeholders}) "
+            f"GROUP BY mode", repo_ids)
+    }
+    mode_counts = {m: raw_modes.get(m, 0) for m in ALL_MODES}
+
+    # events_per_task: (repo, task_ref), exclude NULL (R13), top 10 (R6)
+    events_per_task = [
+        {"repo": r["repo_id"], "task_ref": r["task_ref"], "count": r["c"]}
+        for r in conn.execute(
+            f"SELECT repo_id, task_ref, COUNT(*) c FROM events "
+            f"WHERE task_ref IS NOT NULL AND repo_id IN ({placeholders}) "
+            f"GROUP BY repo_id, task_ref ORDER BY c DESC LIMIT 10", repo_ids)
+    ]
+
+    # activity_daily: exactly 14 UTC days, oldest->newest, zero-filled (R1)
+    raw_days = {
+        r["d"]: r["c"]
+        for r in conn.execute(
+            f"SELECT substr(ts, 1, 10) d, COUNT(*) c FROM events "
+            f"WHERE repo_id IN ({placeholders}) GROUP BY d", repo_ids)
+    }
+    today = datetime.fromisoformat(now_iso.replace("Z", "+00:00")).date()
+    activity_daily = [
+        {"day": (day := (today - timedelta(days=i)).isoformat()),
+         "count": raw_days.get(day, 0)}
+        for i in range(13, -1, -1)
+    ]
+
+    return {"mode_counts": mode_counts, "events_per_task": events_per_task,
+            "activity_daily": activity_daily}
+
+
+def _empty_daily (now_iso: str) -> list[dict]:
+    from datetime import datetime, timedelta
+    today = datetime.fromisoformat(now_iso.replace("Z", "+00:00")).date()
+    return [{"day": (today - timedelta(days=i)).isoformat(), "count": 0}
+            for i in range(13, -1, -1)]
+
+
 def get_history (repo_id: str, limit: int = 500, offset: int = 0) -> list[dict]:
     """History tab: commits (paginated, newest first) with their linked events."""
     conn = get_conn()

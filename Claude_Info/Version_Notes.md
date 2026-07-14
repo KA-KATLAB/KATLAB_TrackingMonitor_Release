@@ -1,5 +1,17 @@
 # Version Notes
 
+## v0.1.3.0 — Visualization (2026-07-14)
+
+**Key Highlights**
+
+- Inspired by `nicobailon/visual-explainer` (the tracker was all text/lists); adds real visuals. Plan passed a 33-pass CDD review (26 findings R1-R26; all 4 novel algorithms prototype-proven on live data) before implementation
+- **Colored diff** (D1): the raw `<pre>` becomes a GitHub-style colored diff — position-aware classification (headers only pre-hunk; in-hunk first char = +added/-removed/context), so even an added line whose content starts with `++ ` colors correctly; honest empty-state messages (gitignored/untracked/no-changes/not-in-commit) render as italic notes, not fake diffs
+- **Overview dashboard** (D2, Chart.js): attribution-health doughnut (events by mode) + events-per-task bar (top 10, `(repo, task_ref)`-keyed, unresolved excluded) + 14-day activity line; ALL scope aggregates **configured repos only** (a removed repo's lingering events never pollute it); charts refresh on real syncs, not ticks
+- **Capture sparkline** (D3): a pure-SVG 60-minute activity spark in each status-bar chip — "is the hook firing?" at a glance; fed by `activity_buckets` on `/api/repos`
+- **Relationship map** (D4, Mermaid, lazy-loaded): per-plan task→commit backbone (file counts on task nodes, uncommitted sink) built from `/api/tasks` + `/api/history`; ≤12-node cap with a hybrid fallback for huge plans; mermaid@11 is dynamically imported (its own Vite chunk — the initial bundle stays lean)
+- **One color source** (D6/R26): `theme.ts` `MODE_COLOR` (hex) drives both the badges (inline style) and the doughnut — a mode looks identical everywhere, no Tailwind-class↔hex drift
+- **Backend**: one additive read-only endpoint `/api/stats` (zero-filled fixed shape: all 6 modes, 14 UTC days) + `activity_buckets` on `/api/repos`; zero new git calls, no schema change
+
 ## v0.1.2.0 — UI/UX Enhancement (2026-07-13)
 
 **Key Highlights**
@@ -38,6 +50,6 @@
 - **Ops**: `Scripts/start_tracking_monitor.bat` (step-abort F54, first-run frontend build F20, portless F10), fresh-clone-safe dirs (F56/F57/F18)
 - **Onboarding**: `Docs/Installation_Guideline.md` — merge-not-overwrite hook registration (F40), restart-after-register (F25), stray-dir note (F37)
 
-**Post-release addition (2026-07-09)**: DEMO MODE — `Scripts/start_demo.bat` generates a self-contained scratch repo under gitignored `Demo/runtime/` (marker `.git` dir, sample enhanced plan, 10 synthetic events covering B / A_SCOPED / AMBIGUOUS / UNKNOWN + 2 intentional warnings) and launches the server with `KATLAB_TRACKER_CONFIG` / `KATLAB_TRACKER_DB` env overrides — zero contact with real repos, demo DB isolated from `data/tracking.db`.
+**Post-release addition (2026-07-09; moved to `Scripts/Demo/` 2026-07-15)**: DEMO MODE — `Scripts/Demo/start_demo.bat` (+ `stop_demo.bat` / `restart_demo.bat`) generates a self-contained scratch repo under gitignored `Demo/runtime/` (marker `.git` dir, sample enhanced plan, 10 synthetic events covering B / A_SCOPED / AMBIGUOUS / UNKNOWN + 2 intentional warnings) and launches the server with `KATLAB_TRACKER_CONFIG` / `KATLAB_TRACKER_DB` env overrides — zero contact with real repos, demo DB isolated from `data/tracking.db`.
 
 **Verification status**: V0/V1/V2/V3/V10 passed in sandbox at release; post-release CFT loop added LIVE passes for V6 (AMBIGUOUS/MANUAL persistence/F16/F49), V7 (restart resilience/F24/F26/F5) and V8 (multi-repo) — all git-free. Remaining user-driven at onboarding: V4 (commit linking), V5 (full UI E2E via real Claude Code session), V9 (poll on real repo), V11 (down-across-commit sweep). CFT fixes: CFT-1..CFT-11 (see plan Status log).

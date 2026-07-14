@@ -56,7 +56,7 @@ Requirements: Windows · Python 3.10+ on PATH · Node.js (first-run frontend bui
 |---|---|
 | Start | `Scripts/start_tracking_monitor.bat` → UI at `http://127.0.0.1:8100` |
 | Stop / Restart | `Scripts/stop_tracking_monitor.bat` / `Scripts/restart_tracking_monitor.bat` |
-| Demo mode (zero real repos, self-generated data) | `Scripts/start_demo.bat` → `http://127.0.0.1:8101` |
+| Demo mode (zero real repos, self-generated data) | `Scripts/Demo/start_demo.bat` → `http://127.0.0.1:8101` (stop/restart: `Scripts/Demo/stop_demo.bat` / `restart_demo.bat`) |
 
 Host/port and the monitored-repo registry live in `Config/repos.yaml` (read at startup — restart after changes; the registry doubles as the capture allowlist).
 

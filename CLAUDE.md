@@ -71,7 +71,7 @@ Detailed docs live in `Claude_Info/` (mirrors the EA + UM repo pattern):
 
 **Stop / restart the tracker**: double-click `Scripts/stop_tracking_monitor.bat` / `Scripts/restart_tracking_monitor.bat` (stop kills whatever LISTENs on the configured port; restart = stop + fresh start in its own window)
 
-**Demo mode (zero real repos)**: double-click `Scripts/start_demo.bat` → self-generated scratch data → UI at `http://127.0.0.1:8101` (coexists with the real tracker; regenerated fresh each launch under gitignored `Demo/runtime/`)
+**Demo mode (zero real repos)**: double-click `Scripts/Demo/start_demo.bat` → self-generated scratch data → UI at `http://127.0.0.1:8101` (coexists with the real tracker; regenerated fresh each launch under gitignored `Demo/runtime/`). Stop / restart: `Scripts/Demo/stop_demo.bat` / `Scripts/Demo/restart_demo.bat`
 
 ## 🧹 **CLEAN CODE STANDARDS**
 

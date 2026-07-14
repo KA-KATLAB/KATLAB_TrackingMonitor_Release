@@ -92,7 +92,7 @@ END OF PLAN
 ================================================================================
 """
 
-# (file, tool, expected mode in the UI)
+# (file, tool, expected mode in the UI) - the recognizable mode showcase.
 DEMO_EVENTS = [
     ("src/core/engine.py",    "Edit",  "B - tagged to done task A.1"),
     ("src/core/loader.py",    "Write", "B - A.1"),
@@ -105,6 +105,33 @@ DEMO_EVENTS = [
     ("docs/changelog.md",     "Edit",  "AMBIGUOUS - C.1 vs F.1"),
     ("random/notes.txt",      "Write", "UNKNOWN - undeclared + 2 tasks in-progress, pick manually!"),
 ]
+
+# File pool (repeats of the above, mode-preserving) used to spread synthetic
+# activity across the last 14 days so the v0.1.3.0 Overview charts + status-bar
+# sparkline have real shape (a single-day spike is a poor showcase).
+_POOL = [(f, t) for f, t, _ in DEMO_EVENTS]
+
+
+def _spread_events (now: datetime) -> list[tuple[str, str, str]]:
+    """(ts, tool, file) rows spread over 14 days with a recent burst — feeds
+    the activity line (14d), the sparkline (last 60min) and today's heartbeat.
+    Deterministic (no RNG) so the demo is reproducible."""
+    rows: list[tuple[str, str, str]] = []
+    # a gently rising trend across the last 14 days (more edits recently)
+    per_day = [1, 2, 1, 3, 2, 4, 3, 2, 5, 4, 3, 6, 4, 5]  # day-13 .. day-0
+    for days_ago, count in zip(range(13, -1, -1), per_day):
+        day = now - timedelta(days=days_ago)
+        for k in range(count):
+            f, t = _POOL[(days_ago * 7 + k) % len(_POOL)]
+            ts = day.replace(hour=9 + (k % 8), minute=(k * 13) % 60, second=0,
+                             microsecond=0)
+            rows.append((ts.isoformat().replace("+00:00", "Z"), t, f))
+    # a burst in the last ~50 minutes today -> lively sparkline + "just now"
+    for i, (f, t, _) in enumerate(DEMO_EVENTS):
+        ts = now - timedelta(minutes=50 - i * 5)
+        rows.append((ts.isoformat().replace("+00:00", "Z"), t, f))
+    rows.sort()  # events.jsonl is append-order = chronological
+    return rows
 
 
 def main () -> None:
@@ -125,10 +152,12 @@ def main () -> None:
 
     tracking = DEMO_REPO / ".katlab_tracking"
     tracking.mkdir()
-    base = datetime.now(timezone.utc) - timedelta(minutes=len(DEMO_EVENTS))
+    # v0.1.3.0: spread events over 14 days + a recent burst so the Overview
+    # dashboard (14d activity line, mode doughnut, per-task bar) and the
+    # status-bar sparkline (last 60min) have real shape to show.
+    spread = _spread_events(datetime.now(timezone.utc))
     with open(tracking / "events.jsonl", "w", encoding="utf-8") as handle:
-        for i, (file, tool, _expected) in enumerate(DEMO_EVENTS):
-            ts = (base + timedelta(minutes=i)).isoformat().replace("+00:00", "Z")
+        for ts, tool, file in spread:
             handle.write(json.dumps(
                 {"v": 1, "ts": ts, "tool": tool, "file": file}) + "\n")
 
@@ -146,10 +175,12 @@ def main () -> None:
     )
 
     print(f"Demo generated at {RUNTIME}")
-    print("Expected in the UI:")
+    print("Mode showcase (Changes view + Overview doughnut):")
     for file, _tool, expected in DEMO_EVENTS:
         print(f"  {file:26s} -> {expected}")
     print("  + 2 warnings in the banner (duplicate id, absolute pattern)")
+    print("v0.1.3.0 visuals: Overview tab (doughnut/bar/14d line), status-bar")
+    print("  sparkline (recent burst), Relationship map (task -> uncommitted).")
 
 
 if __name__ == "__main__":

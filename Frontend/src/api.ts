@@ -9,6 +9,7 @@ export interface Repo {
   offline: boolean;
   warnings: { ts: string; message: string }[];
   last_event_ts: string | null; // v0.1.2.0 D9 heartbeat
+  activity_buckets: number[]; // v0.1.3.0 D3/R8/R16: 12x5-min for the sparkline
 }
 
 export interface Task {
@@ -62,6 +63,8 @@ export const api = {
   },
   history: (repo: string, limit = 500, offset = 0) =>
     call<HistoryEntry[]>(`/api/history?repo=${repo}&limit=${limit}&offset=${offset}`),
+  stats: (repo?: string) =>
+    call<import("./charts").StatsData>(`/api/stats${repo ? `?repo=${encodeURIComponent(repo)}` : ""}`),
   diff: (repo: string, file: string, commit?: string | null) =>
     call<{ file: string; diff: string }>(
       `/api/diff?repo=${encodeURIComponent(repo)}&file=${encodeURIComponent(file)}` +

@@ -1,23 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
 import { fmtRel, fmtTs } from "./format";
+import { MODE_COLOR, SWEPT_COLOR } from "./theme";
 import { connectWs } from "./ws";
+import { OverviewView } from "./OverviewView";
 
 const PAGE = 500; // F38 pagination page size
 
 type Tab = string | "ALL";
+type View = "changes" | "history" | "overview"; // v0.1.3.0 D2
 
 export default function App () {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<TrackedEvent[]>([]);
   const [tab, setTab] = useState<Tab>("ALL"); // F31: tabs dynamic from /api/repos
-  const [view, setView] = useState<"changes" | "history">("changes");
+  const [view, setView] = useState<View>("changes");
   const [dismissedWarnings, setDismissedWarnings] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string>("");
   const [showLegend, setShowLegend] = useState(false);
   const [taskFilter, setTaskFilter] = useState<string | null>(null); // X4: "repo|task_ref"
   const [, setTick] = useState(0);
+  const [statsNonce, setStatsNonce] = useState(0); // R12: bumped only on a real sync
 
   const sync = useCallback(async () => {
     try {
@@ -29,6 +33,7 @@ export default function App () {
       setRepos(r);
       setTasks(t);
       setEvents(e);
+      setStatsNonce((n) => n + 1); // R12: Overview refetches on real syncs, not ticks/filters
       setError("");
     } catch (exc) {
       setError(String(exc));
@@ -84,6 +89,7 @@ export default function App () {
           </nav>
           <div className="ml-auto flex gap-2">
             <TabButton active={view === "changes"} onClick={() => setView("changes")} label="Changes" />
+            <TabButton active={view === "overview"} onClick={() => setView("overview")} label="Overview" />
             <TabButton active={view === "history"} onClick={() => setView("history")} label="History" />
             <TabButton active={showLegend} onClick={() => setShowLegend(!showLegend)} label="?"
               title="Legend - what every badge and state means" />
@@ -110,10 +116,16 @@ export default function App () {
             setView("changes");
           }} />
         <main className="flex-1 overflow-y-auto p-4">
-          {view === "changes"
-            ? <ChangesView events={visibleEvents} tasks={visibleTasks} repos={repos}
-                taskFilter={taskFilter} onClearFilter={() => setTaskFilter(null)} onPicked={sync} />
-            : <HistoryView repos={visibleRepos.filter((r) => !r.offline)} />}
+          {view === "changes" && (
+            <ChangesView events={visibleEvents} tasks={visibleTasks} repos={repos}
+              taskFilter={taskFilter} onClearFilter={() => setTaskFilter(null)} onPicked={sync} />
+          )}
+          {view === "overview" && (
+            <OverviewView scope={tab === "ALL" ? undefined : tab} tasks={visibleTasks}
+              uncommitted={visibleEvents} repos={visibleRepos.filter((r) => !r.offline)}
+              refreshKey={statsNonce} />
+          )}
+          {view === "history" && <HistoryView repos={visibleRepos.filter((r) => !r.offline)} />}
         </main>
       </div>
     </div>
@@ -150,10 +162,30 @@ function StatusBar ({ repos }: { repos: Repo[] }) {
           <span className="text-[11px] text-slate-400" title={r.last_event_ts ?? "no captures yet"}>
             · {r.last_event_ts ? `last capture ${fmtRel(r.last_event_ts)}` : "no captures yet"}
           </span>
+          <Sparkline buckets={r.activity_buckets} />
         </div>
       ))}
       {repos.length === 0 && <span className="text-sm text-slate-400">No repos configured.</span>}
     </div>
+  );
+}
+
+// D3: pure-SVG capture sparkline (last 60min, 12x5-min buckets from /api/repos).
+function Sparkline ({ buckets }: { buckets: number[] }) {
+  const w = 48, h = 14, n = buckets?.length ?? 0;
+  if (!n) return null;
+  const max = Math.max(1, ...buckets);
+  const pts = buckets
+    .map((v, i) => `${(i / (n - 1)) * w},${h - (v / max) * (h - 2) - 1}`)
+    .join(" ");
+  const total = buckets.reduce((a, b) => a + b, 0);
+  return (
+    <svg width={w} height={h} className="ml-0.5" role="img"
+      aria-label={`${total} edits in the last hour`}>
+      <title>{`${total} edits in the last hour`}</title>
+      <polyline points={pts} fill="none" stroke="#14b8a6" strokeWidth="1"
+        strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
   );
 }
 
@@ -177,36 +209,31 @@ function WarningsBanner ({ repos, dismissed, onDismiss }:
   );
 }
 
-// D1 + D5: human labels, one hue per mode, technical name in the tooltip (P13).
-const MODE_BADGE: Record<TrackedEvent["mode"], { label: string; cls: string; tip: string }> = {
-  B: { label: "Declared", cls: "bg-emerald-600",
-    tip: "B — the file is declared by exactly this task's <files>" },
-  A_SCOPED: { label: "Active task", cls: "bg-sky-600",
-    tip: "A_SCOPED — shared file; attributed to the one in-progress match" },
-  A_GLOBAL: { label: "Active task *", cls: "bg-indigo-600",
-    tip: "A_GLOBAL — undeclared file; attributed to the repo's single in-progress task" },
-  AMBIGUOUS: { label: "Pick: multi", cls: "bg-amber-500",
-    tip: "AMBIGUOUS — several tasks declare this file, none is the single active one; pick manually" },
-  UNKNOWN: { label: "Pick: none", cls: "bg-rose-600",
-    tip: "UNKNOWN — no task declares this file and there is no single in-progress task; pick manually" },
-  MANUAL: { label: "Your pick", cls: "bg-purple-600",
-    tip: "MANUAL — assigned by you; final, never re-resolved" },
+// D1 + D5: human labels + technical name in the tooltip (P13). R26: color is
+// applied via INLINE hex from MODE_COLOR (theme.ts) — the SAME hex the Chart.js
+// doughnut uses, so a mode looks identical in badges and charts (true single
+// source; Tailwind classes can't derive from hex at runtime).
+const MODE_BADGE: Record<TrackedEvent["mode"], { label: string; tip: string }> = {
+  B: { label: "Declared", tip: "B — the file is declared by exactly this task's <files>" },
+  A_SCOPED: { label: "Active task", tip: "A_SCOPED — shared file; attributed to the one in-progress match" },
+  A_GLOBAL: { label: "Active task *", tip: "A_GLOBAL — undeclared file; attributed to the repo's single in-progress task" },
+  AMBIGUOUS: { label: "Pick: multi", tip: "AMBIGUOUS — several tasks declare this file, none is the single active one; pick manually" },
+  UNKNOWN: { label: "Pick: none", tip: "UNKNOWN — no task declares this file and there is no single in-progress task; pick manually" },
+  MANUAL: { label: "Your pick", tip: "MANUAL — assigned by you; final, never re-resolved" },
 };
-const SWEPT_BADGE = { label: "auto-linked", cls: "bg-zinc-500",
-  tip: "swept — attached to HEAD when the repo went CLEAN (file not in that commit's list)" };
+const SWEPT_TIP = "swept — attached to HEAD when the repo went CLEAN (file not in that commit's list)";
+const swatch = "rounded px-1.5 py-0.5 text-[11px] font-bold text-white";
 
 function ModeBadge ({ mode, swept }: { mode: TrackedEvent["mode"]; swept?: boolean }) {
   const badge = MODE_BADGE[mode];
   return (
     <span className="flex gap-1">
-      <span title={badge.tip}
-        className={`rounded px-1.5 py-0.5 text-[11px] font-bold text-white ${badge.cls}`}>
+      <span title={badge.tip} className={swatch} style={{ backgroundColor: MODE_COLOR[mode] }}>
         {badge.label}
       </span>
       {swept && (
-        <span title={SWEPT_BADGE.tip}
-          className={`rounded px-1.5 py-0.5 text-[11px] font-bold text-white ${SWEPT_BADGE.cls}`}>
-          {SWEPT_BADGE.label}
+        <span title={SWEPT_TIP} className={swatch} style={{ backgroundColor: SWEPT_COLOR }}>
+          auto-linked
         </span>
       )}
     </span>
@@ -215,14 +242,14 @@ function ModeBadge ({ mode, swept }: { mode: TrackedEvent["mode"]; swept?: boole
 
 // D1: plain-English legend; each entry bridges to the technical mode name (P13).
 function Legend ({ onClose }: { onClose: () => void }) {
-  const rows: [string, string, string, string][] = [
-    ["Declared", "B", MODE_BADGE.B.cls, "The changed file is declared by exactly one task — strongest attribution."],
-    ["Active task", "A_SCOPED", MODE_BADGE.A_SCOPED.cls, "Several tasks declare the file; the single in-progress one wins."],
-    ["Active task *", "A_GLOBAL", MODE_BADGE.A_GLOBAL.cls, "No task declares the file; the repo's single in-progress task takes it."],
-    ["Pick: multi", "AMBIGUOUS", MODE_BADGE.AMBIGUOUS.cls, "Several declarations, no single active task — needs your pick."],
-    ["Pick: none", "UNKNOWN", MODE_BADGE.UNKNOWN.cls, "No declaration and no single active task — needs your pick."],
-    ["Your pick", "MANUAL", MODE_BADGE.MANUAL.cls, "Assigned by you; never re-resolved."],
-    ["auto-linked", "swept", SWEPT_BADGE.cls, "Attached to HEAD when the repo turned CLEAN (rename/delete or server-down cases)."],
+  const rows: [string, TrackedEvent["mode"] | "swept", string][] = [
+    ["Declared", "B", "The changed file is declared by exactly one task — strongest attribution."],
+    ["Active task", "A_SCOPED", "Several tasks declare the file; the single in-progress one wins."],
+    ["Active task *", "A_GLOBAL", "No task declares the file; the repo's single in-progress task takes it."],
+    ["Pick: multi", "AMBIGUOUS", "Several declarations, no single active task — needs your pick."],
+    ["Pick: none", "UNKNOWN", "No declaration and no single active task — needs your pick."],
+    ["Your pick", "MANUAL", "Assigned by you; never re-resolved."],
+    ["auto-linked", "swept", "Attached to HEAD when the repo turned CLEAN (rename/delete or server-down cases)."],
   ];
   return (
     <div className="border-b border-slate-700 bg-slate-900 px-4 py-3 text-xs text-slate-300">
@@ -231,9 +258,10 @@ function Legend ({ onClose }: { onClose: () => void }) {
         <button className="ml-auto text-slate-400 hover:text-white" onClick={onClose}>✕</button>
       </div>
       <div className="grid gap-1.5 md:grid-cols-2">
-        {rows.map(([label, tech, cls, text]) => (
+        {rows.map(([label, tech, text]) => (
           <div key={tech} className="flex items-baseline gap-2">
-            <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold text-white ${cls}`}>{label}</span>
+            <span className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold text-white"
+              style={{ backgroundColor: tech === "swept" ? SWEPT_COLOR : MODE_COLOR[tech] }}>{label}</span>
             <span className="shrink-0 font-mono text-slate-500">({tech})</span>
             <span>{text}</span>
           </div>
@@ -620,12 +648,35 @@ function EventRow ({ event, repos, showRef }:
           </button>
         )}
       </div>
-      {diff !== null && (
-        <pre className="mt-1 max-h-64 overflow-auto rounded bg-slate-950 p-2 text-[11px] leading-snug text-slate-300">
-          {diff}
-        </pre>
-      )}
+      {diff !== null && <DiffView text={diff} />}
     </div>
+  );
+}
+
+// D1/R11: position-aware colored diff. Headers only in the pre-hunk region;
+// inside a hunk the first char decides (+added / -removed / space-context).
+// Honest empty-state messages (v0.1.2.0 D3) are NOT diffs -> italic note.
+function DiffView ({ text }: { text: string }) {
+  const isDiff = text.startsWith("diff --git") ||
+    text.split("\n").some((l) => l.startsWith("@@") || l.startsWith("+") || l.startsWith("-"));
+  if (!isDiff) {
+    return <p className="mt-1 rounded bg-slate-950 px-2 py-1 text-[11px] italic text-slate-400">{text}</p>;
+  }
+  let inHunk = false;
+  const HEADER = /^(diff --git|index |\+\+\+ |--- |new file|deleted file|old mode|new mode|rename |similarity |Binary )/;
+  const rows = text.split("\n").map((line, i) => {
+    let color = "text-slate-300"; // context
+    if (line.startsWith("@@")) { inHunk = true; color = "text-sky-400"; }
+    else if (!inHunk) { color = HEADER.test(line) ? "text-slate-500" : "text-slate-500"; }
+    else if (line.startsWith("+")) color = "text-emerald-400";
+    else if (line.startsWith("-")) color = "text-rose-400";
+    else if (line.startsWith("\\")) color = "text-slate-500";
+    return <span key={i} className={color}>{line || " "}{"\n"}</span>;
+  });
+  return (
+    <pre className="mt-1 max-h-64 overflow-auto rounded bg-slate-950 p-2 text-[11px] leading-snug">
+      {rows}
+    </pre>
   );
 }
 

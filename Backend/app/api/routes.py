@@ -12,12 +12,16 @@ from .. import db, git_module
 router = APIRouter(prefix="/api")
 
 
+def _now_z () -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
 def envelope (data, success: bool = True, message: str = "") -> dict:
     return {
         "success": success,
         "data": data,
         "message": message,
-        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "timestamp": _now_z(),
     }
 
 
@@ -39,10 +43,23 @@ def list_repos (request: Request):
             **tracker.status[repo.id],
             "warnings": list(tracker.warnings.get(repo.id, [])),  # F47 snapshot
             "last_event_ts": db.get_last_event_ts(repo.id),      # D9 heartbeat
+            "activity_buckets": db.get_activity_buckets(repo.id, _now_z()),  # v0.1.3.0 D3/R8
         }
         for repo in tracker.config.repos
     ]
     return envelope(data)
+
+
+@router.get("/stats")
+def stats (request: Request, repo: str | None = None):
+    """v0.1.3.0 D5: Overview dashboard aggregates. repo absent -> ALL scope,
+    scoped to the CONFIGURED repos only (R23), never every repo_id in the DB."""
+    tracker = _tracker(request)
+    if repo:
+        repo_ids = [repo] if any(r.id == repo for r in tracker.config.repos) else []
+    else:
+        repo_ids = [r.id for r in tracker.config.repos]  # R23: configured only
+    return envelope(db.get_stats(repo_ids, _now_z()))
 
 
 @router.get("/tasks")
