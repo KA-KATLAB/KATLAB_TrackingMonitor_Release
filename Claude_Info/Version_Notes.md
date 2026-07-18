@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.1.4.0 — Visual Polish (2026-07-17)
+
+**Key Highlights**
+
+- Second harvest from `nicobailon/visual-explainer` — the POLISH layer on v0.1.3.0's visuals. Discovery ran loop-until-dry (4 passes, 2 consecutive dry); the plan passed TWO CDD review series (S1: 16 rounds, 12 findings; S2 post-decisions: 22 rounds, 10 findings; each ending 5/5 consecutive clean) before implementation
+- **Typography** (D3/A.1): real pairing — "Plus Jakarta Sans" (UI) + "Azeret Mono" (mono; v-e's canon match, user-picked) via Google Fonts `<link>` (display=swap, offline-safe fallback stacks) wired into Tailwind `fontFamily`; the Mermaid graph (`themeVariables.fontFamily`) AND Chart.js (`defaults.font.family` — canvas text ignores page CSS) adopt it too
+- **KPI metric cards** (D1/B.1): six "at a glance" numbers above the charts — captured events, auto-attributed %, need-a-pick (sourced from the UNCOMMITTED events prop so it always EQUALS the manual-pick queue N), repos clean x/y, uncommitted changes, busiest task — scope-aware, empty-safe (no NaN), reduced-motion-safe rAF count-up; over-wide hero values transform-scale so huge counts never break the auto-fit grid (D2/B.2)
+- **Mermaid diagram shell** (D7/B.4): the static injected SVG becomes a real viewport — +/− zoom (clamp ~0.08-6.5, step ~14%), drag-pan, ctrl/cmd+wheel zoom-at-cursor, keyboard +/−/0, smart-fit + ResizeObserver re-fit, fullscreen-expand overlay (Esc / click-out); SVG injected via DOMParser+adoptNode (not raw innerHTML); dashed `-.->` edges mark the uncommitted sink + a one-line shape legend
+- **Changed-files tree** (D6/B.3): "by task | by folder" toggle on the Changes view — per-repo monospace ├──/└── tree of the uncommitted files with per-leaf edit-count badges (churn hotspots); the pick queue is never hidden (P11) and a task filter never subsets the tree (per-repo by definition)
+- **Sticky scroll-spy nav** (D4/C.1): sticky mini-TOC over the Changes view ("manual pick (N)" + task ids) with IntersectionObserver highlight + smooth scroll; hidden at ≤1 group
+- **Staggered reveal** (D5/D.1): cards/groups fade-lift in ONCE per view per session (view remounts never re-stagger); `prefers-reduced-motion` ⇒ everything visible immediately, no motion anywhere (reveal + count-up)
+- **Background atmosphere** (D8): faint radial glow + dot grid from the border color — fixed, zero scroll cost
+- **Scope**: UI-only — the sole Backend/ touch is the version constant; no endpoint, no schema, no new git calls
+
 ## v0.1.3.0 — Visualization (2026-07-14)
 
 **Key Highlights**

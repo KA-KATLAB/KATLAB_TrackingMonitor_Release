@@ -9,6 +9,10 @@ import { Chart } from "chart.js/auto";
 import { MODE_COLOR, prefersReducedMotion } from "./theme";
 import { TrackedEvent } from "./api";
 
+// A.1/D3: Chart.js draws text on CANVAS — page CSS never reaches it, so the
+// pairing must land on the defaults (per-chart font objects only set size).
+Chart.defaults.font.family = '"Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif';
+
 export interface StatsData {
   mode_counts: Record<TrackedEvent["mode"], number>;
   events_per_task: { repo: string; task_ref: string; count: number }[];

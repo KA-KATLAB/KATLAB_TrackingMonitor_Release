@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
+import { buildFileTree } from "./fileTree";
 import { fmtRel, fmtTs } from "./format";
+import { useReveal } from "./reveal";
 import { MODE_COLOR, SWEPT_COLOR } from "./theme";
 import { connectWs } from "./ws";
 import { OverviewView } from "./OverviewView";
@@ -412,7 +414,10 @@ function PlanGroup ({ list, uncommitted, taskFilter, onTaskClick }:
 function ChangesView ({ events, tasks, repos, taskFilter, onClearFilter, onPicked }:
   { events: TrackedEvent[]; tasks: Task[]; repos: Repo[]; taskFilter: string | null;
     onClearFilter: () => void; onPicked: () => void }) {
+  // D6 (v0.1.4.0): "by task | by folder" — swaps ONLY the grouped section.
+  const [groupMode, setGroupMode] = useState<"task" | "folder">("task");
   const needsPick = events.filter((e) => e.mode === "AMBIGUOUS" || e.mode === "UNKNOWN");
+  useReveal("changes", [events.length]); // D5: stagger task groups, once per session
   const attributed = events.filter((e) => e.mode !== "AMBIGUOUS" && e.mode !== "UNKNOWN");
   const byTask = useMemo(() => {
     const groups = new Map<string, TrackedEvent[]>();
@@ -439,41 +444,161 @@ function ChangesView ({ events, tasks, repos, taskFilter, onClearFilter, onPicke
   const groupEntries = [...byTask.entries()]
     .filter(([key]) => !taskFilter || key === taskFilter); // X4 (manual picks exempt, P11)
 
+  // D4 (v0.1.4.0, C.1): sticky mini-TOC entries — hidden when <=1 group;
+  // by-task mode only (the folder view is one card per repo).
+  const navItems: { id: string; label: string; title?: string }[] = [];
+  if (groupMode === "task" && groupEntries.length > 1) {
+    if (needsPick.length > 0) {
+      navItems.push({ id: "sec-pick", label: `manual pick (${needsPick.length})` });
+    }
+    groupEntries.forEach(([key], i) => {
+      const ref = key.split("|").slice(1).join("|");
+      navItems.push({ id: `sec-g${i}`, label: ref.split(" - ").pop() ?? ref, title: ref });
+    });
+  }
+
   return (
     <div className="space-y-6">
-      {/* P11: this section is NEVER filtered - it needs action. */}
-      <PickSection events={needsPick} tasks={tasks} onPicked={onPicked} />
+      {navItems.length > 0 && <SectionNav items={navItems} />}
+      {/* P11: this section is NEVER filtered - it needs action. Wrapper is
+          conditional — an empty div would add a phantom space-y gap (T2). */}
+      {needsPick.length > 0 && (
+        <div id="sec-pick" className="scroll-mt-12">
+          <PickSection events={needsPick} tasks={tasks} onPicked={onPicked} />
+        </div>
+      )}
 
       <section>
-        <h2 className="mb-2 border-l-4 border-sky-500 pl-2 text-sm font-bold text-slate-200">
-          Uncommitted changes grouped by task
-        </h2>
-        {taskFilter && (
-          <div className="mb-2 flex items-center gap-2 text-xs">
-            <span className="rounded bg-sky-900 px-2 py-0.5 text-sky-200">
-              filtered: {taskFilter.split("|").slice(1).join("|")}
-            </span>
-            <button onClick={onClearFilter} className="text-sky-400 hover:underline">✕ clear</button>
+        <div className="mb-2 flex items-center gap-2">
+          <h2 className="border-l-4 border-sky-500 pl-2 text-sm font-bold text-slate-200">
+            Uncommitted changes {groupMode === "task" ? "grouped by task" : "by folder"}
+          </h2>
+          {/* D6: the toggle never hides the pick queue above (P11); the tree
+              is PER-REPO — an active task filter does not subset it (R7). */}
+          <div className="ml-1 flex gap-1">
+            <FilterChip active={groupMode === "task"} label="by task"
+              onClick={() => setGroupMode("task")} />
+            <FilterChip active={groupMode === "folder"} label="by folder"
+              onClick={() => setGroupMode("folder")} />
           </div>
+        </div>
+        {groupMode === "folder" ? (
+          <FolderView events={events} />
+        ) : (
+          <>
+            {taskFilter && (
+              <div className="mb-2 flex items-center gap-2 text-xs">
+                <span className="rounded bg-sky-900 px-2 py-0.5 text-sky-200">
+                  filtered: {taskFilter.split("|").slice(1).join("|")}
+                </span>
+                <button onClick={onClearFilter} className="text-sky-400 hover:underline">✕ clear</button>
+              </div>
+            )}
+            {groupEntries.length === 0 && (
+              <p className="text-sm text-slate-400">
+                {taskFilter
+                  ? "No uncommitted changes for this task."
+                  : "No uncommitted tracked changes — repo is clean or no edits captured yet."}
+              </p>
+            )}
+            {groupEntries.map(([key, group], i) => {
+              const task = taskByKey.get(key);
+              const ref = key.split("|").slice(1).join("|");
+              return (
+                <div key={key} id={`sec-g${i}`} className="scroll-mt-12">
+                  <TaskGroup refLabel={ref} repoId={group[0].repo_id} group={group}
+                    why={task?.why} repos={repos}
+                    planFileSet={planFilesByRepo.get(group[0].repo_id)} />
+                </div>
+              );
+            })}
+          </>
         )}
-        {groupEntries.length === 0 && (
-          <p className="text-sm text-slate-400">
-            {taskFilter
-              ? "No uncommitted changes for this task."
-              : "No uncommitted tracked changes — repo is clean or no edits captured yet."}
-          </p>
-        )}
-        {groupEntries.map(([key, group]) => {
-          const task = taskByKey.get(key);
-          const ref = key.split("|").slice(1).join("|");
-          return (
-            <TaskGroup key={key} refLabel={ref} repoId={group[0].repo_id} group={group}
-              why={task?.why} repos={repos}
-              planFileSet={planFilesByRepo.get(group[0].repo_id)} />
-          );
-        })}
       </section>
     </div>
+  );
+}
+
+// D4 (v0.1.4.0, C.1): sticky mini-TOC + IntersectionObserver scroll-spy for
+// the Changes view. Sticky within <main> (the scroll container); the caller
+// hides it when there are <=1 task groups.
+function SectionNav ({ items }: { items: { id: string; label: string; title?: string }[] }) {
+  const [active, setActive] = useState("");
+  const key = items.map((s) => s.id + s.label).join("|");
+  useEffect(() => {
+    const els = items
+      .map((s) => document.getElementById(s.id))
+      .filter((el): el is HTMLElement => el !== null);
+    if (els.length === 0) return;
+    const io = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((e) => e.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (visible[0]) setActive(visible[0].target.id); // topmost in view wins
+    }, { rootMargin: "-10% 0px -60% 0px" });
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return (
+    <nav className="sticky top-0 z-20 -mx-4 -mt-4 flex flex-wrap gap-1 border-b border-slate-800 bg-slate-950/95 px-4 py-2 backdrop-blur">
+      {items.map((s) => (
+        <button key={s.id} title={s.title ?? s.label}
+          onClick={() => document.getElementById(s.id)
+            ?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          className={`rounded px-2 py-0.5 text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+            active === s.id ? "bg-sky-700 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+          {s.label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+// D6 (v0.1.4.0, B.3): per-repo changed-files tree — the uncommitted events'
+// paths as a monospace ├──/└── tree (white-space: pre, no wrap), one card
+// per repo, edit-count badge per leaf (churn hotspots). Neutral leaves this
+// release. Built from ALL uncommitted events of the repo (pick queue
+// included — "no loss" vs the by-task view, V8).
+function FolderView ({ events }: { events: TrackedEvent[] }) {
+  const byRepo = useMemo(() => {
+    const m = new Map<string, TrackedEvent[]>();
+    for (const e of events) m.set(e.repo_id, [...(m.get(e.repo_id) ?? []), e]);
+    return [...m.entries()];
+  }, [events]);
+  if (byRepo.length === 0) {
+    return (
+      <p className="text-sm text-slate-400">
+        No uncommitted tracked changes — repo is clean or no edits captured yet.
+      </p>
+    );
+  }
+  return (
+    <>
+      {byRepo.map(([repoId, list]) => (
+        <div key={repoId} className="mb-4 rounded border border-slate-700 bg-slate-900 p-3">
+          <div className="mb-1 flex items-baseline gap-2">
+            <span className="font-mono text-sm font-semibold text-sky-300">{repoId}</span>
+            <span className="text-[11px] text-slate-500">
+              {new Set(list.map((e) => e.file)).size} files · {list.length} edits
+            </span>
+          </div>
+          <pre className="overflow-x-auto text-[11px] leading-snug text-slate-300">
+            {buildFileTree(list).map((line, i) => (
+              <span key={i}>
+                {line.text}
+                {line.count !== undefined && (
+                  <span className={line.count >= 3 ? "text-amber-300" : "text-slate-500"}>
+                    {`  ×${line.count}`}
+                  </span>
+                )}
+                {"\n"}
+              </span>
+            ))}
+          </pre>
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -485,7 +610,7 @@ function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet }:
   const planEdits = group.filter((e) => planFileSet?.has(e.file));
   const normal = group.filter((e) => !planFileSet?.has(e.file));
   return (
-    <div className="mb-4 rounded border border-slate-700 bg-slate-900 p-3">
+    <div data-reveal className="mb-4 rounded border border-slate-700 bg-slate-900 p-3">
       <div className="flex items-baseline gap-2">
         {/* F48: task-ref link "<plan filename> - <task id>" */}
         <span className="font-mono text-sm font-semibold text-sky-300">{refLabel}</span>

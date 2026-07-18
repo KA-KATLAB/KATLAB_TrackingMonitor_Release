@@ -1,3 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* D8 (v0.1.4.0): background atmosphere — faint radial glow + dot grid,
+   both derived from the border color (slate-700). fixed => painted once,
+   no scroll cost. Dark-only by design. */
+body {
+  background-image:
+    radial-gradient(ellipse 90% 55% at 50% -12%, rgb(51 65 85 / 0.38), transparent 70%),
+    radial-gradient(rgb(51 65 85 / 0.2) 1px, transparent 1px);
+  background-size: auto, 24px 24px;
+  background-attachment: fixed, fixed;
+}

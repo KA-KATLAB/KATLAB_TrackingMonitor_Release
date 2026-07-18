@@ -56,7 +56,8 @@ export function buildBackbone (input: GraphInput): BuildResult {
     for (const h of taskCommits.get(t.task_ref) ?? []) {
       lines.push(`  T${i} --> C_${h.slice(0, 7)}(["${h.slice(0, 7)}"])`);
     }
-    if (taskUncommitted.has(t.task_ref)) { lines.push(`  T${i} --> SINK`); hasSink = true; }
+    // D7 (v0.1.4.0): dashed = not-yet-final (uncommitted); commits stay solid.
+    if (taskUncommitted.has(t.task_ref)) { lines.push(`  T${i} -.-> SINK`); hasSink = true; }
   });
   if (hasSink) lines.push('  SINK{{"uncommitted"}}');
   lines.push("  classDef task fill:#134e4a55,stroke:#14b8a6,color:#e2e8f0;");
@@ -77,6 +78,9 @@ export async function renderBackbone (input: GraphInput): Promise<{ svg: string;
         primaryBorderColor: DIAGRAM.accent, primaryTextColor: DIAGRAM.text,
         lineColor: DIAGRAM.textDim, secondaryColor: DIAGRAM.surface,
         fontSize: "12px",
+        // A.1/D3 (v0.1.4.0): SVG text ignores page CSS — the graph must
+        // adopt the pairing here (fallback stack keeps it offline-safe).
+        fontFamily: '"Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif',
       },
     });
     initialized = true;
