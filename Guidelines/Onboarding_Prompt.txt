@@ -3,6 +3,7 @@ Onboard THIS repo to KATLAB TrackingMonitor so my new detailed plans are tracked
 1. Read these two docs carefully and completely (CDD) — they are the source of truth. You must NEVER edit anything inside the TrackingMonitor repo, read-only:
    - D:\KATLAB_Reiky\_Development_Workspace\KATLAB_TrackingMonitor\Docs\Installation_Guideline.md
    - D:\KATLAB_Reiky\_Development_Workspace\KATLAB_TrackingMonitor\Docs\Plan_Format_Spec.md
+   - D:\KATLAB_Reiky\_Development_Workspace\KATLAB_TrackingMonitor\Docs\Tracking_Discipline.md
 
 2. Execute Installation Guideline Steps 1-2 in THIS repo only (skip any step already done — verify, don't redo):
    - Step 1: REMOVE any legacy per-repo PostToolUse hook entry invoking katlab_tracking_hook.py from this repo's .claude/settings.json — the hook is USER-SCOPE now (once per PC); NEVER add per-repo hook entries. If that entry is the file's only content, delete the file; otherwise preserve everything else (merge-not-overwrite).
@@ -16,6 +17,8 @@ Onboard THIS repo to KATLAB TrackingMonitor so my new detailed plans are tracked
    - Discipline: exactly ONE task in-progress at a time; flip statuses live as you work (the tracker re-parses on save); declare <files> precisely
    - The tracker parses ONLY this format — legacy plan formats are invisible to it
 
-4. Steps 4-5 of the guideline (registering this repo in TrackingMonitor's Config/repos.yaml + restarting the server + coordinating the smoke test) are MY job — do NOT do them. Just report back: the exact plan-file location(s) you will use, and each step's pass/fail.
+4. Persist the tracking discipline into THIS repo's own CLAUDE.md (merge, don't overwrite): a short standing-rules section — flip the task to in-progress BEFORE editing, exactly ONE task in-progress at a time, flip to done right after finishing, declare <files> precisely, keep the manual-pick queue empty (full rules: Tracking_Discipline.md above) — so every FUTURE session here follows them without re-reading TrackingMonitor docs.
+
+5. Steps 4-5 of the guideline (registering this repo in TrackingMonitor's Config/repos.yaml + restarting the server + coordinating the smoke test) are MY job — do NOT do them. Just report back: the exact plan-file location(s) you will use, and each step's pass/fail.
 
 Constraints: no git mutation commands in this repo unless I explicitly ask; stop and ask me ASAP if anything conflicts with this repo's existing rules.

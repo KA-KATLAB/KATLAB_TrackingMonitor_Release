@@ -34,6 +34,7 @@ Do this BEFORE any hooked session edits this repo — an un-ignored `events.json
 - Format spec: `TrackingMonitor/Docs/Plan_Format_Spec.md` (task blocks at column 0; required tags id/title/status; UTF-8; repo-relative `<files>` globs)
 - Discipline: keep **exactly ONE task `in-progress`** per repo at a time; flip statuses as you work — the tracker re-parses live
 - Full standing rules (flip-before-edit, empty manual-pick queue): `TrackingMonitor/Docs/Tracking_Discipline.md`
+- Persist those standing rules into THIS repo's own CLAUDE.md as a short section (merge-not-overwrite) — future sessions must follow them without re-reading TrackingMonitor docs
 
 ## Step 4 — Register the repo (user does this, BEFORE the smoke test)
 

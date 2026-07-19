@@ -20,7 +20,7 @@ FastAPI server (single process)
   · git module (STRICTLY read-only: status/diff/log/show)
   · SQLite (events · tasks · commits)
         ▼
-REST + WebSocket → React UI (status bar · task sidebar · changes-by-task · diff viewer · manual-pick queue · history)
+REST + WebSocket → React UI (status bar · task sidebar · changes-by-task · diff viewer · manual-pick queue · Overview dashboard: KPIs, charts, task→commit map · history)
 ```
 
 ### Hybrid-C resolution — never silently guess
