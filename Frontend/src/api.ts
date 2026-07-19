@@ -8,7 +8,9 @@ export interface Repo {
   count: number;
   offline: boolean;
   warnings: { ts: string; message: string }[];
-  last_event_ts: string | null; // v0.1.2.0 D9 heartbeat
+  last_event_ts: string | null;         // v0.1.2.0 D9 heartbeat
+  branch: string | null;                // v0.1.6.0 D2: current git branch (null = unknown/offline)
+  oldest_uncommitted_ts: string | null; // v0.1.6.0 D4: uncommitted-age nudge source
   activity_buckets: number[]; // v0.1.3.0 D3/R8/R16: 12x5-min for the sparkline
 }
 
@@ -21,6 +23,7 @@ export interface Task {
   status: "pending" | "in-progress" | "done";
   files: string[];
   why: string;
+  last_event_ts: string | null; // v0.1.6.0 D4: idle-task nudge source
 }
 
 export interface TrackedEvent {
@@ -35,6 +38,7 @@ export interface TrackedEvent {
   commit_hash: string | null;
   swept: number;
   session_id: string | null; // v0.1.5.0 D1: Claude session (null = pre-upgrade/unknown)
+  branch: string | null;     // v0.1.6.0 D2: branch at capture (null = pre-upgrade/unknown)
 }
 
 export interface HistoryEntry {
@@ -54,9 +58,11 @@ async function call<T> (url: string, init?: RequestInit): Promise<T> {
 export const api = {
   repos: () => call<Repo[]>("/api/repos"),
   tasks: (repo?: string) => call<Task[]>(`/api/tasks${repo ? `?repo=${repo}` : ""}`),
-  events: (params: { repo?: string; uncommitted?: boolean; limit?: number; offset?: number }) => {
+  events: (params: { repo?: string; uncommitted?: boolean; limit?: number; offset?: number;
+    session?: string }) => {
     const q = new URLSearchParams();
     if (params.repo) q.set("repo", params.repo);
+    if (params.session) q.set("session", params.session); // v0.1.6.0 D3 (C.3)
     if (params.uncommitted) q.set("uncommitted", "true");
     q.set("limit", String(params.limit ?? 500));
     q.set("offset", String(params.offset ?? 0));

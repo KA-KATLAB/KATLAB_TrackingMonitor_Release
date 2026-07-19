@@ -19,3 +19,19 @@ export function fmtRel (iso: string): string {
   if (s < 86400) return `${Math.round(s / 3600)}h ago`;
   return fmtTs(iso);
 }
+
+// v0.1.6.0 D1 (C.1): the ONE effort humanizer — every effort surface
+// (sidebar, group headers, KPI, calendar tooltip, timeline, digest) renders
+// through this; the "≈" lives HERE on the value, never in labels (RV19).
+export function fmtMinutes (minutes: number): string {
+  if (minutes < 60) return `≈ ${minutes}m`;
+  return `≈ ${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
+// v0.1.6.0 D4 (C.4): nudge-row ages — fmtRel switches to an absolute
+// timestamp past 24h and can never say "≈ 2d" (RV16); hours under 48h,
+// whole days after. Negative deltas are gated out by the nudge conditions.
+export function fmtAge (iso: string): string {
+  const h = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000));
+  return h < 48 ? `≈ ${h}h` : `≈ ${Math.floor(h / 24)}d`;
+}

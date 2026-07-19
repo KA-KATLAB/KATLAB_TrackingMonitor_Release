@@ -1,30 +1,29 @@
-// v0.1.3.0 D2 (dashboard) + D4 (Mermaid relationship graph). The dashboard
-// fetches /api/stats on scope change + on a real sync (refreshKey, R12) — NOT
-// on every tick/filter. The graph lazy-loads mermaid on first open.
+// v0.1.3.0 D2 (dashboard) + D4 (Mermaid relationship graph). v0.1.6.0 C.1
+// (RV1): the /api/stats fetch LIFTED to App (sidebar/groups need effort on
+// the Changes view) — this view renders {stats, statsError} props; the R12
+// trigger semantics live in App's [tab, statsNonce] effect. The graph
+// lazy-loads mermaid on first open.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
+import { fmtMinutes } from "./format";
 import { CalendarHeatmap } from "./calendarHeatmap";
 import { StatsData, activityLine, eventsPerTaskBar, modeDoughnut } from "./charts";
 import { renderBackbone } from "./mermaidGraph";
 import { useReveal } from "./reveal";
 import { prefersReducedMotion } from "./theme";
 
-export function OverviewView ({ scope, tasks, uncommitted, repos, refreshKey }: {
+export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsError }: {
   scope: string | undefined; // undefined = ALL
   tasks: Task[];
   uncommitted: TrackedEvent[];
   repos: Repo[];
-  refreshKey: number;
+  // v0.1.6.0 D1 (C.1, RV1/RV10): the stats fetch lifted to App — this
+  // view renders the props; the error message renders exactly where the
+  // local error did before the lift.
+  stats: StatsData | null;
+  statsError: string;
 }) {
-  const [stats, setStats] = useState<StatsData | null>(null);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let alive = true;
-    api.stats(scope).then((s) => alive && setStats(s)).catch((e) => alive && setError(String(e)));
-    return () => { alive = false; };
-  }, [scope, refreshKey]); // R12
 
   const totalEvents = stats ? Object.values(stats.mode_counts).reduce((a, b) => a + b, 0) : 0;
 
@@ -36,7 +35,7 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, refreshKey }: 
         <h2 className="mb-3 border-l-4 border-teal-500 pl-2 text-sm font-bold text-slate-200">
           Overview {scope ? `— ${scope}` : "— ALL repos"}
         </h2>
-        {error && <p className="text-sm text-rose-300">{error}</p>}
+        {statsError && <p className="text-sm text-rose-300">{statsError}</p>}
         {stats && <KpiRow stats={stats} repos={repos} uncommitted={uncommitted} />}
         {stats && totalEvents === 0 && (
           <p className="text-sm text-slate-400">No events captured yet — nothing to chart.</p>
@@ -87,6 +86,9 @@ function KpiRow ({ stats, repos, uncommitted }:
   const needsPick = uncommitted.filter((e) => e.mode === "AMBIGUOUS" || e.mode === "UNKNOWN").length;
   const clean = repos.filter((r) => r.clean).length;
   const uncommittedSum = repos.reduce((n, r) => n + r.count, 0);
+  // v0.1.6.0 D1 (C.1): today's effort = the calendar's LAST (UTC) day —
+  // no extra stats key; label carries the (UTC) day-basis marker (RV18).
+  const todayMinutes = stats.activity_calendar[stats.activity_calendar.length - 1]?.minutes ?? 0;
   const busiest = stats.events_per_task[0]; // backend sorts count DESC — [0] is the top
   return (
     <div className="mb-4 grid gap-3"
@@ -96,6 +98,8 @@ function KpiRow ({ stats, repos, uncommitted }:
       <Kpi label="need a pick" value={needsPick} />
       <Kpi label="repos clean" value={clean} suffix={`/${repos.length}`} />
       <Kpi label="uncommitted changes" value={uncommittedSum} />
+      <Kpi label="time today (UTC)" value={todayMinutes} format={fmtMinutes}
+        tip="estimated from capture timestamps — 15-min gap rule" />
       {busiest && (
         <Kpi label="busiest task" value={busiest.count}
           sub={busiest.task_ref.split(" - ").pop()} />
@@ -104,8 +108,11 @@ function KpiRow ({ stats, repos, uncommitted }:
   );
 }
 
-function Kpi ({ label, value, suffix, sub }:
-  { label: string; value: number; suffix?: string; sub?: string }) {
+// v0.1.6.0 D1 (C.1, RV8): optional format prop — count-up stays NUMERIC,
+// the formatter renders each frame (effort KPI: fmtMinutes carries the ≈).
+function Kpi ({ label, value, suffix, sub, format, tip }:
+  { label: string; value: number; suffix?: string; sub?: string;
+    format?: (n: number) => string; tip?: string }) {
   const shown = useCountUp(value);
   const heroRef = useRef<HTMLDivElement | null>(null);
   const fitRef = useRef<() => void>(() => {});
@@ -131,10 +138,10 @@ function Kpi ({ label, value, suffix, sub }:
   useEffect(() => { fitRef.current(); }, [shown, suffix]);
 
   return (
-    <div data-reveal className="rounded border border-slate-700 bg-slate-900 p-3">
+    <div data-reveal className="rounded border border-slate-700 bg-slate-900 p-3" title={tip}>
       <div ref={heroRef}
         className="whitespace-nowrap font-mono text-4xl font-bold leading-none text-slate-100">
-        {shown.toLocaleString()}{suffix}
+        {format ? format(shown) : shown.toLocaleString()}{suffix}
       </div>
       <div className="mt-1.5 truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400"
         title={sub ? `${label} · ${sub}` : label}>

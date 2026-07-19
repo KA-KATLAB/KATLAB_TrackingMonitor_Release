@@ -7,6 +7,7 @@
 // App.tsx import here would create an App<->digest cycle).
 
 import { api, Repo, Task, TrackedEvent } from "./api";
+import { fmtMinutes } from "./format";
 import { MODE_BADGE, MODE_COLOR, sessionColor } from "./theme";
 
 const PAGE = 500, MAX_PAGES = 3; // explicit cap — truncation is footnoted, never silent
@@ -50,6 +51,11 @@ async function fetchToday (scope: string | undefined):
 export async function exportDigest (scope: string | undefined, repos: Repo[],
   tasks: Task[], uncommitted: TrackedEvent[]): Promise<void> {
   const { todays, truncated } = await fetchToday(scope); // throws -> caller aborts (RV20)
+  // v0.1.6.0 D1 (C.1): effort KPI reads the SAME backend value as the
+  // Overview (calendar last UTC day) - never re-clusters in TS; the
+  // fetch sits BEFORE the Blob build so a failure aborts (RV20).
+  const stats = await api.stats(scope);
+  const todayMinutes = stats.activity_calendar[stats.activity_calendar.length - 1]?.minutes ?? 0;
 
   const now = new Date();
   const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
@@ -109,6 +115,7 @@ ${kpi(`${autoPct}%`, "auto-attributed today")}
 ${kpi(String(picksNow), "picks pending now")}
 ${kpi(`${clean}/${repos.length}`, "repos clean now")}
 ${kpi(String(sessions), "sessions today")}
+${kpi(fmtMinutes(todayMinutes), "time today (UTC)")}
 </div>
 ${sections || '<p style="color:#94a3b8">No tracked events today.</p>'}
 <h2 style="font-size:13px;margin:22px 0 4px;color:#94a3b8">Legend</h2>

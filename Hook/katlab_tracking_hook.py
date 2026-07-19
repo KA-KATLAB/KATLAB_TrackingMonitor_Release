@@ -41,6 +41,35 @@ def find_repo_root (start: Path) -> Path | None:
     return None
 
 
+def read_branch (repo_root: Path) -> str | None:
+    """v0.1.6.0 D2 (A.1): current branch from .git/HEAD - stdlib, fail-open.
+    Dir case: parse "ref: refs/heads/<name>". Worktree FILE case: follow
+    "gitdir: <path>" once, RELATIVE paths resolved against repo_root
+    (v0.1.6.0 RV11). Detached HEAD (bare hash), missing files or ANY
+    exception -> None. Never raises, no subprocess."""
+    try:
+        git = repo_root / ".git"
+        if git.is_dir():
+            head = git / "HEAD"
+        elif git.is_file():
+            first = git.read_text(encoding="utf-8", errors="replace").splitlines()[0]
+            if not first.startswith("gitdir:"):
+                return None
+            gitdir = Path(first[len("gitdir:"):].strip())
+            if not gitdir.is_absolute():
+                gitdir = (repo_root / gitdir).resolve()
+            head = gitdir / "HEAD"
+        else:
+            return None
+        line = head.read_text(encoding="utf-8", errors="replace").splitlines()[0].strip()
+        if line.startswith("ref: refs/heads/"):
+            name = line[len("ref: refs/heads/"):].strip()
+            return name or None
+        return None  # detached or unrecognized - server-side context covers it
+    except Exception:
+        return None
+
+
 def _unquote (raw: str) -> str:
     if raw[:1] in ("'", '"') and raw.count(raw[0]) >= 2:
         return raw[1:raw.index(raw[0], 1)]
@@ -105,12 +134,20 @@ def main () -> None:
     if not isinstance(session_id, str) or not session_id:
         session_id = None
 
+    # v0.1.6.0 D2 (A.1): branch context - same non-empty-str-or-None guard
+    # class (v0.1.5.0 RV17/RV30); EVENT_VERSION stays 1 again (third
+    # repetition of the additive-optional-key compatibility call).
+    branch = read_branch(repo_root)
+    if not isinstance(branch, str) or not branch:
+        branch = None
+
     event = {
         "v": EVENT_VERSION,
         "ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "tool": tool_name,
         "file": relative.as_posix(),
         "session_id": session_id,
+        "branch": branch,
     }
 
     tracking_dir = repo_root / TRACKING_DIR

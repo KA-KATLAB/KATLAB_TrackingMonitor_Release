@@ -19,8 +19,10 @@ export interface StatsData {
   activity_daily: { day: string; count: number }[];
   // v0.1.5.0 D2 (RV2: the type lives HERE, api.ts only re-imports it):
   // 365 zero-filled UTC days, oldest->newest, fixed shape in BOTH backend
-  // return paths (RV28).
-  activity_calendar: { day: string; events: number; commits: number }[];
+  // return paths (RV28). v0.1.6.0 D1: minutes = per-UTC-day effort estimate.
+  activity_calendar: { day: string; events: number; commits: number; minutes: number }[];
+  // v0.1.6.0 D1 (B.1): top-10 effort estimates, fixed shape in both paths.
+  effort_per_task: { repo: string; task_ref: string; minutes: number; sessions: number }[];
 }
 
 const GRID = "#334155"; // slate-700

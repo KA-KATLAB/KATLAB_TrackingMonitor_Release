@@ -43,6 +43,7 @@ def list_repos (request: Request):
             **tracker.status[repo.id],
             "warnings": list(tracker.warnings.get(repo.id, [])),  # F47 snapshot
             "last_event_ts": db.get_last_event_ts(repo.id),      # D9 heartbeat
+            "oldest_uncommitted_ts": db.get_oldest_uncommitted_ts(repo.id),  # v0.1.6.0 D4 (B.2)
             "activity_buckets": db.get_activity_buckets(repo.id, _now_z()),  # v0.1.3.0 D3/R8
         }
         for repo in tracker.config.repos
@@ -65,6 +66,7 @@ def stats (request: Request, repo: str | None = None):
 @router.get("/tasks")
 def list_tasks (request: Request, repo: str | None = None):
     rows = db.get_tasks(repo)
+    activity = db.get_task_activity()  # v0.1.6.0 D4 (B.2): idle-nudge source
     return envelope([
         {
             "repo": r["repo_id"], "plan_file": r["plan_file"], "task_id": r["task_id"],
@@ -72,6 +74,7 @@ def list_tasks (request: Request, repo: str | None = None):
             "title": r["title"], "status": r["status"],
             "files": json.loads(r["files_json"]),
             "why": r["why"] or r["title"],  # F53: why falls back to title
+            "last_event_ts": activity.get((r["repo_id"], f"{r['plan_file']} - {r['task_id']}")),
         }
         for r in rows
     ])
@@ -79,9 +82,10 @@ def list_tasks (request: Request, repo: str | None = None):
 
 @router.get("/events")
 def list_events (request: Request, repo: str | None = None, mode: str | None = None,
-                 uncommitted: bool = False, limit: int = 500, offset: int = 0):
+                 uncommitted: bool = False, limit: int = 500, offset: int = 0,
+                 session: str | None = None):
     limit = min(max(1, limit), 2000)  # F38 pagination bounds
-    rows = db.get_events(repo, mode, uncommitted, limit, offset)
+    rows = db.get_events(repo, mode, uncommitted, limit, offset, session)
     return envelope([dict(r) for r in rows])
 
 

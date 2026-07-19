@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS events (
     candidates_json TEXT,               -- F12: AMBIGUOUS pick list
     commit_hash     TEXT,               -- linked commit or NULL (uncommitted)
     swept           INTEGER NOT NULL DEFAULT 0, -- F9: 1 = linked indirectly at CLEAN
-    session_id      TEXT                -- v0.1.5.0 D1: Claude session (NULL = pre-upgrade/unknown)
+    session_id      TEXT,               -- v0.1.5.0 D1: Claude session (NULL = pre-upgrade/unknown)
+    branch          TEXT                -- v0.1.6.0 D2: git branch at capture (NULL = pre-upgrade/unknown)
 );
 
 CREATE TABLE IF NOT EXISTS commits (

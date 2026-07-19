@@ -1,5 +1,16 @@
 # Version Notes
 
+## v0.1.6.0 — Effort & Context (2026-07-19)
+
+**Key Highlights**
+
+- Second harvest from the 2026-07-19 research pass (WakaTime/Wakapi · GitDeck · agents-observe); plan passed a 22-pass CDD review loop (25 findings RV1-RV25, 5/5 consecutive clean) with two claims EMPIRICALLY corrected pre-implementation (git ascends past the demo's marker .git; the effort algorithm dry-run against the real DB)
+- **Effort attribution** (D1/B.1/C.1): block clustering over existing capture timestamps (GAP 15min + TAIL 2min, `minutes = round(s/60)`, ONE algorithm home in `db.py` mirrored as display constants in `theme.ts`); `/api/stats` gains `effort_per_task` (top 10, with distinct-session counts) + per-day `minutes` on the calendar — fixed shape in BOTH return paths; stats fetch LIFTED OverviewView→App (sidebar/groups need it on the Changes view); surfaces = sidebar cards, group headers, "time today (UTC)" KPI (day-basis labelled — digest KPIs are otherwise local-day), calendar tooltips (only when > 0), digest KPI (reads the same value, never re-clusters); every render ≈-prefixed via one `fmtMinutes()`
+- **Branch awareness** (D2/A.1/A.2/B.2/C.2): hook reads `.git/HEAD` stdlib fail-open (dir + worktree-file cases, relative gitdir resolved) → `events.branch` (EVENT VERSION STAYS 1, third additive-optional-key repetition; non-empty-str-or-None guard both ends); migration generalized to a needed-columns loop (covers v0.1.4.0-era DBs); `git_module.current_branch()` (read-only rev-parse, detached→short hash) → status-bar `⎇` chip (branch always present in the status dict, per-field keep-last-known); EventRow suffix ONLY when event-branch ≠ current-branch; demo shows the ENCLOSING repo's branch (git ascent — documented)
+- **Session timeline** (D3/C.3): `/api/events?session=` + a static-snapshot modal (chip "timeline" button + palette action while a session filter is active) — cross-repo rows sorted ts-ASC, task-transition separators, gap markers past the mirrored 15-min constant, truncation footnoted and the header effort labelled "(fetched window)" when partial
+- **Bell v2 rhythm nudges** (D4/C.4): two new badge-counted rows — "in-progress idle ≈ Nh/Nd" (`tasks.last_event_ts`, threshold 24h) and "uncommitted for ≈ Nh/Nd" (`repos.oldest_uncommitted_ts`, exact MIN, threshold 48h); ages via a new `fmtAge()` (fmtRel switches to absolute past 24h); null fields never nag; thresholds are frontend constants this release
+- **Scope:** all backend additions additive-only; zero new deps (package.json untouched); no new endpoints; one extra read-only `rev-parse` per status refresh (two while HEAD is detached — the short-hash fallback)
+
 ## v0.1.5.0 — Insights & Awareness (2026-07-19)
 
 **Key Highlights**

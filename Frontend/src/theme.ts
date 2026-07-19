@@ -15,6 +15,13 @@ export const MODE_COLOR: Record<TrackedEvent["mode"], string> = {
 
 export const SWEPT_COLOR = "#71717a"; // zinc-500
 
+// v0.1.6.0 D3 (C.3, RV4 mirror contract): MUST match Backend/app/db.py
+// EFFORT_GAP_MAX_S / EFFORT_TAIL_S (there in seconds, here in minutes) —
+// used ONLY for timeline gap markers + the presentation-only header sum;
+// the effort ALGORITHM home stays in db.py.
+export const EFFORT_GAP_MAX_MIN = 15;
+export const EFFORT_TAIL_MIN = 2;
+
 // v0.1.5.0 D1 (C.1): identity color for session dots - deterministic hash
 // -> HSL hue, saturation/lightness fixed for the dark palette. An IDENTITY
 // cue, not a mode (modes stay in MODE_COLOR); same session = same color

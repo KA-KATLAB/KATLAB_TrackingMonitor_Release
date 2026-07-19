@@ -69,7 +69,9 @@ class Tracker:
             # CFT-5: PESSIMISTIC init - if the first status read fails
             # transiently (F41 keeps last-known), clean=True here would let
             # the F32 sweep run against a possibly-dirty repo.
-            self.status[repo.id] = {"clean": False, "count": 0, "offline": repo.offline}
+            # v0.1.6.0 D2 (B.2, RV2): branch is ALWAYS present (fixed shape).
+            self.status[repo.id] = {"clean": False, "count": 0,
+                                    "offline": repo.offline, "branch": None}
             self.warnings.setdefault(repo.id, deque(maxlen=50))
             self.known_commits[repo.id] = set()
 
@@ -197,11 +199,16 @@ class Tracker:
                 session_id = raw.get("session_id")
                 if not isinstance(session_id, str) or not session_id:
                     session_id = None
+                # v0.1.6.0 D2 (A.2): branch joins the same guard class.
+                branch = raw.get("branch")
+                if not isinstance(branch, str) or not branch:
+                    branch = None
                 parsed.append({
                     "ts": ts, "tool": tool, "file": file,
                     "task_ref": resolution.task_ref, "mode": resolution.mode,
                     "candidates": resolution.candidates,
                     "session_id": session_id,
+                    "branch": branch,
                 })
             except (ValueError, KeyError) as exc:
                 # F26: skip + warn; offset still advances - never stall.
@@ -218,9 +225,17 @@ class Tracker:
         except git_module.GitError as exc:
             log.debug("[%s] status kept (transient git failure: %s)", repo.id, exc)
             return False
+        # v0.1.6.0 D2 (B.2, RV2): branch under its OWN try - on GitError the
+        # PREVIOUS value carries forward into the new dict (F41 keep-last-
+        # known applies per-field; the key is NEVER absent).
+        try:
+            branch = git_module.current_branch(repo.path)
+        except git_module.GitError:
+            branch = self.status[repo.id].get("branch")
         previous = self.status[repo.id]
         changed = previous["count"] != count or previous["clean"] != (count == 0)
-        self.status[repo.id] = {"clean": count == 0, "count": count, "offline": False}
+        self.status[repo.id] = {"clean": count == 0, "count": count,
+                                "offline": False, "branch": branch}
         return changed
 
     def _backfill_commits (self, repo: RepoConfig) -> None:

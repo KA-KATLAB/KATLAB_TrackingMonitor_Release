@@ -3,8 +3,10 @@ import { api, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
 import { buildFileTree } from "./fileTree";
 import { CommandPalette, PaletteEntry } from "./CommandPalette";
 import { exportDigest } from "./digest";
-import { fmtRel, fmtTs } from "./format";
+import { SessionTimeline } from "./SessionTimeline";
+import { fmtAge, fmtMinutes, fmtRel, fmtTs } from "./format";
 import { notifyPickNeeded, notifyStatusChange, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
+import { StatsData } from "./charts";
 import { useReveal } from "./reveal";
 import { MODE_BADGE, MODE_COLOR, SWEPT_COLOR, sessionColor } from "./theme";
 import { connectWs } from "./ws";
@@ -26,11 +28,33 @@ export default function App () {
   const [showLegend, setShowLegend] = useState(false);
   const [taskFilter, setTaskFilter] = useState<string | null>(null); // X4: "repo|task_ref"
   const [sessionFilter, setSessionFilter] = useState<string | null>(null); // v0.1.5.0 D1 (RV3: App-level)
+  const [timelineSession, setTimelineSession] = useState<string | null>(null); // v0.1.6.0 D3 (C.3)
   // v0.1.5.0 D6 (D.2, RV3): groupMode LIFTED from ChangesView so the
   // palette's tree-toggle action can reach it (same behavior, prop-drilled).
   const [groupMode, setGroupMode] = useState<"task" | "folder">("task");
   const [, setTick] = useState(0);
   const [statsNonce, setStatsNonce] = useState(0); // R12: bumped only on a real sync
+  // v0.1.6.0 D1 (C.1, RV1): the stats fetch LIVES HERE now — lifted from
+  // OverviewView (unmounted on Changes, where sidebar/groups need effort).
+  // [tab, statsNonce] keeps the R12 trigger semantics exactly (scope
+  // change + real sync only, never ticks/filters).
+  const [stats, setStats] = useState<StatsData | null>(null);
+  const [statsError, setStatsError] = useState("");
+  useEffect(() => {
+    let alive = true;
+    api.stats(tab === "ALL" ? undefined : tab)
+      .then((s) => { if (alive) { setStats(s); setStatsError(""); } })
+      .catch((e) => alive && setStatsError(String(e)));
+    return () => { alive = false; };
+  }, [tab, statsNonce]);
+  // v0.1.6.0 D1: effort lookup for sidebar cards + task-group headers.
+  const effortByTask = useMemo(() => {
+    const m = new Map<string, { minutes: number; sessions: number }>();
+    for (const e of stats?.effort_per_task ?? []) {
+      m.set(`${e.repo}|${e.task_ref}`, { minutes: e.minutes, sessions: e.sessions });
+    }
+    return m;
+  }, [stats]);
 
   const sync = useCallback(async () => {
     try {
@@ -220,6 +244,8 @@ export default function App () {
       run: () => { setGroupMode(groupMode === "task" ? "folder" : "task"); setView("changes"); } },
     { section: "Actions", label: `OS alerts: turn ${notifyOn ? "off" : "on"}`,
       run: () => { setPanelOpen(true); void toggleNotify(); } },
+    ...(sessionFilter ? [{ section: "Actions", label: "View session timeline",
+      run: () => setTimelineSession(sessionFilter) } as PaletteEntry] : []), // v0.1.6.0 D3
     { section: "Actions", label: "Open Legend", run: () => setShowLegend(true) },
     { section: "Actions", label: "Export daily digest", run: () => void doDigest() },
     { section: "Actions", label: "Clear task + session filters",
@@ -244,7 +270,7 @@ export default function App () {
             <TabButton active={showLegend} onClick={() => setShowLegend(!showLegend)} label="?"
               title="Legend - what every badge and state means" />
             {/* v0.1.5.0 D4 (C.4): the ONE bell — cross-repo triage panel */}
-            <AttentionBell repos={repos} events={events} violationOf={violationOf}
+            <AttentionBell repos={repos} events={events} tasks={tasks} violationOf={violationOf}
               open={panelOpen} onToggle={() => setPanelOpen(!panelOpen)}
               onClose={() => setPanelOpen(false)}
               onNavigate={navigateToRepo}
@@ -274,6 +300,10 @@ export default function App () {
 
       <CommandPalette entries={paletteEntries} /> {/* v0.1.5.0 D6 (D.2) */}
 
+      {timelineSession && ( /* v0.1.6.0 D3 (C.3): static snapshot modal */
+        <SessionTimeline session={timelineSession} onClose={() => setTimelineSession(null)} />
+      )}
+
       {error && (
         <div className="bg-red-900/60 px-4 py-2 text-sm text-red-200">
           Server unreachable: {error} (auto-reconnecting...)
@@ -284,7 +314,8 @@ export default function App () {
         onDismiss={(key) => setDismissedWarnings(new Set(dismissedWarnings).add(key))} />
 
       <div className="flex flex-1 overflow-hidden">
-        <TaskSidebar tasks={visibleTasks} events={events} taskFilter={taskFilter}
+        <TaskSidebar tasks={visibleTasks} events={events} effortByTask={effortByTask}
+          taskFilter={taskFilter}
           onTaskClick={(key) => {
             setTaskFilter(taskFilter === key ? null : key);
             setView("changes");
@@ -306,15 +337,17 @@ export default function App () {
           )}
           {view === "changes" && (
             <ChangesView events={visibleEvents} tasks={visibleTasks} repos={repos}
+              effortByTask={effortByTask}
               taskFilter={taskFilter} onClearFilter={() => setTaskFilter(null)} onPicked={sync}
               sessionFilter={sessionFilter} onClearSessionFilter={() => setSessionFilter(null)}
               onSessionClick={(id) => setSessionFilter(sessionFilter === id ? null : id)}
+              onOpenTimeline={(id) => setTimelineSession(id)}
               groupMode={groupMode} onGroupModeChange={setGroupMode} />
           )}
           {view === "overview" && (
             <OverviewView scope={tab === "ALL" ? undefined : tab} tasks={visibleTasks}
               uncommitted={visibleEvents} repos={visibleRepos.filter((r) => !r.offline)}
-              refreshKey={statsNonce} />
+              stats={stats} statsError={statsError} />
           )}
           {view === "history" && <HistoryView repos={visibleRepos.filter((r) => !r.offline)} />}
         </main>
@@ -345,6 +378,13 @@ function StatusBar ({ repos, violationOf }:
         return (
           <div key={r.id} className="flex items-center gap-2 rounded bg-slate-800 px-3 py-1 text-sm">
             <span className="font-medium">{r.id}</span>
+            {/* v0.1.6.0 D2 (C.2): current-branch chip; absent when null */}
+            {r.branch && (
+              <span className="rounded bg-slate-700 px-1.5 py-0.5 text-[11px] text-slate-300"
+                title="current git branch">
+                &#x2387; {r.branch}
+              </span>
+            )}
             {r.offline ? (
               <span className="rounded bg-zinc-600 px-2 py-0.5 text-xs font-bold">OFFLINE</span>
             ) : r.clean ? (
@@ -417,12 +457,18 @@ function WarningsBanner ({ repos, dismissed, onDismiss }:
 const SWEPT_TIP = "swept — attached to HEAD when the repo went CLEAN (file not in that commit's list)";
 const swatch = "rounded px-1.5 py-0.5 text-[11px] font-bold text-white";
 
+// v0.1.6.0 D4 (C.4): nudge thresholds — frontend constants this release.
+const IDLE_TASK_H = 24;
+const UNCOMMITTED_AGE_H = 48;
+const olderThanH = (iso: string, hours: number) =>
+  Date.now() - new Date(iso).getTime() > hours * 3_600_000;
+
 // v0.1.5.0 D4 (C.4): attention bell + cross-repo triage dropdown. Rows are
 // PER-REPO and unscoped — Σ(rows) equals the ALL-tab KPI/queue N (RV26).
 // Badge counts ACTIONABLE items only; "N uncommitted" is informational.
 // The footer slot hosts the D5 "OS alerts" toggle (D.1).
-function AttentionBell ({ repos, events, violationOf, open, onToggle, onClose, onNavigate, footer }: {
-  repos: Repo[]; events: TrackedEvent[];
+function AttentionBell ({ repos, events, tasks, violationOf, open, onToggle, onClose, onNavigate, footer }: {
+  repos: Repo[]; events: TrackedEvent[]; tasks: Task[]; // tasks: v0.1.6.0 D4 (RV14)
   violationOf: (repoId: string) => number | null;
   open: boolean; onToggle: () => void; onClose: () => void;
   onNavigate: (repoId: string, scrollToPicks: boolean) => void;
@@ -452,7 +498,18 @@ function AttentionBell ({ repos, events, violationOf, open, onToggle, onClose, o
     if (violation !== null) actionable.push(`discipline: ${violation} in-progress`);
     if (r.offline) actionable.push("OFFLINE");
     if (!r.offline && !r.last_event_ts && !r.clean) actionable.push("no capture yet");
-    return { repo: r.id, picks, actionable, uncommitted: r.count };
+    // v0.1.6.0 D4 (C.4): rhythm nudges — both ACTIONABLE (badge-counted).
+    // Null fields never nag; ages via fmtAge (fmtRel cannot say 2d — RV16).
+    for (const t of tasks) {
+      if (t.repo === r.id && t.status === "in-progress" && t.last_event_ts &&
+          olderThanH(t.last_event_ts, IDLE_TASK_H)) {
+        actionable.push(`${t.task_id} in-progress idle ${fmtAge(t.last_event_ts)}`);
+      }
+    }
+    if (r.oldest_uncommitted_ts && olderThanH(r.oldest_uncommitted_ts, UNCOMMITTED_AGE_H)) {
+      actionable.push(`uncommitted for ${fmtAge(r.oldest_uncommitted_ts)}`);
+    }
+    return { repo: r.id, picks, actionable, uncommitted: r.count, branch: r.branch };
   });
   const badge = rows.reduce((n, row) => n + row.actionable.length, 0);
 
@@ -484,6 +541,7 @@ function AttentionBell ({ repos, events, violationOf, open, onToggle, onClose, o
                 )}
                 <div className="mt-0.5 text-slate-400">
                   {row.uncommitted} uncommitted change{row.uncommitted === 1 ? "" : "s"}
+                  {row.branch ? <> {" · ⎇ "}{row.branch}</> : null} {/* v0.1.6.0 D2 */}
                 </div>
               </button>
             ))}
@@ -579,8 +637,24 @@ const TASK_CHIP: Record<string, { text: string; cls: string; tip: string }> = {
     tip: "Task marked done but some of its changes are not committed yet" },
 };
 
-function TaskSidebar ({ tasks, events, taskFilter, onTaskClick }:
-  { tasks: Task[]; events: TrackedEvent[]; taskFilter: string | null; onTaskClick: (key: string) => void }) {
+// v0.1.6.0 D1 (C.1): one effort line for sidebar cards + group headers —
+// fmtMinutes carries the ≈; sessions part hidden when 0; absent when the
+// task is outside the top-10 effort_per_task (no client re-computation).
+type EffortMap = Map<string, { minutes: number; sessions: number }>;
+function EffortLine ({ effort }: { effort?: { minutes: number; sessions: number } }) {
+  if (!effort) return null;
+  return (
+    <span className="text-[11px] text-slate-400"
+      title="estimated from capture timestamps — 15-min gap rule">
+      {fmtMinutes(effort.minutes)}
+      {effort.sessions > 0 ? ` · ${effort.sessions} session${effort.sessions === 1 ? "" : "s"}` : ""}
+    </span>
+  );
+}
+
+function TaskSidebar ({ tasks, events, effortByTask, taskFilter, onTaskClick }:
+  { tasks: Task[]; events: TrackedEvent[]; effortByTask: EffortMap;
+    taskFilter: string | null; onTaskClick: (key: string) => void }) {
   const [showAll, setShowAll] = useState(false);
   const [doneOpen, setDoneOpen] = useState(false);
 
@@ -625,7 +699,7 @@ function TaskSidebar ({ tasks, events, taskFilter, onTaskClick }:
         <p className="text-xs text-slate-400">No tasks — author a plan in temp/Plan/.</p>
       )}
       {activeGroups.map(([key, list]) => (
-        <PlanGroup key={key} list={list} uncommitted={uncommitted}
+        <PlanGroup key={key} list={list} uncommitted={uncommitted} effortByTask={effortByTask}
           taskFilter={taskFilter} onTaskClick={onTaskClick} />
       ))}
       {showAll && doneGroups.length > 0 && (
@@ -635,7 +709,7 @@ function TaskSidebar ({ tasks, events, taskFilter, onTaskClick }:
             {doneOpen ? "▾" : "▸"} Done ({doneGroups.length} plan{doneGroups.length === 1 ? "" : "s"})
           </button>
           {doneOpen && doneGroups.map(([key, list]) => (
-            <PlanGroup key={key} list={list} uncommitted={uncommitted}
+            <PlanGroup key={key} list={list} uncommitted={uncommitted} effortByTask={effortByTask}
               taskFilter={taskFilter} onTaskClick={onTaskClick} />
           ))}
         </div>
@@ -655,8 +729,9 @@ function FilterChip ({ active, label, onClick }:
   );
 }
 
-function PlanGroup ({ list, uncommitted, taskFilter, onTaskClick }:
-  { list: Task[]; uncommitted: Map<string, number>; taskFilter: string | null;
+function PlanGroup ({ list, uncommitted, effortByTask, taskFilter, onTaskClick }:
+  { list: Task[]; uncommitted: Map<string, number>; effortByTask: EffortMap;
+    taskFilter: string | null;
     onTaskClick: (key: string) => void }) {
   const doneCount = list.filter((t) => t.status === "done").length;
   const first = list[0];
@@ -687,6 +762,7 @@ function PlanGroup ({ list, uncommitted, taskFilter, onTaskClick }:
               <span className="text-xs font-semibold text-sky-300">{t.task_id}</span>
             </div>
             <div className="mt-1 text-xs text-slate-200">{t.title}</div>
+            <EffortLine effort={effortByTask.get(key)} /> {/* v0.1.6.0 D1 */}
             {count > 0 && (
               <div className="mt-0.5 text-[11px] text-amber-300">
                 {count} uncommitted change{count === 1 ? "" : "s"}
@@ -699,12 +775,14 @@ function PlanGroup ({ list, uncommitted, taskFilter, onTaskClick }:
   );
 }
 
-function ChangesView ({ events, tasks, repos, taskFilter, onClearFilter, onPicked,
-  sessionFilter, onClearSessionFilter, onSessionClick, groupMode, onGroupModeChange }:
-  { events: TrackedEvent[]; tasks: Task[]; repos: Repo[]; taskFilter: string | null;
+function ChangesView ({ events, tasks, repos, effortByTask, taskFilter, onClearFilter, onPicked,
+  sessionFilter, onClearSessionFilter, onSessionClick, onOpenTimeline, groupMode, onGroupModeChange }:
+  { events: TrackedEvent[]; tasks: Task[]; repos: Repo[]; effortByTask: EffortMap;
+    taskFilter: string | null;
     onClearFilter: () => void; onPicked: () => void;
     sessionFilter: string | null; onClearSessionFilter: () => void;
     onSessionClick: (id: string) => void;
+    onOpenTimeline: (id: string) => void; // v0.1.6.0 D3 (C.3)
     // D6 (v0.1.4.0): "by task | by folder" — swaps ONLY the grouped section.
     // v0.1.5.0 D.2 (RV3): state lifted to App for the palette action.
     groupMode: "task" | "folder"; onGroupModeChange: (m: "task" | "folder") => void }) {
@@ -800,6 +878,9 @@ function ChangesView ({ events, tasks, repos, taskFilter, onClearFilter, onPicke
                         style={{ backgroundColor: sessionColor(sessionFilter) }} />
                       session: {sessionFilter.slice(0, 8)}
                     </span>
+                    {/* v0.1.6.0 D3 (C.3): the timeline opener lives on the chip */}
+                    <button onClick={() => onOpenTimeline(sessionFilter)}
+                      className="text-sky-400 hover:underline">timeline</button>
                     <button onClick={onClearSessionFilter} className="text-sky-400 hover:underline">✕ clear</button>
                   </>
                 )}
@@ -820,7 +901,8 @@ function ChangesView ({ events, tasks, repos, taskFilter, onClearFilter, onPicke
                   <TaskGroup refLabel={ref} repoId={group[0].repo_id} group={group}
                     why={task?.why} repos={repos}
                     planFileSet={planFilesByRepo.get(group[0].repo_id)}
-                    onSessionClick={onSessionClick} />
+                    onSessionClick={onSessionClick}
+                    effort={effortByTask.get(key)} />
                 </div>
               );
             })}
@@ -915,10 +997,11 @@ function FolderView ({ events }: { events: TrackedEvent[] }) {
 }
 
 // D8: plan-file edits collapse to one expandable line inside each group.
-function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet, onSessionClick }:
+function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet, onSessionClick, effort }:
   { refLabel: string; repoId: string; group: TrackedEvent[]; why?: string;
     repos: Repo[]; planFileSet?: Set<string>;
-    onSessionClick?: (id: string) => void }) {
+    onSessionClick?: (id: string) => void;
+    effort?: { minutes: number; sessions: number } }) {
   const [showPlanEdits, setShowPlanEdits] = useState(false);
   const planEdits = group.filter((e) => planFileSet?.has(e.file));
   const normal = group.filter((e) => !planFileSet?.has(e.file));
@@ -928,6 +1011,7 @@ function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet, onSessio
         {/* F48: task-ref link "<plan filename> - <task id>" */}
         <span className="font-mono text-sm font-semibold text-sky-300">{refLabel}</span>
         <span className="text-[11px] text-slate-500">{repoId}</span>
+        <EffortLine effort={effort} /> {/* v0.1.6.0 D1 (C.1) */}
       </div>
       {why && <p className="mt-1 text-xs text-slate-400">Why: {why}</p>}
       <div className="mt-2 space-y-1">
@@ -1072,6 +1156,9 @@ function EventRow ({ event, repos, showRef, onSessionClick }:
     onSessionClick?: (id: string) => void }) {
   const [diff, setDiff] = useState<string | null>(null);
   const online = repos.some((r) => r.id === event.repo_id && !r.offline);
+  // v0.1.6.0 D2 (C.2, RV14): differs-suffix - only when BOTH branches are
+  // known AND differ (the different-branch signal, never same-branch noise).
+  const repoBranch = repos.find((r) => r.id === event.repo_id)?.branch;
   return (
     <div className="rounded bg-slate-800/60 px-2 py-1">
       <div className="flex items-center gap-2 text-xs">
@@ -1083,6 +1170,12 @@ function EventRow ({ event, repos, showRef, onSessionClick }:
         <SessionDot id={event.session_id}
           onClick={onSessionClick && event.session_id
             ? () => onSessionClick(event.session_id!) : undefined} />
+        {event.branch && repoBranch && event.branch !== repoBranch && (
+          <span className="text-[11px] text-amber-300/80"
+            title="captured on a different branch than the repo is on now">
+            &#x2387; {event.branch}
+          </span>
+        )}
         <span className="text-[11px] text-slate-400" title={event.ts}>
           {event.tool} · {fmtRel(event.ts)}
         </span>

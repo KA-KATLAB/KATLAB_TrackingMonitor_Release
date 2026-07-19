@@ -167,11 +167,15 @@ def main () -> None:
     # DETERMINISTICALLY (index modulo) across ALL generated lines - the
     # spread AND the burst - so dots, the session filter and the digest's
     # "sessions today" demo out of the box.
+    # v0.1.6.0 D2 (A.2): uniform "branch": "main" on every line — the
+    # server-side current-branch on the demo repo reads the ENCLOSING
+    # tracker repo via the RV5 ascent (documented in the v0.1.6.0 plan D2).
     with open(tracking / "events.jsonl", "w", encoding="utf-8") as handle:
         for i, (ts, tool, file) in enumerate(spread):
             handle.write(json.dumps(
                 {"v": 1, "ts": ts, "tool": tool, "file": file,
-                 "session_id": DEMO_SESSIONS[i % len(DEMO_SESSIONS)]}) + "\n")
+                 "session_id": DEMO_SESSIONS[i % len(DEMO_SESSIONS)],
+                 "branch": "main"}) + "\n")
 
     # CFT-13: port 8101 - the demo must coexist with a real tracker on 8100.
     config = RUNTIME / "repos.demo.yaml"

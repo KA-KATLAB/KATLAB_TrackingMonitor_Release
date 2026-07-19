@@ -5,6 +5,7 @@
 // buckets are UTC (UF4's local rule applies to timestamps, not day buckets).
 
 import { StatsData } from "./charts";
+import { fmtMinutes } from "./format";
 
 type CalDay = StatsData["activity_calendar"][number];
 
@@ -66,7 +67,9 @@ export function CalendarHeatmap ({ calendar }: { calendar: CalDay[] }) {
         {weeks.map((week, wi) => week.map((c, di) => c && (
           <g key={c.day}>
             <title>
-              {`${c.day} (UTC) — ${c.events} event${c.events === 1 ? "" : "s"} · ${c.commits} commit${c.commits === 1 ? "" : "s"}`}
+              {/* v0.1.6.0 D1 (C.1, RV13): effort only when > 0 — 300+ zero
+                  days must never all read "≈ 0m" (corner-dot precedent). */}
+              {`${c.day} (UTC) — ${c.events} event${c.events === 1 ? "" : "s"} · ${c.commits} commit${c.commits === 1 ? "" : "s"}${c.minutes > 0 ? ` · ${fmtMinutes(c.minutes)}` : ""}`}
             </title>
             <rect x={LEFT + wi * STEP} y={TOP + di * STEP} width={CELL} height={CELL}
               rx={2} fill={RAMP[bucket(c.events)]} />

@@ -67,6 +67,16 @@ def head_hash (repo: Path) -> str:
     return _run(repo, "rev-parse", "HEAD").strip()
 
 
+def current_branch (repo: Path) -> str:
+    """v0.1.6.0 D2 (B.2): current branch via rev-parse --abbrev-ref HEAD
+    (read-only, blessed above). Detached HEAD reports "HEAD" - fall back
+    to the short hash so the UI still shows WHERE the repo sits."""
+    name = _run(repo, "rev-parse", "--abbrev-ref", "HEAD").strip()
+    if name == "HEAD":
+        return head_hash(repo)[:8]
+    return name
+
+
 def _to_utc_z (iso_with_offset: str) -> str:
     dt = datetime.fromisoformat(iso_with_offset.strip())
     return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
