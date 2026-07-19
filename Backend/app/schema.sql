@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS events (
     mode            TEXT NOT NULL,      -- B|A_SCOPED|A_GLOBAL|AMBIGUOUS|UNKNOWN|MANUAL
     candidates_json TEXT,               -- F12: AMBIGUOUS pick list
     commit_hash     TEXT,               -- linked commit or NULL (uncommitted)
-    swept           INTEGER NOT NULL DEFAULT 0  -- F9: 1 = linked indirectly at CLEAN
+    swept           INTEGER NOT NULL DEFAULT 0, -- F9: 1 = linked indirectly at CLEAN
+    session_id      TEXT                -- v0.1.5.0 D1: Claude session (NULL = pre-upgrade/unknown)
 );
 
 CREATE TABLE IF NOT EXISTS commits (

@@ -39,6 +39,12 @@ def get_conn () -> sqlite3.Connection:
 def init_db (repos: list) -> None:
     conn = get_conn()
     conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+    # v0.1.5.0 D1 (A.2): additive migration for pre-v0.1.5.0 databases -
+    # CREATE IF NOT EXISTS above never alters an existing events table.
+    # Idempotent: PRAGMA-guarded, runs once per database lifetime.
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(events)")}
+    if "session_id" not in columns:
+        conn.execute("ALTER TABLE events ADD COLUMN session_id TEXT")
     for repo in repos:
         conn.execute(
             "INSERT INTO repos (id, name, path) VALUES (?, ?, ?) "
@@ -88,10 +94,11 @@ def insert_events_with_offset (repo_id: str, events: list[dict], new_offset: int
     with conn:
         for e in events:
             cur = conn.execute(
-                "INSERT INTO events (repo_id, ts, tool, file, task_ref, mode, candidates_json) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO events (repo_id, ts, tool, file, task_ref, mode, candidates_json, session_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (repo_id, e["ts"], e["tool"], e["file"], e.get("task_ref"),
-                 e["mode"], json.dumps(e["candidates"]) if e.get("candidates") else None),
+                 e["mode"], json.dumps(e["candidates"]) if e.get("candidates") else None,
+                 e.get("session_id")),
             )
             ids.append(cur.lastrowid)
         conn.execute(
@@ -232,7 +239,8 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
     if not repo_ids:
         return {"mode_counts": {m: 0 for m in ALL_MODES},
                 "events_per_task": [],
-                "activity_daily": _empty_daily(now_iso)}
+                "activity_daily": _empty_daily(now_iso),
+                "activity_calendar": _empty_calendar(now_iso)}  # RV28: fixed shape
     placeholders = ",".join("?" * len(repo_ids))
 
     # mode_counts: zero-filled to all 6 (R1)
@@ -267,8 +275,25 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
         for i in range(13, -1, -1)
     ]
 
+    # v0.1.5.0 D2 (B.1): 365-day calendar - events reuse raw_days (already a
+    # full-table day GROUP BY); commits bucketed identically. Zero-filled,
+    # oldest->newest, UTC days. Present in BOTH return paths (RV28).
+    raw_commit_days = {
+        r["d"]: r["c"]
+        for r in conn.execute(
+            f"SELECT substr(ts, 1, 10) d, COUNT(*) c FROM commits "
+            f"WHERE repo_id IN ({placeholders}) GROUP BY d", repo_ids)
+    }
+    activity_calendar = [
+        {"day": (day := (today - timedelta(days=i)).isoformat()),
+         "events": raw_days.get(day, 0),
+         "commits": raw_commit_days.get(day, 0)}
+        for i in range(364, -1, -1)
+    ]
+
     return {"mode_counts": mode_counts, "events_per_task": events_per_task,
-            "activity_daily": activity_daily}
+            "activity_daily": activity_daily,
+            "activity_calendar": activity_calendar}
 
 
 def _empty_daily (now_iso: str) -> list[dict]:
@@ -276,6 +301,15 @@ def _empty_daily (now_iso: str) -> list[dict]:
     today = datetime.fromisoformat(now_iso.replace("Z", "+00:00")).date()
     return [{"day": (today - timedelta(days=i)).isoformat(), "count": 0}
             for i in range(13, -1, -1)]
+
+
+def _empty_calendar (now_iso: str) -> list[dict]:
+    """v0.1.5.0 B.1 (RV28): zero-filled 365-day shape for the empty scope."""
+    from datetime import datetime, timedelta
+    today = datetime.fromisoformat(now_iso.replace("Z", "+00:00")).date()
+    return [{"day": (today - timedelta(days=i)).isoformat(),
+             "events": 0, "commits": 0}
+            for i in range(364, -1, -1)]
 
 
 def get_history (repo_id: str, limit: int = 500, offset: int = 0) -> list[dict]:

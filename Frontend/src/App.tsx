@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
 import { buildFileTree } from "./fileTree";
+import { CommandPalette, PaletteEntry } from "./CommandPalette";
+import { exportDigest } from "./digest";
 import { fmtRel, fmtTs } from "./format";
+import { notifyPickNeeded, notifyStatusChange, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
 import { useReveal } from "./reveal";
-import { MODE_COLOR, SWEPT_COLOR } from "./theme";
+import { MODE_BADGE, MODE_COLOR, SWEPT_COLOR, sessionColor } from "./theme";
 import { connectWs } from "./ws";
 import { OverviewView } from "./OverviewView";
 
@@ -22,6 +25,10 @@ export default function App () {
   const [error, setError] = useState<string>("");
   const [showLegend, setShowLegend] = useState(false);
   const [taskFilter, setTaskFilter] = useState<string | null>(null); // X4: "repo|task_ref"
+  const [sessionFilter, setSessionFilter] = useState<string | null>(null); // v0.1.5.0 D1 (RV3: App-level)
+  // v0.1.5.0 D6 (D.2, RV3): groupMode LIFTED from ChangesView so the
+  // palette's tree-toggle action can reach it (same behavior, prop-drilled).
+  const [groupMode, setGroupMode] = useState<"task" | "folder">("task");
   const [, setTick] = useState(0);
   const [statsNonce, setStatsNonce] = useState(0); // R12: bumped only on a real sync
 
@@ -54,9 +61,31 @@ export default function App () {
     const close = connectWs((msg) => {
       if (msg.type === "event_resolved" || msg.type === "commit_detected") debouncedSync();
       if (msg.type === "task_updated" || msg.type === "warning") debouncedSync();
+      if (msg.type === "event_resolved") {
+        // v0.1.5.0 D3 (C.3): a live queue-lander arms the guard banner —
+        // rendered only while the repo is actually violating (see render).
+        const d = msg.data as { repo_id?: string; mode?: string };
+        if (d.repo_id && (d.mode === "UNKNOWN" || d.mode === "AMBIGUOUS")) {
+          setGuardEvent({ repo: d.repo_id });
+          // D5 trigger (1): coalesced pick-needed notification (hidden tab only)
+          const repo = d.repo_id;
+          notifyPickNeeded(repo, () => navigateToRepo(repo, true));
+        }
+      }
       if (msg.type === "repo_status_changed") {
         const d = msg.data as { repo: string; clean: boolean; count: number; offline: boolean };
+        // D5 trigger (2): dirty->CLEAN — transition map lives in notify.ts
+        // (RV9: never notify from inside the setRepos updater below).
+        notifyStatusChange(d.repo, d.clean, () => navigateToRepo(d.repo, false));
         setRepos((prev) => prev.map((r) => (r.id === d.repo ? { ...r, ...d } : r)));
+      }
+      if (msg.type === "warning") {
+        // D5 trigger (3): server warning (hidden tab only)
+        const d = msg.data as { repo?: string; message?: string };
+        if (d.repo && d.message) {
+          const repo = d.repo;
+          notifyWarning(repo, d.message, () => navigateToRepo(repo, false));
+        }
       }
     }, sync);
     return () => {
@@ -72,11 +101,130 @@ export default function App () {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => setTaskFilter(null), [tab]); // a filter never outlives its tab
+  useEffect(() => {
+    // X4 + v0.1.5.0 RV14/RV18: REPO-AWARE reset — keep the task filter when
+    // its embedded repo (key prefix) matches the destination tab (a palette
+    // cross-tab pick sets tab+filter together and must survive the effect;
+    // ALL -> own-repo manual switches now keep it too — expected, V12).
+    setTaskFilter((prev) => (prev && prev.split("|")[0] === tab ? prev : null));
+    // RV8: sessions are not repo-scoped — the session filter always resets.
+    setSessionFilter(null);
+  }, [tab]);
+
+  // v0.1.5.0 D3 (C.3): per-repo discipline state — armed = repo has parsed
+  // tasks (zero-task repos never nag); violation = in-progress count != 1.
+  // Derived at render time from live tasks, so a task_updated re-sync
+  // clears the chip/banner the moment statuses are fixed.
+  const taskStats = useMemo(() => {
+    const m = new Map<string, { total: number; inProgress: number }>();
+    for (const t of tasks) {
+      const s = m.get(t.repo) ?? { total: 0, inProgress: 0 };
+      s.total += 1;
+      if (t.status === "in-progress") s.inProgress += 1;
+      m.set(t.repo, s);
+    }
+    return m;
+  }, [tasks]);
+  const violationOf = useCallback((repoId: string): number | null => {
+    const s = taskStats.get(repoId);
+    if (!s || s.total === 0) return null; // not armed
+    return s.inProgress === 1 ? null : s.inProgress;
+  }, [taskStats]);
+  // Banner slot (D3): set by a live queue-lander WS event on a violating
+  // repo; dismiss hides it; the next qualifying event re-arms it. Rendered
+  // conditionally on the CURRENT violation, so fixing the plan clears it.
+  const [guardEvent, setGuardEvent] = useState<{ repo: string } | null>(null);
+
+  // v0.1.5.0 D4 (C.4) + RV23: cross-view navigation with a DEFERRED scroll —
+  // the sec-pick anchor exists only after ChangesView mounts. v0.1.5.0 CFT-5
+  // (bare CFT-N elsewhere in this file = the v0.1.0.0 loop): pending
+  // scroll is STATE, not a ref — a ref mutation never re-renders, so when
+  // every other setState in the path bails out (palette jump while already
+  // on Changes; notification click while already on that repo's tab) the
+  // ref stayed armed and fired as a phantom scroll on the next unrelated
+  // render. Consumed + ALWAYS cleared by the effect (no phantom scroll
+  // later when the anchor is absent).
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [pendingScroll, setPendingScroll] = useState<string | null>(null);
+  useEffect(() => {
+    if (view !== "changes" || !pendingScroll) return;
+    const id = pendingScroll;
+    setPendingScroll(null);
+    requestAnimationFrame(() =>
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [view, pendingScroll]);
+  const navigateToRepo = useCallback((repoId: string, scrollToPicks: boolean) => {
+    setTab(repoId);
+    setView("changes");
+    if (scrollToPicks) setPendingScroll("sec-pick");
+    setPanelOpen(false);
+  }, []);
+
+  // v0.1.5.0 D5 (D.1): OS-notification toggle — lives in the attention
+  // panel FOOTER (user 2026-07-19: one bell in the header). RV21: any
+  // non-granted permission snaps it back off with an inline note.
+  const [notifyOn, setNotifyOn] = useState(notifyWanted());
+  const [notifyNote, setNotifyNote] = useState("");
+  const toggleNotify = useCallback(async () => {
+    const next = !notifyOn;
+    const granted = await setNotifyEnabled(next);
+    setNotifyOn(granted);
+    setNotifyNote(next && !granted ? "permission denied/dismissed — alerts stay off" : "");
+  }, [notifyOn]);
+
+  // v0.1.5.0 D7 (D.3): digest export — a fetch failure ABORTS with an
+  // inline note next to the button; nothing downloads (RV20).
+  const [digestNote, setDigestNote] = useState("");
+  const doDigest = useCallback(async () => {
+    setDigestNote("exporting…");
+    const scope = tab === "ALL" ? undefined : tab;
+    try {
+      await exportDigest(scope,
+        scope ? repos.filter((r) => r.id === scope) : repos,
+        scope ? tasks.filter((t) => t.repo === scope) : tasks,
+        scope ? events.filter((e) => e.repo_id === scope) : events);
+      setDigestNote("");
+    } catch (exc) {
+      setDigestNote(`digest failed (${String(exc).slice(0, 60)}) — nothing downloaded`);
+    }
+  }, [tab, repos, tasks, events]);
 
   const visibleRepos = tab === "ALL" ? repos : repos.filter((r) => r.id === tab);
   const visibleTasks = tab === "ALL" ? tasks : tasks.filter((t) => t.repo === tab);
   const visibleEvents = tab === "ALL" ? events : events.filter((e) => e.repo_id === tab);
+
+  // v0.1.5.0 D6 (D.2): palette entries — views, ALL+repo tabs, tasks (X4
+  // filter + tab switch, RV14), actions. The tree toggle also lands on
+  // Changes and the alerts toggle opens the panel (RV29 visible-effect);
+  // "jump to pick queue" uses the RV23 deferred scroll.
+  const paletteEntries: PaletteEntry[] = [
+    { section: "Views", label: "Changes", run: () => setView("changes") },
+    { section: "Views", label: "Overview", run: () => setView("overview") },
+    { section: "Views", label: "History", run: () => setView("history") },
+    { section: "Repos", label: "ALL repos", run: () => setTab("ALL") },
+    ...repos.map((r): PaletteEntry => ({
+      section: "Repos", label: r.id, hint: r.clean ? "CLEAN ✓" : `${r.count} uncommitted`,
+      run: () => setTab(r.id),
+    })),
+    ...tasks.map((t): PaletteEntry => ({
+      section: "Tasks", label: `${t.task_ref} ${t.title}`, hint: t.repo,
+      run: () => { // RV14: tab + filter together — the repo-aware reset keeps it
+        setTab(t.repo);
+        setTaskFilter(`${t.repo}|${t.task_ref}`);
+        setView("changes");
+      },
+    })),
+    { section: "Actions", label: "Jump to pick queue",
+      run: () => { setView("changes"); setPendingScroll("sec-pick"); } },
+    { section: "Actions", label: "Toggle by task / by folder",
+      run: () => { setGroupMode(groupMode === "task" ? "folder" : "task"); setView("changes"); } },
+    { section: "Actions", label: `OS alerts: turn ${notifyOn ? "off" : "on"}`,
+      run: () => { setPanelOpen(true); void toggleNotify(); } },
+    { section: "Actions", label: "Open Legend", run: () => setShowLegend(true) },
+    { section: "Actions", label: "Export daily digest", run: () => void doDigest() },
+    { section: "Actions", label: "Clear task + session filters",
+      run: () => { setTaskFilter(null); setSessionFilter(null); } },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -95,12 +243,36 @@ export default function App () {
             <TabButton active={view === "history"} onClick={() => setView("history")} label="History" />
             <TabButton active={showLegend} onClick={() => setShowLegend(!showLegend)} label="?"
               title="Legend - what every badge and state means" />
+            {/* v0.1.5.0 D4 (C.4): the ONE bell — cross-repo triage panel */}
+            <AttentionBell repos={repos} events={events} violationOf={violationOf}
+              open={panelOpen} onToggle={() => setPanelOpen(!panelOpen)}
+              onClose={() => setPanelOpen(false)}
+              onNavigate={navigateToRepo}
+              footer={
+                /* v0.1.5.0 D5 (D.1): the OS-alert switch lives HERE — one
+                   bell in the header (user 2026-07-19). */
+                <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-700 pt-2">
+                  <span className="text-slate-400">OS alerts (hidden tab only):</span>
+                  <button onClick={() => void toggleNotify()}
+                    className={`rounded px-2 py-0.5 text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+                      notifyOn ? "bg-emerald-700 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+                    {notifyOn ? "on" : "off"}
+                  </button>
+                  {notifyNote && <span className="text-amber-300">{notifyNote}</span>}
+                </div>
+              } />
+            {/* v0.1.5.0 D7 (D.3): daily digest export (RV20 inline note) */}
+            <TabButton active={false} onClick={() => void doDigest()} label="Digest ↓"
+              title="Export today's changes as one self-contained HTML file" />
+            {digestNote && <span className="self-center text-[11px] text-amber-300">{digestNote}</span>}
           </div>
         </div>
-        <StatusBar repos={visibleRepos} />
+        <StatusBar repos={visibleRepos} violationOf={violationOf} />
       </header>
 
       {showLegend && <Legend onClose={() => setShowLegend(false)} />}
+
+      <CommandPalette entries={paletteEntries} /> {/* v0.1.5.0 D6 (D.2) */}
 
       {error && (
         <div className="bg-red-900/60 px-4 py-2 text-sm text-red-200">
@@ -118,9 +290,26 @@ export default function App () {
             setView("changes");
           }} />
         <main className="flex-1 overflow-y-auto p-4">
+          {/* v0.1.5.0 D3 (C.3): guard banner — shows only while the repo is
+              STILL violating (task_updated re-sync clears it live). */}
+          {view === "changes" && guardEvent && violationOf(guardEvent.repo) !== null && (
+            <div className="mb-4 flex flex-wrap items-center gap-2 rounded border border-amber-600 bg-amber-900/40 px-3 py-2 text-sm text-amber-200">
+              <span className="font-bold">⚠ {guardEvent.repo}:</span>
+              <span>
+                {violationOf(guardEvent.repo)} task{violationOf(guardEvent.repo) === 1 ? "" : "s"} in-progress
+                — this change landed in the pick queue. Fix plan statuses
+                (Docs/Tracking_Discipline.md).
+              </span>
+              <button className="ml-auto text-amber-400 hover:text-white"
+                onClick={() => setGuardEvent(null)}>✕</button>
+            </div>
+          )}
           {view === "changes" && (
             <ChangesView events={visibleEvents} tasks={visibleTasks} repos={repos}
-              taskFilter={taskFilter} onClearFilter={() => setTaskFilter(null)} onPicked={sync} />
+              taskFilter={taskFilter} onClearFilter={() => setTaskFilter(null)} onPicked={sync}
+              sessionFilter={sessionFilter} onClearSessionFilter={() => setSessionFilter(null)}
+              onSessionClick={(id) => setSessionFilter(sessionFilter === id ? null : id)}
+              groupMode={groupMode} onGroupModeChange={setGroupMode} />
           )}
           {view === "overview" && (
             <OverviewView scope={tab === "ALL" ? undefined : tab} tasks={visibleTasks}
@@ -145,28 +334,39 @@ function TabButton ({ active, onClick, label, title }:
   );
 }
 
-// Status bar: CLEAN / N uncommitted / OFFLINE (F46) + capture heartbeat (D9).
-function StatusBar ({ repos }: { repos: Repo[] }) {
+// Status bar: CLEAN / N uncommitted / OFFLINE (F46) + capture heartbeat (D9)
+// + v0.1.5.0 D3 discipline micro-chip (absent when exactly 1 in-progress).
+function StatusBar ({ repos, violationOf }:
+  { repos: Repo[]; violationOf: (repoId: string) => number | null }) {
   return (
     <div className="mt-2 flex flex-wrap gap-3">
-      {repos.map((r) => (
-        <div key={r.id} className="flex items-center gap-2 rounded bg-slate-800 px-3 py-1 text-sm">
-          <span className="font-medium">{r.id}</span>
-          {r.offline ? (
-            <span className="rounded bg-zinc-600 px-2 py-0.5 text-xs font-bold">OFFLINE</span>
-          ) : r.clean ? (
-            <span className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-bold">CLEAN ✓</span>
-          ) : (
-            <span className="rounded bg-amber-500 px-2 py-0.5 text-xs font-bold text-slate-950">
-              {r.count} uncommitted change{r.count === 1 ? "" : "s"}
+      {repos.map((r) => {
+        const violation = violationOf(r.id);
+        return (
+          <div key={r.id} className="flex items-center gap-2 rounded bg-slate-800 px-3 py-1 text-sm">
+            <span className="font-medium">{r.id}</span>
+            {r.offline ? (
+              <span className="rounded bg-zinc-600 px-2 py-0.5 text-xs font-bold">OFFLINE</span>
+            ) : r.clean ? (
+              <span className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-bold">CLEAN ✓</span>
+            ) : (
+              <span className="rounded bg-amber-500 px-2 py-0.5 text-xs font-bold text-slate-950">
+                {r.count} uncommitted change{r.count === 1 ? "" : "s"}
+              </span>
+            )}
+            {violation !== null && (
+              <span title="Discipline: keep exactly ONE task in-progress — new undeclared edits will land in the pick queue (Docs/Tracking_Discipline.md)"
+                className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[11px] font-bold text-amber-300">
+                ⚠ {violation} active
+              </span>
+            )}
+            <span className="text-[11px] text-slate-400" title={r.last_event_ts ?? "no captures yet"}>
+              · {r.last_event_ts ? `last capture ${fmtRel(r.last_event_ts)}` : "no captures yet"}
             </span>
-          )}
-          <span className="text-[11px] text-slate-400" title={r.last_event_ts ?? "no captures yet"}>
-            · {r.last_event_ts ? `last capture ${fmtRel(r.last_event_ts)}` : "no captures yet"}
-          </span>
-          <Sparkline buckets={r.activity_buckets} />
-        </div>
-      ))}
+            <Sparkline buckets={r.activity_buckets} />
+          </div>
+        );
+      })}
       {repos.length === 0 && <span className="text-sm text-slate-400">No repos configured.</span>}
     </div>
   );
@@ -211,20 +411,108 @@ function WarningsBanner ({ repos, dismissed, onDismiss }:
   );
 }
 
-// D1 + D5: human labels + technical name in the tooltip (P13). R26: color is
-// applied via INLINE hex from MODE_COLOR (theme.ts) — the SAME hex the Chart.js
-// doughnut uses, so a mode looks identical in badges and charts (true single
-// source; Tailwind classes can't derive from hex at runtime).
-const MODE_BADGE: Record<TrackedEvent["mode"], { label: string; tip: string }> = {
-  B: { label: "Declared", tip: "B — the file is declared by exactly this task's <files>" },
-  A_SCOPED: { label: "Active task", tip: "A_SCOPED — shared file; attributed to the one in-progress match" },
-  A_GLOBAL: { label: "Active task *", tip: "A_GLOBAL — undeclared file; attributed to the repo's single in-progress task" },
-  AMBIGUOUS: { label: "Pick: multi", tip: "AMBIGUOUS — several tasks declare this file, none is the single active one; pick manually" },
-  UNKNOWN: { label: "Pick: none", tip: "UNKNOWN — no task declares this file and there is no single in-progress task; pick manually" },
-  MANUAL: { label: "Your pick", tip: "MANUAL — assigned by you; final, never re-resolved" },
-};
+// D1 + D5 (v0.1.2.0): human labels + technical name in the tooltip (P13).
+// v0.1.5.0 C.1 (RV19): MODE_BADGE lifted to theme.ts — single label source
+// for App AND digest.ts. R26: color stays INLINE hex from MODE_COLOR.
 const SWEPT_TIP = "swept — attached to HEAD when the repo went CLEAN (file not in that commit's list)";
 const swatch = "rounded px-1.5 py-0.5 text-[11px] font-bold text-white";
+
+// v0.1.5.0 D4 (C.4): attention bell + cross-repo triage dropdown. Rows are
+// PER-REPO and unscoped — Σ(rows) equals the ALL-tab KPI/queue N (RV26).
+// Badge counts ACTIONABLE items only; "N uncommitted" is informational.
+// The footer slot hosts the D5 "OS alerts" toggle (D.1).
+function AttentionBell ({ repos, events, violationOf, open, onToggle, onClose, onNavigate, footer }: {
+  repos: Repo[]; events: TrackedEvent[];
+  violationOf: (repoId: string) => number | null;
+  open: boolean; onToggle: () => void; onClose: () => void;
+  onNavigate: (repoId: string, scrollToPicks: boolean) => void;
+  footer: React.ReactNode;
+}) {
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onDown = (e: PointerEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onDown);
+    };
+  }, [open, onClose]);
+
+  const rows = repos.map((r) => {
+    const picks = events.filter((e) =>
+      e.repo_id === r.id && (e.mode === "AMBIGUOUS" || e.mode === "UNKNOWN")).length;
+    const violation = violationOf(r.id);
+    const actionable: string[] = [];
+    if (picks > 0) actionable.push(`${picks} pick${picks === 1 ? "" : "s"} pending`);
+    if (violation !== null) actionable.push(`discipline: ${violation} in-progress`);
+    if (r.offline) actionable.push("OFFLINE");
+    if (!r.offline && !r.last_event_ts && !r.clean) actionable.push("no capture yet");
+    return { repo: r.id, picks, actionable, uncommitted: r.count };
+  });
+  const badge = rows.reduce((n, row) => n + row.actionable.length, 0);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button onClick={onToggle} title="Needs attention — cross-repo triage"
+        className={`relative min-h-[28px] rounded px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+          open ? "bg-sky-700 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}>
+        🔔
+        {badge > 0 && (
+          <span className="absolute -right-1 -top-1 rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-slate-950">
+            {badge}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-30 mt-1 w-80 rounded border border-slate-700 bg-slate-900 p-3 text-xs shadow-xl">
+          <div className="mb-2 text-sm font-bold text-slate-200">Needs attention</div>
+          {badge === 0 && <p className="text-slate-400">All clear ✓</p>}
+          {rows.filter((row) => row.actionable.length > 0 || row.uncommitted > 0)
+            .sort((a, b) => b.actionable.length - a.actionable.length)
+            .map((row) => (
+              <button key={row.repo}
+                onClick={() => onNavigate(row.repo, row.picks > 0)}
+                className="mb-1 w-full rounded bg-slate-800 p-2 text-left hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
+                <div className="font-semibold text-sky-300">{row.repo}</div>
+                {row.actionable.length > 0 && (
+                  <div className="mt-0.5 text-amber-300">{row.actionable.join(" · ")}</div>
+                )}
+                <div className="mt-0.5 text-slate-400">
+                  {row.uncommitted} uncommitted change{row.uncommitted === 1 ? "" : "s"}
+                </div>
+              </button>
+            ))}
+          {footer}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// v0.1.5.0 D1 (C.1): session identity dot — color from sessionColor, short
+// id in the tooltip. NULL session (pre-upgrade rows) -> no dot (honest).
+// Clickable ONLY where a handler is passed (Changes task groups — RV4);
+// History + pick-queue dots stay informational.
+function SessionDot ({ id, onClick }: { id: string | null; onClick?: () => void }) {
+  if (!id) return null;
+  const style = { backgroundColor: sessionColor(id) };
+  if (!onClick) {
+    return <span title={`session ${id.slice(0, 8)}`} style={style}
+      className="inline-block h-2 w-2 shrink-0 rounded-full" />;
+  }
+  return (
+    <button title={`session ${id.slice(0, 8)} — click to filter by this session`}
+      onClick={onClick}
+      className="flex h-4 w-4 shrink-0 items-center justify-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
+      <span className="h-2 w-2 rounded-full" style={style} />
+    </button>
+  );
+}
 
 function ModeBadge ({ mode, swept }: { mode: TrackedEvent["mode"]; swept?: boolean }) {
   const badge = MODE_BADGE[mode];
@@ -411,14 +699,22 @@ function PlanGroup ({ list, uncommitted, taskFilter, onTaskClick }:
   );
 }
 
-function ChangesView ({ events, tasks, repos, taskFilter, onClearFilter, onPicked }:
+function ChangesView ({ events, tasks, repos, taskFilter, onClearFilter, onPicked,
+  sessionFilter, onClearSessionFilter, onSessionClick, groupMode, onGroupModeChange }:
   { events: TrackedEvent[]; tasks: Task[]; repos: Repo[]; taskFilter: string | null;
-    onClearFilter: () => void; onPicked: () => void }) {
-  // D6 (v0.1.4.0): "by task | by folder" — swaps ONLY the grouped section.
-  const [groupMode, setGroupMode] = useState<"task" | "folder">("task");
+    onClearFilter: () => void; onPicked: () => void;
+    sessionFilter: string | null; onClearSessionFilter: () => void;
+    onSessionClick: (id: string) => void;
+    // D6 (v0.1.4.0): "by task | by folder" — swaps ONLY the grouped section.
+    // v0.1.5.0 D.2 (RV3): state lifted to App for the palette action.
+    groupMode: "task" | "folder"; onGroupModeChange: (m: "task" | "folder") => void }) {
   const needsPick = events.filter((e) => e.mode === "AMBIGUOUS" || e.mode === "UNKNOWN");
   useReveal("changes", [events.length]); // D5: stagger task groups, once per session
-  const attributed = events.filter((e) => e.mode !== "AMBIGUOUS" && e.mode !== "UNKNOWN");
+  // v0.1.5.0 D1: the session filter ANDs with the X4 task filter and applies
+  // ONLY to the by-task grouped section — pick queue + tree exempt (P11/R7).
+  const attributed = events.filter((e) =>
+    e.mode !== "AMBIGUOUS" && e.mode !== "UNKNOWN" &&
+    (!sessionFilter || e.session_id === sessionFilter));
   const byTask = useMemo(() => {
     const groups = new Map<string, TrackedEvent[]>();
     for (const e of attributed) {
@@ -426,7 +722,8 @@ function ChangesView ({ events, tasks, repos, taskFilter, onClearFilter, onPicke
       groups.set(key, [...(groups.get(key) ?? []), e]);
     }
     return groups;
-  }, [attributed]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, sessionFilter]);
   const taskByKey = useMemo(
     () => new Map(tasks.map((t) => [`${t.repo}|${t.task_ref}`, t])),
     [tasks],
@@ -477,21 +774,35 @@ function ChangesView ({ events, tasks, repos, taskFilter, onClearFilter, onPicke
               is PER-REPO — an active task filter does not subset it (R7). */}
           <div className="ml-1 flex gap-1">
             <FilterChip active={groupMode === "task"} label="by task"
-              onClick={() => setGroupMode("task")} />
+              onClick={() => onGroupModeChange("task")} />
             <FilterChip active={groupMode === "folder"} label="by folder"
-              onClick={() => setGroupMode("folder")} />
+              onClick={() => onGroupModeChange("folder")} />
           </div>
         </div>
         {groupMode === "folder" ? (
           <FolderView events={events} />
         ) : (
           <>
-            {taskFilter && (
-              <div className="mb-2 flex items-center gap-2 text-xs">
-                <span className="rounded bg-sky-900 px-2 py-0.5 text-sky-200">
-                  filtered: {taskFilter.split("|").slice(1).join("|")}
-                </span>
-                <button onClick={onClearFilter} className="text-sky-400 hover:underline">✕ clear</button>
+            {(taskFilter || sessionFilter) && (
+              <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+                {taskFilter && (
+                  <>
+                    <span className="rounded bg-sky-900 px-2 py-0.5 text-sky-200">
+                      filtered: {taskFilter.split("|").slice(1).join("|")}
+                    </span>
+                    <button onClick={onClearFilter} className="text-sky-400 hover:underline">✕ clear</button>
+                  </>
+                )}
+                {sessionFilter && ( // v0.1.5.0 D1: session filter chip
+                  <>
+                    <span className="flex items-center gap-1.5 rounded bg-slate-800 px-2 py-0.5 text-slate-200">
+                      <span className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: sessionColor(sessionFilter) }} />
+                      session: {sessionFilter.slice(0, 8)}
+                    </span>
+                    <button onClick={onClearSessionFilter} className="text-sky-400 hover:underline">✕ clear</button>
+                  </>
+                )}
               </div>
             )}
             {groupEntries.length === 0 && (
@@ -508,7 +819,8 @@ function ChangesView ({ events, tasks, repos, taskFilter, onClearFilter, onPicke
                 <div key={key} id={`sec-g${i}`} className="scroll-mt-12">
                   <TaskGroup refLabel={ref} repoId={group[0].repo_id} group={group}
                     why={task?.why} repos={repos}
-                    planFileSet={planFilesByRepo.get(group[0].repo_id)} />
+                    planFileSet={planFilesByRepo.get(group[0].repo_id)}
+                    onSessionClick={onSessionClick} />
                 </div>
               );
             })}
@@ -603,9 +915,10 @@ function FolderView ({ events }: { events: TrackedEvent[] }) {
 }
 
 // D8: plan-file edits collapse to one expandable line inside each group.
-function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet }:
+function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet, onSessionClick }:
   { refLabel: string; repoId: string; group: TrackedEvent[]; why?: string;
-    repos: Repo[]; planFileSet?: Set<string> }) {
+    repos: Repo[]; planFileSet?: Set<string>;
+    onSessionClick?: (id: string) => void }) {
   const [showPlanEdits, setShowPlanEdits] = useState(false);
   const planEdits = group.filter((e) => planFileSet?.has(e.file));
   const normal = group.filter((e) => !planFileSet?.has(e.file));
@@ -618,7 +931,9 @@ function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet }:
       </div>
       {why && <p className="mt-1 text-xs text-slate-400">Why: {why}</p>}
       <div className="mt-2 space-y-1">
-        {normal.map((e) => <EventRow key={e.id} event={e} repos={repos} />)}
+        {normal.map((e) => (
+          <EventRow key={e.id} event={e} repos={repos} onSessionClick={onSessionClick} />
+        ))}
         {planEdits.length > 0 && (
           <div className="rounded bg-slate-800/40 px-2 py-1">
             <button onClick={() => setShowPlanEdits(!showPlanEdits)}
@@ -627,7 +942,9 @@ function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet }:
             </button>
             {showPlanEdits && (
               <div className="mt-1 space-y-1">
-                {planEdits.map((e) => <EventRow key={e.id} event={e} repos={repos} />)}
+                {planEdits.map((e) => (
+                  <EventRow key={e.id} event={e} repos={repos} onSessionClick={onSessionClick} />
+                ))}
               </div>
             )}
           </div>
@@ -719,6 +1036,7 @@ function PickRow ({ event, tasks, onPicked, checked, onToggle }:
       <input type="checkbox" checked={checked} onChange={onToggle} />
       <ModeBadge mode={event.mode} />
       <span className="font-mono text-xs">{event.file}</span>
+      <SessionDot id={event.session_id} /> {/* informational — RV4 */}
       <span className="text-[11px] text-slate-400" title={event.ts}>
         {event.repo_id} · {fmtRel(event.ts)}
       </span>
@@ -747,8 +1065,11 @@ function PickRow ({ event, tasks, onPicked, checked, onToggle }:
 }
 
 // B.8: one row everywhere - context-aware diff (commit diff when linked).
-function EventRow ({ event, repos, showRef }:
-  { event: TrackedEvent; repos: Repo[]; showRef?: boolean }) {
+// v0.1.5.0 D1: session dot before the timestamp; clickable only when the
+// caller passes onSessionClick (Changes task groups — RV4).
+function EventRow ({ event, repos, showRef, onSessionClick }:
+  { event: TrackedEvent; repos: Repo[]; showRef?: boolean;
+    onSessionClick?: (id: string) => void }) {
   const [diff, setDiff] = useState<string | null>(null);
   const online = repos.some((r) => r.id === event.repo_id && !r.offline);
   return (
@@ -759,6 +1080,9 @@ function EventRow ({ event, repos, showRef }:
         {showRef && event.task_ref && (
           <span className="text-[11px] text-sky-300">{event.task_ref}</span>
         )}
+        <SessionDot id={event.session_id}
+          onClick={onSessionClick && event.session_id
+            ? () => onSessionClick(event.session_id!) : undefined} />
         <span className="text-[11px] text-slate-400" title={event.ts}>
           {event.tool} · {fmtRel(event.ts)}
         </span>

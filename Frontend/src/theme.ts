@@ -15,6 +15,29 @@ export const MODE_COLOR: Record<TrackedEvent["mode"], string> = {
 
 export const SWEPT_COLOR = "#71717a"; // zinc-500
 
+// v0.1.5.0 D1 (C.1): identity color for session dots - deterministic hash
+// -> HSL hue, saturation/lightness fixed for the dark palette. An IDENTITY
+// cue, not a mode (modes stay in MODE_COLOR); same session = same color
+// everywhere (dots + digest).
+export function sessionColor (id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return `hsl(${hash % 360}, 65%, 60%)`;
+}
+
+// v0.1.5.0 C.1 (RV19): human badge labels, LIFTED from App.tsx - the single
+// label source for App AND digest.ts (importing App.tsx from digest would
+// create an App<->digest module cycle). charts.ts keeps its own abbreviated
+// MODE_LABEL variants (chart legends are width-constrained).
+export const MODE_BADGE: Record<TrackedEvent["mode"], { label: string; tip: string }> = {
+  B: { label: "Declared", tip: "B — the file is declared by exactly this task's <files>" },
+  A_SCOPED: { label: "Active task", tip: "A_SCOPED — shared file; attributed to the one in-progress match" },
+  A_GLOBAL: { label: "Active task *", tip: "A_GLOBAL — undeclared file; attributed to the repo's single in-progress task" },
+  AMBIGUOUS: { label: "Pick: multi", tip: "AMBIGUOUS — several tasks declare this file, none is the single active one; pick manually" },
+  UNKNOWN: { label: "Pick: none", tip: "UNKNOWN — no task declares this file and there is no single in-progress task; pick manually" },
+  MANUAL: { label: "Your pick", tip: "MANUAL — assigned by you; final, never re-resolved" },
+};
+
 // Neutral teal/slate palette for the Mermaid graph (decorative nodes are NOT
 // modes — kept separate from MODE_COLOR per D6).
 export const DIAGRAM = {

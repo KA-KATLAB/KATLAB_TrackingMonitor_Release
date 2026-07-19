@@ -1,5 +1,20 @@
 # Version Notes
 
+## v0.1.5.0 — Insights & Awareness (2026-07-19)
+
+**Key Highlights**
+
+- First harvest from the 2026-07-19 external research pass (disler multi-agent observability · GitDock · Git-Heat-Map family); plan passed a 23-pass CDD review loop (32 findings RV1-RV32 fixed, 5/5 consecutive clean) before implementation
+- **Session attribution** (D1/A.1-A.2/C.1): the hook captures `session_id` (already on PostToolUse stdin, previously dropped) — EVENT VERSION STAYS 1 (optional key, upgrade-order-free both directions; watcher hard-rejects other versions); `events.session_id TEXT` via idempotent PRAGMA→ALTER migration in `init_db`; non-empty-str-or-None type guard at BOTH ends (a non-string bind would wedge the F13 insert+offset transaction); UI identity dots (`theme.ts sessionColor`, same session = same color everywhere) + click-to-filter in Changes only (App-level state, repo-aware task-filter reset: a matching-repo tab switch now KEEPS the X4 filter — intentional change); MODE_BADGE lifted App→theme.ts (single label source for App + digest)
+- **Calendar heatmap** (D2/B.1/C.2): `activity_calendar` on `/api/stats` — 365 zero-filled UTC days {day, events, commits} in BOTH `get_stats` return paths (fixed shape incl. the empty-scope early return); pure-SVG Sunday-first grid (user pick), quartile teal ramp, commit corner dots, (UTC) tooltips, month labels at 1st-of-month weeks, overflow-x-auto on narrow viewports; behind the charts' totalEvents===0 gate
+- **Discipline guard** (D3/C.3): frontend-only — armed = repo has parsed tasks; violation = in-progress ≠ 1 → amber "⚠ N active" status-bar chip + live banner armed by WS queue-landers (UNKNOWN/AMBIGUOUS) and rendered only while STILL violating (task_updated re-sync clears live); banner is live-only (startup catch-up pushes no WS)
+- **Attention bell** (D4/C.4): ONE header bell + actionable badge (picks pending / discipline / OFFLINE / no-capture-yet; uncommitted informational); Σ(rows) == ALL-tab KPI == queue (scope-matched invariant); row click navigates with the DEFERRED post-mount scroll (a synchronous scrollIntoView after setView finds no element); footer hosts the OS-alerts toggle (user: one bell)
+- **OS notifications** (D5/D.1): `notify.ts`, localStorage-persisted, hidden-tab-only; 3 WS triggers (pick-needed coalesced 5s/repo, dirty→CLEAN via a ref-map — never from inside a setRepos updater (StrictMode double-invoke), warnings); per-repo+kind tags; any non-granted permission (denied OR dismissed) snaps off
+- **Daily digest** (D7/D.3): `digest.ts` client-side Blob `TrackingMonitor_Digest_<date>[_<repo>].html` — local-day scope, KPI strip + repo→task→file breakdown (badges via lifted MODE_BADGE + session dots), ≤3 pages with explicit truncation footnote, fetch failure aborts with an inline note (never a partial file), fonts via link+fallback, no external JS
+- **Ctrl+K palette** (D6/D.2): hand-rolled subsequence fuzzy, combobox/listbox ARIA, focus trap/restore; suppressed while the Mermaid overlay is open (body data-attribute); groupMode lifted ChangesView→App; cross-tab task picks survive the repo-aware filter reset; tree-toggle lands on Changes and the alerts action opens the panel (visible-effect rule)
+- **Scope:** backend additions are additive-only (schema column + one stats field); zero new deps (package.json untouched); demo emits 3 deterministic session ids across all 55 generated lines
+- **Post-implementation CFT loop** (CFT-1..CFT-9, 14 passes ending 5/5 clean — see plan CFT log): ingest now validates the whole event-line shape — non-dict JSON lines and non-string ts/file warn+skip with the offset advancing, tool coerces to "?" (hook mirrors it) — F26's never-stall holds for ANY hand-crafted line; deferred pick-queue scroll made state-based (fires in every path, incl. same-view palette/notification jumps); demo session ids distinct in their first 8 chars; calendar right-pad + digest font-weight parity
+
 ## v0.1.4.0 — Visual Polish (2026-07-17)
 
 **Key Highlights**

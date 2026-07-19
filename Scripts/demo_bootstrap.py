@@ -111,6 +111,13 @@ DEMO_EVENTS = [
 # sparkline have real shape (a single-day spike is a poor showcase).
 _POOL = [(f, t) for f, t, _ in DEMO_EVENTS]
 
+# v0.1.5.0 D1: synthetic session identities for the session-dot showcase.
+# v0.1.5.0 CFT-1 (bare CFT-N in this file = the v0.1.0.0 loop): ids MUST
+# differ within their first 8 chars — the UI tooltip, the session-filter
+# chip and the digest dot all show id[:8] as the short id.
+DEMO_SESSIONS = ("alpha-demo-session-0001", "bravo-demo-session-0002",
+                 "charlie-demo-session-03")
+
 
 def _spread_events (now: datetime) -> list[tuple[str, str, str]]:
     """(ts, tool, file) rows spread over 14 days with a recent burst — feeds
@@ -156,10 +163,15 @@ def main () -> None:
     # dashboard (14d activity line, mode doughnut, per-task bar) and the
     # status-bar sparkline (last 60min) have real shape to show.
     spread = _spread_events(datetime.now(timezone.utc))
+    # v0.1.5.0 D1 (A.2, RV1): 3 synthetic session ids assigned
+    # DETERMINISTICALLY (index modulo) across ALL generated lines - the
+    # spread AND the burst - so dots, the session filter and the digest's
+    # "sessions today" demo out of the box.
     with open(tracking / "events.jsonl", "w", encoding="utf-8") as handle:
-        for ts, tool, file in spread:
+        for i, (ts, tool, file) in enumerate(spread):
             handle.write(json.dumps(
-                {"v": 1, "ts": ts, "tool": tool, "file": file}) + "\n")
+                {"v": 1, "ts": ts, "tool": tool, "file": file,
+                 "session_id": DEMO_SESSIONS[i % len(DEMO_SESSIONS)]}) + "\n")
 
     # CFT-13: port 8101 - the demo must coexist with a real tracker on 8100.
     config = RUNTIME / "repos.demo.yaml"

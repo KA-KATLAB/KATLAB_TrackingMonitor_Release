@@ -34,6 +34,7 @@ export interface TrackedEvent {
   candidates_json: string | null;
   commit_hash: string | null;
   swept: number;
+  session_id: string | null; // v0.1.5.0 D1: Claude session (null = pre-upgrade/unknown)
 }
 
 export interface HistoryEntry {

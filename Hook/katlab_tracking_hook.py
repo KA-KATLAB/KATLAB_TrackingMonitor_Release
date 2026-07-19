@@ -72,6 +72,11 @@ def main () -> None:
     payload = json.loads(sys.stdin.buffer.read().decode("utf-8"))
 
     tool_name = payload.get("tool_name", "")
+    # v0.1.5.0 CFT-2: non-empty str or "?" - mirrors the server-side coercion
+    # (a non-string value in a hand-crafted payload must never reach the
+    # line; same both-ends discipline as the RV17/RV30 session_id guard).
+    if not isinstance(tool_name, str) or not tool_name:
+        tool_name = "?"
     file_path = (payload.get("tool_input") or {}).get("file_path")
     if not file_path:
         return
@@ -93,11 +98,19 @@ def main () -> None:
     except ValueError:
         return
 
+    # v0.1.5.0 D1 (RV17/RV30): session attribution - non-empty str or None,
+    # never any other type (a non-string bind would wedge server ingest).
+    # EVENT_VERSION stays 1: the key is optional, compatible both directions.
+    session_id = payload.get("session_id")
+    if not isinstance(session_id, str) or not session_id:
+        session_id = None
+
     event = {
         "v": EVENT_VERSION,
         "ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "tool": tool_name,
         "file": relative.as_posix(),
+        "session_id": session_id,
     }
 
     tracking_dir = repo_root / TRACKING_DIR

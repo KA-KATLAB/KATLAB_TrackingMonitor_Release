@@ -174,13 +174,34 @@ class Tracker:
                 continue
             try:
                 raw = json.loads(line)
+                # v0.1.5.0 CFT-2 (bare CFT-N above = the v0.1.0.0 loop):
+                # F26's never-stall invariant must hold for ANY
+                # hand-crafted line - a non-dict line ("x", 5, null) would
+                # AttributeError past the narrow except below and restart-
+                # loop the watcher on the same offset forever; a non-string
+                # ts/file would wedge the F13 transaction (InterfaceError)
+                # the same way RV17 documented for session_id.
+                if not isinstance(raw, dict):
+                    raise ValueError(f"non-object event line ({type(raw).__name__})")
                 if raw.get("v") != 1:
                     raise ValueError(f"unknown event version {raw.get('v')!r}")
-                resolution = resolve(raw["file"], task_rows)
+                ts, file = raw.get("ts"), raw.get("file")
+                if not isinstance(ts, str) or not ts or not isinstance(file, str) or not file:
+                    raise ValueError("missing, empty or non-string ts/file")
+                tool = raw.get("tool")
+                if not isinstance(tool, str) or not tool:
+                    tool = "?"  # v0.1.5.0 CFT-2: same coercion class, never a bad bind
+                resolution = resolve(file, task_rows)
+                # v0.1.5.0 D1 (RV17/RV30): non-empty str or None - any other
+                # bind type would fail the F13 transaction and wedge ingest.
+                session_id = raw.get("session_id")
+                if not isinstance(session_id, str) or not session_id:
+                    session_id = None
                 parsed.append({
-                    "ts": raw["ts"], "tool": raw.get("tool", "?"), "file": raw["file"],
+                    "ts": ts, "tool": tool, "file": file,
                     "task_ref": resolution.task_ref, "mode": resolution.mode,
                     "candidates": resolution.candidates,
+                    "session_id": session_id,
                 })
             except (ValueError, KeyError) as exc:
                 # F26: skip + warn; offset still advances - never stall.

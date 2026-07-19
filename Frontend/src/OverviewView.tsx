@@ -4,6 +4,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
+import { CalendarHeatmap } from "./calendarHeatmap";
 import { StatsData, activityLine, eventsPerTaskBar, modeDoughnut } from "./charts";
 import { renderBackbone } from "./mermaidGraph";
 import { useReveal } from "./reveal";
@@ -41,17 +42,30 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, refreshKey }: 
           <p className="text-sm text-slate-400">No events captured yet — nothing to chart.</p>
         )}
         {stats && totalEvents > 0 && (
-          <div className="grid gap-4 lg:grid-cols-3">
-            <ChartCard title="Attribution health">
-              <ChartCanvas make={(c) => modeDoughnut(c, stats)} dep={stats} />
-            </ChartCard>
-            <ChartCard title="Events per task (top 10)">
-              <ChartCanvas make={(c) => eventsPerTaskBar(c, stats, scope === undefined)} dep={stats} />
-            </ChartCard>
-            <ChartCard title="Activity (14 days)">
-              <ChartCanvas make={(c) => activityLine(c, stats)} dep={stats} />
-            </ChartCard>
-          </div>
+          <>
+            <div className="grid gap-4 lg:grid-cols-3">
+              <ChartCard title="Attribution health">
+                <ChartCanvas make={(c) => modeDoughnut(c, stats)} dep={stats} />
+              </ChartCard>
+              <ChartCard title="Events per task (top 10)">
+                <ChartCanvas make={(c) => eventsPerTaskBar(c, stats, scope === undefined)} dep={stats} />
+              </ChartCard>
+              <ChartCard title="Activity (14 days)">
+                <ChartCanvas make={(c) => activityLine(c, stats)} dep={stats} />
+              </ChartCard>
+            </div>
+            {/* v0.1.5.0 D2 (C.2): year calendar — below the charts, above the
+                Mermaid map; behind the same totalEvents gate (RV6); the card
+                body scrolls horizontally on narrow viewports (RV11). */}
+            <div data-reveal className="mt-4 rounded border border-slate-700 bg-slate-900 p-3">
+              <div className="mb-2 text-xs font-semibold text-slate-300">
+                Activity calendar — last 365 days (UTC)
+              </div>
+              <div className="overflow-x-auto">
+                <CalendarHeatmap calendar={stats.activity_calendar} />
+              </div>
+            </div>
+          </>
         )}
       </section>
 
@@ -194,11 +208,17 @@ function GraphPanel ({ tasks, uncommitted, repos }: {
   const [expanded, setExpanded] = useState(false);
 
   // D7: Esc closes the expanded overlay (click-out closes it too).
+  // v0.1.5.0 D6 (D.2, RV3): while open, mark the body so the Ctrl+K
+  // palette suppresses itself (single-overlay rule).
   useEffect(() => {
     if (!expanded) return;
+    document.body.dataset.overlayOpen = "1";
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      delete document.body.dataset.overlayOpen;
+      window.removeEventListener("keydown", onKey);
+    };
   }, [expanded]);
 
   useEffect(() => {

@@ -17,6 +17,10 @@ export interface StatsData {
   mode_counts: Record<TrackedEvent["mode"], number>;
   events_per_task: { repo: string; task_ref: string; count: number }[];
   activity_daily: { day: string; count: number }[];
+  // v0.1.5.0 D2 (RV2: the type lives HERE, api.ts only re-imports it):
+  // 365 zero-filled UTC days, oldest->newest, fixed shape in BOTH backend
+  // return paths (RV28).
+  activity_calendar: { day: string; events: number; commits: number }[];
 }
 
 const GRID = "#334155"; // slate-700
