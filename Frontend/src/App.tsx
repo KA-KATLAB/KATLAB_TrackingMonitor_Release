@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
 import { buildFileTree } from "./fileTree";
 import { CommandPalette, PaletteEntry } from "./CommandPalette";
 import { exportDigest } from "./digest";
+import { FileStory } from "./FileStory";
 import { SessionTimeline } from "./SessionTimeline";
 import { fmtAge, fmtMinutes, fmtRel, fmtTs } from "./format";
 import { notifyPickNeeded, notifyStatusChange, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
 import { StatsData } from "./charts";
 import { useReveal } from "./reveal";
-import { MODE_BADGE, MODE_COLOR, SWEPT_COLOR, sessionColor } from "./theme";
+import { MODE_BADGE, MODE_COLOR, SWEPT_COLOR, prefersReducedMotion, sessionColor, withViewTransition } from "./theme";
 import { connectWs } from "./ws";
 import { OverviewView } from "./OverviewView";
 
@@ -29,6 +30,20 @@ export default function App () {
   const [taskFilter, setTaskFilter] = useState<string | null>(null); // X4: "repo|task_ref"
   const [sessionFilter, setSessionFilter] = useState<string | null>(null); // v0.1.5.0 D1 (RV3: App-level)
   const [timelineSession, setTimelineSession] = useState<string | null>(null); // v0.1.6.0 D3 (C.3)
+  const [fileStory, setFileStory] = useState<{ repo: string; file: string } | null>(null); // v0.1.7.0 D2 (B.2)
+  // v0.1.7.0 D6 (C.3): celebration channels — toasts keyed BY REPO (a new
+  // transition replaces, never stacks junk); the burst nonce is consumed by
+  // that repo's CLEAN ✓ chip in the StatusBar.
+  const [toasts, setToasts] = useState<{ repo: string; n: number }[]>([]);
+  const [burst, setBurst] = useState<{ repo: string; n: number } | null>(null);
+  const celebrationN = useRef(0);
+  // v0.1.7.0 CFT-3: STABLE onClose identities for the two overlay modals —
+  // an inline arrow (new identity every App render) re-ran the modals'
+  // [onClose]-dep'd overlay effect on every 60s tick / WS sync while open;
+  // its cleanup fires prevFocus.focus(), yanking a keyboard user's
+  // in-modal focus to the background. Pinned -> effect runs once per open.
+  const closeTimeline = useCallback(() => setTimelineSession(null), []);
+  const closeFileStory = useCallback(() => setFileStory(null), []);
   // v0.1.5.0 D6 (D.2, RV3): groupMode LIFTED from ChangesView so the
   // palette's tree-toggle action can reach it (same behavior, prop-drilled).
   const [groupMode, setGroupMode] = useState<"task" | "folder">("task");
@@ -100,7 +115,17 @@ export default function App () {
         const d = msg.data as { repo: string; clean: boolean; count: number; offline: boolean };
         // D5 trigger (2): dirty->CLEAN — transition map lives in notify.ts
         // (RV9: never notify from inside the setRepos updater below).
-        notifyStatusChange(d.repo, d.clean, () => navigateToRepo(d.repo, false));
+        const transitioned = notifyStatusChange(d.repo, d.clean, () => navigateToRepo(d.repo, false));
+        if (transitioned) {
+          // v0.1.7.0 D6 (C.3), the RV1 channel matrix: TOAST always (the
+          // durable record); BURST only while the tab is visible.
+          const n = ++celebrationN.current;
+          setToasts((prev) => [...prev.filter((t) => t.repo !== d.repo), { repo: d.repo, n }]);
+          if (!document.hidden) {
+            setBurst({ repo: d.repo, n });
+            window.setTimeout(() => setBurst((b) => (b && b.n === n ? null : b)), 900);
+          }
+        }
         setRepos((prev) => prev.map((r) => (r.id === d.repo ? { ...r, ...d } : r)));
       }
       if (msg.type === "warning") {
@@ -124,6 +149,19 @@ export default function App () {
     const timer = setInterval(() => setTick((n) => n + 1), 60_000);
     return () => clearInterval(timer);
   }, []);
+
+  // v0.1.7.0 D6 (C.3): toast dismissal — its ✕ or ANY click outside the
+  // toast stack (the AttentionBell click-out precedent). Toasts are NOT
+  // overlays: no data-overlay-open, Ctrl+K stays available while they wait.
+  const hasToasts = toasts.length > 0;
+  useEffect(() => {
+    if (!hasToasts) return;
+    const onDown = (e: PointerEvent) => {
+      if (!(e.target as Element | null)?.closest?.("[data-toast-stack]")) setToasts([]);
+    };
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, [hasToasts]);
 
   useEffect(() => {
     // X4 + v0.1.5.0 RV14/RV18: REPO-AWARE reset — keep the task filter when
@@ -178,10 +216,13 @@ export default function App () {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }, [view, pendingScroll]);
   const navigateToRepo = useCallback((repoId: string, scrollToPicks: boolean) => {
-    setTab(repoId);
-    setView("changes");
-    if (scrollToPicks) setPendingScroll("sec-pick");
-    setPanelOpen(false);
+    // v0.1.7.0 D7 (C.4): crossfade the jump (bell rows + notification clicks)
+    withViewTransition(() => {
+      setTab(repoId);
+      setView("changes");
+      if (scrollToPicks) setPendingScroll("sec-pick");
+      setPanelOpen(false);
+    });
   }, []);
 
   // v0.1.5.0 D5 (D.1): OS-notification toggle — lives in the attention
@@ -257,16 +298,19 @@ export default function App () {
       <header className="border-b border-slate-700 bg-slate-900 px-4 py-2">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold text-sky-300">KATLAB Tracking Monitor</h1>
+          {/* v0.1.7.0 D7 (C.4): tab/view switches crossfade via the View
+              Transitions helper — nav call sites ONLY (filters stay instant) */}
           <nav className="flex gap-1">
-            <TabButton active={tab === "ALL"} onClick={() => setTab("ALL")} label="ALL" />
+            <TabButton active={tab === "ALL"} onClick={() => withViewTransition(() => setTab("ALL"))} label="ALL" />
             {repos.map((r) => (
-              <TabButton key={r.id} active={tab === r.id} onClick={() => setTab(r.id)} label={r.id} />
+              <TabButton key={r.id} active={tab === r.id}
+                onClick={() => withViewTransition(() => setTab(r.id))} label={r.id} />
             ))}
           </nav>
           <div className="ml-auto flex gap-2">
-            <TabButton active={view === "changes"} onClick={() => setView("changes")} label="Changes" />
-            <TabButton active={view === "overview"} onClick={() => setView("overview")} label="Overview" />
-            <TabButton active={view === "history"} onClick={() => setView("history")} label="History" />
+            <TabButton active={view === "changes"} onClick={() => withViewTransition(() => setView("changes"))} label="Changes" />
+            <TabButton active={view === "overview"} onClick={() => withViewTransition(() => setView("overview"))} label="Overview" />
+            <TabButton active={view === "history"} onClick={() => withViewTransition(() => setView("history"))} label="History" />
             <TabButton active={showLegend} onClick={() => setShowLegend(!showLegend)} label="?"
               title="Legend - what every badge and state means" />
             {/* v0.1.5.0 D4 (C.4): the ONE bell — cross-repo triage panel */}
@@ -293,7 +337,7 @@ export default function App () {
             {digestNote && <span className="self-center text-[11px] text-amber-300">{digestNote}</span>}
           </div>
         </div>
-        <StatusBar repos={visibleRepos} violationOf={violationOf} />
+        <StatusBar repos={visibleRepos} violationOf={violationOf} burst={burst} />
       </header>
 
       {showLegend && <Legend onClose={() => setShowLegend(false)} />}
@@ -301,7 +345,33 @@ export default function App () {
       <CommandPalette entries={paletteEntries} /> {/* v0.1.5.0 D6 (D.2) */}
 
       {timelineSession && ( /* v0.1.6.0 D3 (C.3): static snapshot modal */
-        <SessionTimeline session={timelineSession} onClose={() => setTimelineSession(null)} />
+        <SessionTimeline session={timelineSession} onClose={closeTimeline} />
+      )}
+
+      {fileStory && ( /* v0.1.7.0 D2 (B.2): the life of one file */
+        <FileStory repo={fileStory.repo} file={fileStory.file}
+          repoBranch={repos.find((r) => r.id === fileStory.repo)?.branch ?? null}
+          onClose={closeFileStory} />
+      )}
+
+      {toasts.length > 0 && ( /* v0.1.7.0 D6 (C.3): persistent celebration
+          toasts — z-30, BELOW every overlay (RV3: a record waits under a
+          dim, never pierces it); one per repo, newest replaces; dismissed
+          by ✕ or any outside click. NOT an overlay (no data-overlay-open). */
+        <div data-toast-stack
+          className="fixed bottom-4 right-4 z-30 flex flex-col items-end gap-2">
+          {toasts.map((t) => (
+            <div key={`${t.repo}|${t.n}`}
+              className="toast-enter flex items-center gap-3 rounded border border-emerald-600/60 bg-slate-900 px-4 py-2 text-sm shadow-xl">
+              <span>🎉 <span className="font-semibold">{t.repo}</span> is CLEAN ✓</span>
+              <button className="text-slate-400 hover:text-white"
+                aria-label={`dismiss ${t.repo} celebration`}
+                onClick={() => setToasts((prev) => prev.filter((x) => x.repo !== t.repo))}>
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
       )}
 
       {error && (
@@ -342,12 +412,14 @@ export default function App () {
               sessionFilter={sessionFilter} onClearSessionFilter={() => setSessionFilter(null)}
               onSessionClick={(id) => setSessionFilter(sessionFilter === id ? null : id)}
               onOpenTimeline={(id) => setTimelineSession(id)}
+              onOpenFileStory={(repo, file) => setFileStory({ repo, file })}
               groupMode={groupMode} onGroupModeChange={setGroupMode} />
           )}
           {view === "overview" && (
             <OverviewView scope={tab === "ALL" ? undefined : tab} tasks={visibleTasks}
               uncommitted={visibleEvents} repos={visibleRepos.filter((r) => !r.offline)}
-              stats={stats} statsError={statsError} />
+              stats={stats} statsError={statsError}
+              onOpenFileStory={(repo, file) => setFileStory({ repo, file })} />
           )}
           {view === "history" && <HistoryView repos={visibleRepos.filter((r) => !r.offline)} />}
         </main>
@@ -369,8 +441,12 @@ function TabButton ({ active, onClick, label, title }:
 
 // Status bar: CLEAN / N uncommitted / OFFLINE (F46) + capture heartbeat (D9)
 // + v0.1.5.0 D3 discipline micro-chip (absent when exactly 1 in-progress).
-function StatusBar ({ repos, violationOf }:
-  { repos: Repo[]; violationOf: (repoId: string) => number | null }) {
+function StatusBar ({ repos, violationOf, burst }:
+  { repos: Repo[]; violationOf: (repoId: string) => number | null;
+    // v0.1.7.0 D6 (C.3): burst nonce — the matching repo's CLEAN chip
+    // renders the particle burst; naturally skipped when the chip is not
+    // rendered (other tab / repo currently dirty).
+    burst: { repo: string; n: number } | null }) {
   return (
     <div className="mt-2 flex flex-wrap gap-3">
       {repos.map((r) => {
@@ -388,7 +464,28 @@ function StatusBar ({ repos, violationOf }:
             {r.offline ? (
               <span className="rounded bg-zinc-600 px-2 py-0.5 text-xs font-bold">OFFLINE</span>
             ) : r.clean ? (
-              <span className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-bold">CLEAN ✓</span>
+              <span className="relative rounded bg-emerald-600 px-2 py-0.5 text-xs font-bold">
+                CLEAN ✓
+                {burst?.repo === r.id && !prefersReducedMotion() && (
+                  /* ~12 self-removing particles (App clears the nonce after
+                     ~900ms); keyed by nonce so a re-transition re-fires. */
+                  <span key={burst.n} aria-hidden="true">
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const angle = (i / 12) * 2 * Math.PI;
+                      const radius = i % 2 === 0 ? 30 : 42;
+                      const colors = ["#14b8a6", "#10b981", "#f59e0b"];
+                      return (
+                        <span key={i} className="burst-p"
+                          style={{
+                            backgroundColor: colors[i % 3],
+                            "--dx": `${Math.round(Math.cos(angle) * radius)}px`,
+                            "--dy": `${Math.round(Math.sin(angle) * radius)}px`,
+                          } as CSSProperties} />
+                      );
+                    })}
+                  </span>
+                )}
+              </span>
             ) : (
               <span className="rounded bg-amber-500 px-2 py-0.5 text-xs font-bold text-slate-950">
                 {r.count} uncommitted change{r.count === 1 ? "" : "s"}
@@ -399,6 +496,12 @@ function StatusBar ({ repos, violationOf }:
                 className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[11px] font-bold text-amber-300">
                 ⚠ {violation} active
               </span>
+            )}
+            {/* v0.1.7.0 D5 (C.2): derived AT RENDER — the P8 60s tick
+                expires it; WS-driven repo syncs turn it on promptly. */}
+            {r.last_event_ts && Date.now() - new Date(r.last_event_ts).getTime() < 5 * 60_000 && (
+              <span title={`capturing now — last event ${fmtRel(r.last_event_ts)}`}
+                className="pulse-dot inline-block h-2 w-2 shrink-0 rounded-full bg-teal-400" />
             )}
             <span className="text-[11px] text-slate-400" title={r.last_event_ts ?? "no captures yet"}>
               · {r.last_event_ts ? `last capture ${fmtRel(r.last_event_ts)}` : "no captures yet"}
@@ -776,13 +879,15 @@ function PlanGroup ({ list, uncommitted, effortByTask, taskFilter, onTaskClick }
 }
 
 function ChangesView ({ events, tasks, repos, effortByTask, taskFilter, onClearFilter, onPicked,
-  sessionFilter, onClearSessionFilter, onSessionClick, onOpenTimeline, groupMode, onGroupModeChange }:
+  sessionFilter, onClearSessionFilter, onSessionClick, onOpenTimeline, onOpenFileStory,
+  groupMode, onGroupModeChange }:
   { events: TrackedEvent[]; tasks: Task[]; repos: Repo[]; effortByTask: EffortMap;
     taskFilter: string | null;
     onClearFilter: () => void; onPicked: () => void;
     sessionFilter: string | null; onClearSessionFilter: () => void;
     onSessionClick: (id: string) => void;
     onOpenTimeline: (id: string) => void; // v0.1.6.0 D3 (C.3)
+    onOpenFileStory: (repo: string, file: string) => void; // v0.1.7.0 D2 (B.2)
     // D6 (v0.1.4.0): "by task | by folder" — swaps ONLY the grouped section.
     // v0.1.5.0 D.2 (RV3): state lifted to App for the palette action.
     groupMode: "task" | "folder"; onGroupModeChange: (m: "task" | "folder") => void }) {
@@ -902,6 +1007,7 @@ function ChangesView ({ events, tasks, repos, effortByTask, taskFilter, onClearF
                     why={task?.why} repos={repos}
                     planFileSet={planFilesByRepo.get(group[0].repo_id)}
                     onSessionClick={onSessionClick}
+                    onOpenFileStory={onOpenFileStory}
                     effort={effortByTask.get(key)} />
                 </div>
               );
@@ -997,10 +1103,12 @@ function FolderView ({ events }: { events: TrackedEvent[] }) {
 }
 
 // D8: plan-file edits collapse to one expandable line inside each group.
-function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet, onSessionClick, effort }:
+function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet, onSessionClick,
+  onOpenFileStory, effort }:
   { refLabel: string; repoId: string; group: TrackedEvent[]; why?: string;
     repos: Repo[]; planFileSet?: Set<string>;
     onSessionClick?: (id: string) => void;
+    onOpenFileStory?: (repo: string, file: string) => void; // v0.1.7.0 D2
     effort?: { minutes: number; sessions: number } }) {
   const [showPlanEdits, setShowPlanEdits] = useState(false);
   const planEdits = group.filter((e) => planFileSet?.has(e.file));
@@ -1016,7 +1124,8 @@ function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet, onSessio
       {why && <p className="mt-1 text-xs text-slate-400">Why: {why}</p>}
       <div className="mt-2 space-y-1">
         {normal.map((e) => (
-          <EventRow key={e.id} event={e} repos={repos} onSessionClick={onSessionClick} />
+          <EventRow key={e.id} event={e} repos={repos} onSessionClick={onSessionClick}
+            onOpenFileStory={onOpenFileStory} />
         ))}
         {planEdits.length > 0 && (
           <div className="rounded bg-slate-800/40 px-2 py-1">
@@ -1027,7 +1136,8 @@ function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet, onSessio
             {showPlanEdits && (
               <div className="mt-1 space-y-1">
                 {planEdits.map((e) => (
-                  <EventRow key={e.id} event={e} repos={repos} onSessionClick={onSessionClick} />
+                  <EventRow key={e.id} event={e} repos={repos} onSessionClick={onSessionClick}
+                    onOpenFileStory={onOpenFileStory} />
                 ))}
               </div>
             )}
@@ -1151,9 +1261,12 @@ function PickRow ({ event, tasks, onPicked, checked, onToggle }:
 // B.8: one row everywhere - context-aware diff (commit diff when linked).
 // v0.1.5.0 D1: session dot before the timestamp; clickable only when the
 // caller passes onSessionClick (Changes task groups — RV4).
-function EventRow ({ event, repos, showRef, onSessionClick }:
+function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory }:
   { event: TrackedEvent; repos: Repo[]; showRef?: boolean;
-    onSessionClick?: (id: string) => void }) {
+    onSessionClick?: (id: string) => void;
+    // v0.1.7.0 D2 (B.2): passed ONLY from Changes task groups (the
+    // v0.1.5.0 RV4 zone precedent) — History/queue file names stay plain.
+    onOpenFileStory?: (repo: string, file: string) => void }) {
   const [diff, setDiff] = useState<string | null>(null);
   const online = repos.some((r) => r.id === event.repo_id && !r.offline);
   // v0.1.6.0 D2 (C.2, RV14): differs-suffix - only when BOTH branches are
@@ -1163,7 +1276,15 @@ function EventRow ({ event, repos, showRef, onSessionClick }:
     <div className="rounded bg-slate-800/60 px-2 py-1">
       <div className="flex items-center gap-2 text-xs">
         <ModeBadge mode={event.mode} swept={event.swept === 1} />
-        <span className="font-mono">{event.file}</span>
+        {onOpenFileStory ? (
+          <button onClick={() => onOpenFileStory(event.repo_id, event.file)}
+            title={`${event.file} — open file story`}
+            className="truncate font-mono text-left hover:text-sky-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
+            {event.file}
+          </button>
+        ) : (
+          <span className="font-mono">{event.file}</span>
+        )}
         {showRef && event.task_ref && (
           <span className="text-[11px] text-sky-300">{event.task_ref}</span>
         )}

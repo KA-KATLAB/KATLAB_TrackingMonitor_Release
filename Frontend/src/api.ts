@@ -59,10 +59,11 @@ export const api = {
   repos: () => call<Repo[]>("/api/repos"),
   tasks: (repo?: string) => call<Task[]>(`/api/tasks${repo ? `?repo=${repo}` : ""}`),
   events: (params: { repo?: string; uncommitted?: boolean; limit?: number; offset?: number;
-    session?: string }) => {
+    session?: string; file?: string }) => {
     const q = new URLSearchParams();
     if (params.repo) q.set("repo", params.repo);
     if (params.session) q.set("session", params.session); // v0.1.6.0 D3 (C.3)
+    if (params.file) q.set("file", params.file); // v0.1.7.0 D2 (A.2)
     if (params.uncommitted) q.set("uncommitted", "true");
     q.set("limit", String(params.limit ?? 500));
     q.set("offset", String(params.offset ?? 0));

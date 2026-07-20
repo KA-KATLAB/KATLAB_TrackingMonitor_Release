@@ -120,7 +120,8 @@ def get_offset (repo_id: str) -> int:
 
 def get_events (repo_id: str | None = None, mode: str | None = None,
                 uncommitted_only: bool = False, limit: int = 500, offset: int = 0,
-                session: str | None = None) -> list[sqlite3.Row]:
+                session: str | None = None,
+                file: str | None = None) -> list[sqlite3.Row]:
     query = "SELECT * FROM events WHERE 1=1"
     params: list = []
     if repo_id:
@@ -134,6 +135,9 @@ def get_events (repo_id: str | None = None, mode: str | None = None,
     if session:  # v0.1.6.0 D3 (B.2): exact-match session filter (timeline)
         query += " AND session_id = ?"
         params.append(session)
+    if file:  # v0.1.7.0 D2 (A.2): exact-match file filter (file story)
+        query += " AND file = ?"
+        params.append(file)
     query += " ORDER BY id DESC LIMIT ? OFFSET ?"  # F38 pagination
     params += [limit, offset]
     return get_conn().execute(query, params).fetchall()
@@ -300,7 +304,9 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
                 "events_per_task": [],
                 "activity_daily": _empty_daily(now_iso),
                 "activity_calendar": _empty_calendar(now_iso),  # RV28: fixed shape
-                "effort_per_task": []}  # v0.1.6.0 B.1: fixed shape (RV28 rule)
+                "effort_per_task": [],  # v0.1.6.0 B.1: fixed shape (RV28 rule)
+                "punch_card": [[0] * 24 for _ in range(7)],  # v0.1.7.0 A.1
+                "file_coupling": []}  # v0.1.7.0 A.1: fixed shape (RV28 rule)
     placeholders = ",".join("?" * len(repo_ids))
 
     # mode_counts: zero-filled to all 6 (R1)
@@ -340,6 +346,10 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
     # non-null session_id) and the per-UTC-day minutes (all events; a block
     # crossing midnight splits at the bucket boundary - accepted). The
     # SELECT is ORDER BY ts, so every per-group list stays sorted.
+    # v0.1.7.0 D3 (A.1): the punch card rides the SAME scan — 7x24 counts in
+    # SERVER-LOCAL hours; row = (weekday() + 1) % 7 (Sunday-first; Python
+    # weekday() is MONDAY=0 — the RV2 trap). Labelled "(local time)" in UI.
+    punch_card = [[0] * 24 for _ in range(7)]
     task_events: dict = {}
     day_epochs: dict = {}
     for r in conn.execute(
@@ -348,6 +358,16 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
         epoch = _ts_epoch(r["ts"])
         if epoch is None:
             continue
+        try:
+            # CFT-1: fromtimestamp raises OSError on Windows for a NEGATIVE
+            # epoch — an AWARE pre-1970 hand-crafted ts ("1969-...Z") passes
+            # _ts_epoch (pure arithmetic) and would 500 /api/stats here.
+            # Skip the BUCKET only; the row still feeds effort + calendar
+            # (float arithmetic — the v0.1.6.0 behavior, unchanged).
+            local = datetime.fromtimestamp(epoch)
+            punch_card[(local.weekday() + 1) % 7][local.hour] += 1
+        except (OSError, OverflowError, ValueError):
+            pass
         day_epochs.setdefault(r["ts"][:10], []).append(epoch)
         if r["task_ref"]:
             epochs, sessions = task_events.setdefault(
@@ -360,6 +380,38 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
           "minutes": _cluster_minutes(epochs), "sessions": len(sessions)}
          for (repo, ref), (epochs, sessions) in task_events.items()),
         key=lambda e: -e["minutes"])[:10]  # top 10 (the R6 precedent)
+
+    # v0.1.7.0 D1 (A.1): change coupling - task-level pair mining over
+    # DISTINCT (repo, task_ref, file) triples. Noise guards: tasks with
+    # >30 distinct files are skipped (a mega-task couples everything);
+    # PLAN FILES are excluded via the already-parsed tasks table (they
+    # ride along with most tasks - pure meta-coupling).
+    plan_files = {
+        (r["repo_id"], r["plan_file"])
+        for r in conn.execute("SELECT DISTINCT repo_id, plan_file FROM tasks")
+    }
+    task_files: dict = {}
+    for r in conn.execute(
+            f"SELECT DISTINCT repo_id, task_ref, file FROM events "
+            f"WHERE task_ref IS NOT NULL AND repo_id IN ({placeholders})",
+            repo_ids):
+        if (r["repo_id"], r["file"]) in plan_files:
+            continue
+        task_files.setdefault((r["repo_id"], r["task_ref"]), set()).add(r["file"])
+    pair_counts: dict = {}
+    for (repo, _ref), files in task_files.items():
+        if len(files) > 30:
+            continue  # mega-task cap
+        ordered = sorted(files)  # file_a < file_b - deterministic pair order
+        for i, file_a in enumerate(ordered):
+            for file_b in ordered[i + 1:]:
+                key = (repo, file_a, file_b)
+                pair_counts[key] = pair_counts.get(key, 0) + 1
+    file_coupling = [
+        {"repo": repo, "file_a": a, "file_b": b, "shared": n}
+        for (repo, a, b), n in sorted(
+            pair_counts.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
+    ]  # ties break by (repo, file_a, file_b) ascending - stable top-10
 
     # v0.1.5.0 D2 (B.1): 365-day calendar - events reuse raw_days (already a
     # full-table day GROUP BY); commits bucketed identically. Zero-filled,
@@ -382,7 +434,9 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
     return {"mode_counts": mode_counts, "events_per_task": events_per_task,
             "activity_daily": activity_daily,
             "activity_calendar": activity_calendar,
-            "effort_per_task": effort_per_task}
+            "effort_per_task": effort_per_task,
+            "punch_card": punch_card,
+            "file_coupling": file_coupling}
 
 
 def _empty_daily (now_iso: str) -> list[dict]:

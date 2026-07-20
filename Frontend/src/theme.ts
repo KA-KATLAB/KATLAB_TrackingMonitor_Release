@@ -2,6 +2,7 @@
 // MODE_COLOR is HEX (charts need real hex; R26) — the badge swatches AND the
 // Chart.js doughnut both read it, so a mode looks identical everywhere.
 
+import { flushSync } from "react-dom";
 import { TrackedEvent } from "./api";
 
 export const MODE_COLOR: Record<TrackedEvent["mode"], string> = {
@@ -59,4 +60,20 @@ export const DIAGRAM = {
 export function prefersReducedMotion (): boolean {
   return typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+// v0.1.7.0 D7 (C.4): View Transitions on view/tab switches — the documented
+// React-18 pattern: flushSync makes React commit synchronously inside the
+// browser's snapshot callback; the default crossfade is used (zero custom
+// CSS this release). No-op fallback on browsers without the API and under
+// reduced motion (progressive enhancement). Nav call sites ONLY — filters
+// and palette actions stay instant (deliberate: a crossfade on every filter
+// click would be noise).
+export function withViewTransition (update: () => void): void {
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+  if (doc.startViewTransition && !prefersReducedMotion()) {
+    doc.startViewTransition(() => flushSync(update));
+  } else {
+    update();
+  }
 }

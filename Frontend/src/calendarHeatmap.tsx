@@ -12,10 +12,24 @@ type CalDay = StatsData["activity_calendar"][number];
 const CELL = 10, GAP = 2, STEP = CELL + GAP;
 const LEFT = 30, TOP = 16; // weekday / month label gutters
 // slate-800 zero + 4 teal steps ending at the theme accent (#14b8a6).
-const RAMP = ["#1e293b", "#134e4a", "#0f766e", "#0d9488", "#14b8a6"];
+// v0.1.7.0 B.1 (RV7): EXPORTED — the punch card shares this exact ramp
+// (single source; a duplicated array would silently diverge).
+export const RAMP = ["#1e293b", "#134e4a", "#0f766e", "#0d9488", "#14b8a6"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAYS: [number, string][] = [[1, "Mon"], [3, "Wed"], [5, "Fri"]];
+
+// v0.1.7.0 D4 (C.1): current activity streak — consecutive events>0 days
+// ending at the LAST calendar day; when UTC-today is still 0 the streak may
+// end at YESTERDAY instead (GitHub semantics — today isn't over yet).
+export function streakOf (calendar: CalDay[]): number {
+  if (calendar.length === 0) return 0;
+  let end = calendar.length - 1;
+  if (calendar[end].events === 0) end -= 1; // today-zero grace
+  let n = 0;
+  for (let i = end; i >= 0 && calendar[i].events > 0; i--) n += 1;
+  return n;
+}
 
 export function CalendarHeatmap ({ calendar }: { calendar: CalDay[] }) {
   if (calendar.length === 0) return null;

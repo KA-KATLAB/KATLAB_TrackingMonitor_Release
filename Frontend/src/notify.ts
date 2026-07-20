@@ -54,11 +54,16 @@ export function notifyPickNeeded (repo: string, navigate: () => void): void {
   }, COALESCE_MS);
 }
 
-/** Trigger (2): dirty -> CLEAN transition (map maintained here, RV9). */
-export function notifyStatusChange (repo: string, clean: boolean, navigate: () => void): void {
+/** Trigger (2): dirty -> CLEAN transition (map maintained here, RV9).
+ *  v0.1.7.0 D6 (C.3): RETURNS true on that transition so App can route the
+ *  in-app celebration channels (toast always, burst while visible — the RV1
+ *  matrix); OS-notification behavior is unchanged (fire() stays hidden-only). */
+export function notifyStatusChange (repo: string, clean: boolean, navigate: () => void): boolean {
   const was = prevClean.get(repo);
   prevClean.set(repo, clean);
-  if (clean && was === false) fire(`clean|${repo}`, `${repo} is CLEAN ✓`, navigate);
+  const transitioned = clean && was === false;
+  if (transitioned) fire(`clean|${repo}`, `${repo} is CLEAN ✓`, navigate);
+  return transitioned;
 }
 
 /** Trigger (3): server warning. */

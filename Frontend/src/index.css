@@ -12,3 +12,47 @@ body {
   background-size: auto, 24px 24px;
   background-attachment: fixed, fixed;
 }
+
+/* v0.1.7.0 D5 (C.2): session pulse — a teal dot "breathes" while the repo
+   captured an event < 5 min ago. Reduced motion: dot still shown, static. */
+@keyframes pulse-breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.55); opacity: 0.55; }
+}
+.pulse-dot {
+  animation: pulse-breathe 1.6s ease-in-out infinite;
+}
+
+/* v0.1.7.0 D6 (C.3): CLEAN ✓ celebration — ~12 particle spans fly out from
+   the chip center (800ms, hand-rolled, no canvas); the toast entrance slide
+   is cosmetic only (the toast itself shows under reduced motion — it is the
+   informational channel; the burst is gated off at render AND here). */
+@keyframes burst-fly {
+  from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  to {
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.35);
+    opacity: 0;
+  }
+}
+.burst-p {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  pointer-events: none;
+  animation: burst-fly 800ms ease-out forwards;
+}
+@keyframes toast-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.toast-enter {
+  animation: toast-in 200ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot { animation: none; }
+  .burst-p { display: none; }
+  .toast-enter { animation: none; }
+}

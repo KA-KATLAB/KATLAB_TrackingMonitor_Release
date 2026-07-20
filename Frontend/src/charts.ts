@@ -23,6 +23,10 @@ export interface StatsData {
   activity_calendar: { day: string; events: number; commits: number; minutes: number }[];
   // v0.1.6.0 D1 (B.1): top-10 effort estimates, fixed shape in both paths.
   effort_per_task: { repo: string; task_ref: string; minutes: number; sessions: number }[];
+  // v0.1.7.0 D3 (A.1): 7x24 counts, Sunday-first rows, SERVER-LOCAL hours.
+  punch_card: number[][];
+  // v0.1.7.0 D1 (A.1): top-10 task-level coupling pairs, file_a < file_b.
+  file_coupling: { repo: string; file_a: string; file_b: string; shared: number }[];
 }
 
 const GRID = "#334155"; // slate-700

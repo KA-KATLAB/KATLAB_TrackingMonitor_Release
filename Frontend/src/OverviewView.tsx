@@ -7,13 +7,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
 import { fmtMinutes } from "./format";
-import { CalendarHeatmap } from "./calendarHeatmap";
+import { CalendarHeatmap, RAMP, streakOf } from "./calendarHeatmap";
+import { PunchCard } from "./punchCard";
 import { StatsData, activityLine, eventsPerTaskBar, modeDoughnut } from "./charts";
 import { renderBackbone } from "./mermaidGraph";
 import { useReveal } from "./reveal";
 import { prefersReducedMotion } from "./theme";
 
-export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsError }: {
+export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsError, onOpenFileStory }: {
   scope: string | undefined; // undefined = ALL
   tasks: Task[];
   uncommitted: TrackedEvent[];
@@ -23,9 +24,16 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
   // local error did before the lift.
   stats: StatsData | null;
   statsError: string;
+  // v0.1.7.0 D1/D2 (B.1/B.2): coupling-row file names open the file story.
+  onOpenFileStory?: (repo: string, file: string) => void;
 }) {
 
   const totalEvents = stats ? Object.values(stats.mode_counts).reduce((a, b) => a + b, 0) : 0;
+  // Coupling rank display: rows arrive API-ranked (-shared, repo, a, b) —
+  // make the ranking VISIBLE: #n numeral + ×N badge tinted by strength
+  // (quartile of the max, the calendar/punch-card bucket rule; shared >= 1
+  // so the zero-slate ramp step never applies).
+  const couplingMax = Math.max(1, ...(stats?.file_coupling.map((c) => c.shared) ?? [1]));
 
   useReveal("overview", [stats]); // D5: stagger KPI cards + charts, once per session
 
@@ -57,11 +65,60 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
                 Mermaid map; behind the same totalEvents gate (RV6); the card
                 body scrolls horizontally on narrow viewports (RV11). */}
             <div data-reveal className="mt-4 rounded border border-slate-700 bg-slate-900 p-3">
-              <div className="mb-2 text-xs font-semibold text-slate-300">
-                Activity calendar — last 365 days (UTC)
+              <div className="mb-2 flex items-baseline text-xs font-semibold text-slate-300">
+                <span>Activity calendar — last 365 days (UTC)</span>
+                {/* v0.1.7.0 D4 (C.1): shown only when >= 2 (1-day = noise) */}
+                {streakOf(stats.activity_calendar) >= 2 && (
+                  <span className="ml-auto font-normal text-amber-300"
+                    title="consecutive UTC days with captured activity">
+                    🔥 {streakOf(stats.activity_calendar)}-day streak
+                  </span>
+                )}
               </div>
               <div className="overflow-x-auto">
                 <CalendarHeatmap calendar={stats.activity_calendar} />
+              </div>
+            </div>
+            {/* v0.1.7.0 D1+D3 (B.1): coupling + punch card share a 2-col
+                row (1-col on narrow); coupling card HIDDEN when empty (the
+                corner-dot precedent); overflow-x-auto bodies (v0.1.5.0
+                RV11 rule). */}
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              {stats.file_coupling.length > 0 && (
+                <div data-reveal className="rounded border border-slate-700 bg-slate-900 p-3">
+                  <div className="mb-2 text-xs font-semibold text-slate-300">
+                    Files that change together
+                  </div>
+                  <div className="space-y-1 overflow-x-auto text-xs">
+                    {stats.file_coupling.map((c, i) => (
+                      <div key={`${c.repo}|${c.file_a}|${c.file_b}`}
+                        className="flex items-center gap-1.5 font-mono">
+                        <span className="w-6 shrink-0 text-right text-[10px] text-slate-500">
+                          #{i + 1}
+                        </span>
+                        {scope === undefined && (
+                          <span className="shrink-0 text-[10px] text-slate-500">{c.repo}</span>
+                        )}
+                        <CouplingFile repo={c.repo} file={c.file_a} onOpen={onOpenFileStory} />
+                        <span className="shrink-0 text-slate-500">↔</span>
+                        <CouplingFile repo={c.repo} file={c.file_b} onOpen={onOpenFileStory} />
+                        <span title={`changed together in ${c.shared} task${c.shared === 1 ? "" : "s"}`}
+                          className="ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+                          style={{ backgroundColor: RAMP[Math.min(4, Math.max(1, Math.ceil((c.shared / couplingMax) * 4)))] }}>
+                          ×{c.shared}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div data-reveal className="rounded border border-slate-700 bg-slate-900 p-3">
+                <div className="mb-2 text-xs font-semibold text-slate-300">
+                  When do I work — activity by weekday and hour (local time)
+                </div>
+                <div className="overflow-x-auto">
+                  <PunchCard matrix={stats.punch_card} />
+                </div>
               </div>
             </div>
           </>
@@ -70,6 +127,20 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
 
       <GraphPanel tasks={tasks} uncommitted={uncommitted} repos={repos} />
     </div>
+  );
+}
+
+// v0.1.7.0 D1 (B.1, RV4): each file name in a coupling row is its OWN
+// button opening THAT file's story; middle-truncated, full path in title.
+function CouplingFile ({ repo, file, onOpen }:
+  { repo: string; file: string; onOpen?: (repo: string, file: string) => void }) {
+  const name = file.length > 28 ? `${file.slice(0, 13)}…${file.slice(-14)}` : file;
+  if (!onOpen) return <span className="truncate" title={file}>{name}</span>;
+  return (
+    <button onClick={() => onOpen(repo, file)} title={`${file} — open file story`}
+      className="truncate text-sky-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
+      {name}
+    </button>
   );
 }
 

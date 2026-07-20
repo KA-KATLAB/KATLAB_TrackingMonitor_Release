@@ -132,6 +132,17 @@ def _spread_events (now: datetime) -> list[tuple[str, str, str]]:
             f, t = _POOL[(days_ago * 7 + k) % len(_POOL)]
             ts = day.replace(hour=9 + (k % 8), minute=(k * 13) % 60, second=0,
                              microsecond=0)
+            # v0.1.7.0 IMPL-1: NEVER emit a future event — day-0 rows use
+            # fixed 9-16 UTC hours, so a launch EARLIER in the UTC day put
+            # "today's" spread ahead of now, pinning last_event_ts up to
+            # ~15h in the future (false "capturing now" pulse for hours,
+            # future punch-card cells, "just now" heartbeat). The burst
+            # below covers day 0 EXCEPT in the first 5 UTC minutes of a
+            # day (now-5min is then still yesterday; CFT-2 — unfixable
+            # while the newest row must stay >= 5min old for the RV9
+            # pulse-OFF start): the streak honestly reads 13 there.
+            if ts > now:
+                continue
             rows.append((ts.isoformat().replace("+00:00", "Z"), t, f))
     # a burst in the last ~50 minutes today -> lively sparkline + "just now"
     for i, (f, t, _) in enumerate(DEMO_EVENTS):

@@ -83,9 +83,9 @@ def list_tasks (request: Request, repo: str | None = None):
 @router.get("/events")
 def list_events (request: Request, repo: str | None = None, mode: str | None = None,
                  uncommitted: bool = False, limit: int = 500, offset: int = 0,
-                 session: str | None = None):
+                 session: str | None = None, file: str | None = None):
     limit = min(max(1, limit), 2000)  # F38 pagination bounds
-    rows = db.get_events(repo, mode, uncommitted, limit, offset, session)
+    rows = db.get_events(repo, mode, uncommitted, limit, offset, session, file)
     return envelope([dict(r) for r in rows])
 
 
