@@ -360,6 +360,17 @@ class Tracker:
                             self._sweep(repo)               # F9 via poll path
                         await self._push("repo_status_changed",
                                          {"repo": repo.id, **self.status[repo.id]})
+                    # F58: a gitignored-file edit (e.g. a detailed plan under the
+                    # ignored temp/) accrues an UNLINKED event WITHOUT dirtying the
+                    # repo, so neither the startup nor the dirty->clean transition
+                    # sweep fires for it (_refresh_status reports no change) -> it
+                    # would linger unlinked until a restart / next commit. Safety
+                    # net: sweep ANY clean repo that has accrued unlinked events,
+                    # every poll. Idempotent (touches only commit_hash IS NULL rows).
+                    if self.status[repo.id]["clean"] and db.has_unlinked_events(repo.id):
+                        if self._sweep(repo):
+                            await self._push("commit_detected",
+                                             {"repo": repo.id, "swept": True})
             except asyncio.CancelledError:
                 return
             except Exception as exc:  # F41: the poll loop never dies

@@ -1,5 +1,13 @@
 # Version Notes
 
+## v0.1.7.1 — Sweep Hotfix F58 (2026-07-21)
+
+**Key Highlights**
+
+- **F58** (`watcher.py` `_poll_loop`): gitignored-file edits (detailed plans under ignored `temp/`) accrue UNLINKED events WITHOUT dirtying the repo — none of the three sweep triggers (startup / commit-transition / poll dirty→clean, all gated on restart or a status CHANGE) ever fires, so the event lingers as "uncommitted" until an unrelated restart/commit (first hit: UM_Dev id 675, a plan-log edit during a sustained clean stretch; 91 more accrued before the fixed backend was loaded — self-healed by the first post-restart poll)
+- Fix: an UNCONDITIONAL safety-net sweep outside the transition gate — every poll, `clean AND has_unlinked_events` → `_sweep` to HEAD with `swept=1`; correct by ordering (`_detect_commits` links committable events first in the same iteration → only truly-unlinkable events remain), idempotent, offline-safe, `LIMIT 1` probe cost when idle; WS push reuses the existing `commit_detected {swept: true}` shape
+- **Scope:** one file + the version constant; no schema/API/hook/frontend change
+
 ## v0.1.7.0 — Story & Delight (2026-07-20)
 
 **Key Highlights**
