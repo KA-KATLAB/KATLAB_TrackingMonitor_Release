@@ -51,8 +51,21 @@ body {
 .toast-enter {
   animation: toast-in 200ms ease-out;
 }
+
+/* v0.1.8.0 D2 (B.2): replay feed chips pop in; the time cursor itself is
+   SVG driven by rAF state (no CSS). Reduced motion: chips appear
+   instantly — the feed is the informational channel and stays. */
+@keyframes chip-pop {
+  from { transform: translateY(4px) scale(0.95); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+.chip-pop {
+  animation: chip-pop 180ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pulse-dot { animation: none; }
   .burst-p { display: none; }
   .toast-enter { animation: none; }
+  .chip-pop { animation: none; }
 }

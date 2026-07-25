@@ -1,3 +1,3 @@
 """KATLAB TrackingMonitor version (4-part per KATLAB convention)."""
 
-__version__ = "0.1.7.1"
+__version__ = "0.1.8.0"

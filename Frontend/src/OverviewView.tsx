@@ -8,13 +8,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
 import { fmtMinutes } from "./format";
 import { CalendarHeatmap, RAMP, streakOf } from "./calendarHeatmap";
+import { DayLanes } from "./dayLanes";
 import { PunchCard } from "./punchCard";
 import { StatsData, activityLine, eventsPerTaskBar, modeDoughnut } from "./charts";
 import { renderBackbone } from "./mermaidGraph";
 import { useReveal } from "./reveal";
 import { prefersReducedMotion } from "./theme";
 
-export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsError, onOpenFileStory }: {
+export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsError,
+  onOpenFileStory, onOpenWrapped }: {
   scope: string | undefined; // undefined = ALL
   tasks: Task[];
   uncommitted: TrackedEvent[];
@@ -26,6 +28,9 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
   statsError: string;
   // v0.1.7.0 D1/D2 (B.1/B.2): coupling-row file names open the file story.
   onOpenFileStory?: (repo: string, file: string) => void;
+  // v0.1.8.0 D3 (C.1): the header button lifts the open to App (the modal
+  // home is App's call site — the FileStory precedent).
+  onOpenWrapped?: () => void;
 }) {
 
   const totalEvents = stats ? Object.values(stats.mode_counts).reduce((a, b) => a + b, 0) : 0;
@@ -40,8 +45,14 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
   return (
     <div className="space-y-6">
       <section>
-        <h2 className="mb-3 border-l-4 border-teal-500 pl-2 text-sm font-bold text-slate-200">
-          Overview {scope ? `— ${scope}` : "— ALL repos"}
+        <h2 className="mb-3 flex items-center border-l-4 border-teal-500 pl-2 text-sm font-bold text-slate-200">
+          <span>Overview {scope ? `— ${scope}` : "— ALL repos"}</span>
+          {stats && onOpenWrapped && ( /* v0.1.8.0 D3 (C.1) */
+            <button onClick={onOpenWrapped}
+              className="ml-auto rounded bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-200 hover:bg-slate-700">
+              Your week ✨
+            </button>
+          )}
         </h2>
         {statsError && <p className="text-sm text-rose-300">{statsError}</p>}
         {stats && <KpiRow stats={stats} repos={repos} uncommitted={uncommitted} />}
@@ -79,6 +90,9 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
                 <CalendarHeatmap calendar={stats.activity_calendar} />
               </div>
             </div>
+            {/* v0.1.8.0 D1 (B.1): day lanes — year -> day -> aggregates
+                chronology; the stats prop is the RV9 freshness signal. */}
+            <DayLanes scope={scope} stats={stats} />
             {/* v0.1.7.0 D1+D3 (B.1): coupling + punch card share a 2-col
                 row (1-col on narrow); coupling card HIDDEN when empty (the
                 corner-dot precedent); overflow-x-auto bodies (v0.1.5.0

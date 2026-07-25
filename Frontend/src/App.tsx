@@ -5,6 +5,7 @@ import { CommandPalette, PaletteEntry } from "./CommandPalette";
 import { exportDigest } from "./digest";
 import { FileStory } from "./FileStory";
 import { SessionTimeline } from "./SessionTimeline";
+import { WrappedCard } from "./WrappedCard";
 import { fmtAge, fmtMinutes, fmtRel, fmtTs } from "./format";
 import { notifyPickNeeded, notifyStatusChange, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
 import { StatsData } from "./charts";
@@ -44,6 +45,9 @@ export default function App () {
   // in-modal focus to the background. Pinned -> effect runs once per open.
   const closeTimeline = useCallback(() => setTimelineSession(null), []);
   const closeFileStory = useCallback(() => setFileStory(null), []);
+  // v0.1.8.0 D3 (C.1): the wrapped story modal (CFT-3-stable onClose).
+  const [wrappedOpen, setWrappedOpen] = useState(false);
+  const closeWrapped = useCallback(() => setWrappedOpen(false), []);
   // v0.1.5.0 D6 (D.2, RV3): groupMode LIFTED from ChangesView so the
   // palette's tree-toggle action can reach it (same behavior, prop-drilled).
   const [groupMode, setGroupMode] = useState<"task" | "folder">("task");
@@ -287,6 +291,8 @@ export default function App () {
       run: () => { setPanelOpen(true); void toggleNotify(); } },
     ...(sessionFilter ? [{ section: "Actions", label: "View session timeline",
       run: () => setTimelineSession(sessionFilter) } as PaletteEntry] : []), // v0.1.6.0 D3
+    { section: "Actions", label: "View weekly wrapped", // v0.1.8.0 D3 (C.1)
+      run: () => setWrappedOpen(true) },
     { section: "Actions", label: "Open Legend", run: () => setShowLegend(true) },
     { section: "Actions", label: "Export daily digest", run: () => void doDigest() },
     { section: "Actions", label: "Clear task + session filters",
@@ -354,6 +360,10 @@ export default function App () {
           onClose={closeFileStory} />
       )}
 
+      {wrappedOpen && stats && ( /* v0.1.8.0 D3 (C.1): your week */
+        <WrappedCard stats={stats} tasks={tasks} onClose={closeWrapped} />
+      )}
+
       {toasts.length > 0 && ( /* v0.1.7.0 D6 (C.3): persistent celebration
           toasts — z-30, BELOW every overlay (RV3: a record waits under a
           dim, never pierces it); one per repo, newest replaces; dismissed
@@ -419,7 +429,8 @@ export default function App () {
             <OverviewView scope={tab === "ALL" ? undefined : tab} tasks={visibleTasks}
               uncommitted={visibleEvents} repos={visibleRepos.filter((r) => !r.offline)}
               stats={stats} statsError={statsError}
-              onOpenFileStory={(repo, file) => setFileStory({ repo, file })} />
+              onOpenFileStory={(repo, file) => setFileStory({ repo, file })}
+              onOpenWrapped={() => setWrappedOpen(true)} />
           )}
           {view === "history" && <HistoryView repos={visibleRepos.filter((r) => !r.offline)} />}
         </main>

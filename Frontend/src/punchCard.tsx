@@ -10,7 +10,9 @@ import { RAMP } from "./calendarHeatmap";
 
 const CELL = 12, GAP = 2, STEP = CELL + GAP;
 const LEFT = 30, TOP = 16; // day / hour label gutters
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// v0.1.8.0 C.1 (RV5): EXPORTED — WrappedCard renders busiest_hour's day
+// label from this exact array (the RAMP single-source precedent).
+export const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const HOUR_LABELS = [0, 6, 12, 18];
 
 export function PunchCard ({ matrix }: { matrix: number[][] }) {

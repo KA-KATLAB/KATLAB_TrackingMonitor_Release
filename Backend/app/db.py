@@ -121,7 +121,9 @@ def get_offset (repo_id: str) -> int:
 def get_events (repo_id: str | None = None, mode: str | None = None,
                 uncommitted_only: bool = False, limit: int = 500, offset: int = 0,
                 session: str | None = None,
-                file: str | None = None) -> list[sqlite3.Row]:
+                file: str | None = None,
+                since: str | None = None,
+                until: str | None = None) -> list[sqlite3.Row]:
     query = "SELECT * FROM events WHERE 1=1"
     params: list = []
     if repo_id:
@@ -138,6 +140,14 @@ def get_events (repo_id: str | None = None, mode: str | None = None,
     if file:  # v0.1.7.0 D2 (A.2): exact-match file filter (file story)
         query += " AND file = ?"
         params.append(file)
+    # v0.1.8.0 D1 (A.1): ts window for the day-lanes fetch — TEXT compare
+    # (ISO-Z lexicographic == chronological; ts >= since AND ts < until).
+    if since:
+        query += " AND ts >= ?"
+        params.append(since)
+    if until:
+        query += " AND ts < ?"
+        params.append(until)
     query += " ORDER BY id DESC LIMIT ? OFFSET ?"  # F38 pagination
     params += [limit, offset]
     return get_conn().execute(query, params).fetchall()
@@ -306,7 +316,8 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
                 "activity_calendar": _empty_calendar(now_iso),  # RV28: fixed shape
                 "effort_per_task": [],  # v0.1.6.0 B.1: fixed shape (RV28 rule)
                 "punch_card": [[0] * 24 for _ in range(7)],  # v0.1.7.0 A.1
-                "file_coupling": []}  # v0.1.7.0 A.1: fixed shape (RV28 rule)
+                "file_coupling": [],  # v0.1.7.0 A.1: fixed shape (RV28 rule)
+                "wrapped": _empty_wrapped(now_iso)}  # v0.1.8.0 A.2
     placeholders = ",".join("?" * len(repo_ids))
 
     # mode_counts: zero-filled to all 6 (R1)
@@ -431,12 +442,104 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
         for i in range(364, -1, -1)
     ]
 
+    # v0.1.8.0 D3 (A.2): `wrapped` - the last-7-UTC-days story (today
+    # inclusive). days = the calendar's last-7 PROJECTION (RV4 - the
+    # calendar already computes per-day minutes, never recomputed); the
+    # window algorithms mirror their all-time homes verbatim with
+    # deterministic tie-breaks (RV5); nullable sub-objects, fixed shape
+    # in BOTH return paths (the v0.1.5.0 RV28 rule).
+    win_start = (today - timedelta(days=6)).isoformat() + "T00:00:00Z"
+    win_task: dict = {}
+    win_sessions: dict = {}
+    for r in conn.execute(
+            f"SELECT repo_id, task_ref, ts, session_id FROM events "
+            f"WHERE task_ref IS NOT NULL AND ts >= ? "
+            f"AND repo_id IN ({placeholders}) ORDER BY ts",
+            [win_start, *repo_ids]):
+        epoch = _ts_epoch(r["ts"])
+        if epoch is None:
+            continue
+        key = (r["repo_id"], r["task_ref"])
+        win_task.setdefault(key, []).append(epoch)
+        if r["session_id"]:
+            win_sessions.setdefault(key, set()).add(r["session_id"])
+    top_task = min(
+        ({"repo": k[0], "task_ref": k[1], "minutes": _cluster_minutes(v),
+          "sessions": len(win_sessions.get(k, set()))}
+         for k, v in win_task.items()),
+        key=lambda e: (-e["minutes"], e["repo"], e["task_ref"]),
+        default=None)
+    win_cells: dict = {}
+    for r in conn.execute(
+            f"SELECT ts FROM events WHERE ts >= ? "
+            f"AND repo_id IN ({placeholders})", [win_start, *repo_ids]):
+        epoch = _ts_epoch(r["ts"])
+        if epoch is None:
+            continue
+        try:
+            # the v0.1.7.0 CFT-1 guard: Windows OSError on negative epochs
+            local = datetime.fromtimestamp(epoch)
+            cell = ((local.weekday() + 1) % 7, local.hour)
+            win_cells[cell] = win_cells.get(cell, 0) + 1
+        except (OSError, OverflowError, ValueError):
+            pass
+    busiest_hour = min(
+        ({"dow": k[0], "hour": k[1], "events": n} for k, n in win_cells.items()),
+        key=lambda c: (-c["events"], c["dow"], c["hour"]),
+        default=None)
+    win_files: dict = {}
+    for r in conn.execute(
+            f"SELECT DISTINCT repo_id, task_ref, file FROM events "
+            f"WHERE task_ref IS NOT NULL AND ts >= ? "
+            f"AND repo_id IN ({placeholders})", [win_start, *repo_ids]):
+        if (r["repo_id"], r["file"]) in plan_files:
+            continue
+        win_files.setdefault((r["repo_id"], r["task_ref"]), set()).add(r["file"])
+    win_pairs: dict = {}
+    for (repo, _ref), files in win_files.items():
+        if len(files) > 30:
+            continue  # the mega-task cap, window flavor
+        ordered = sorted(files)
+        for i, file_a in enumerate(ordered):
+            for file_b in ordered[i + 1:]:
+                pair = (repo, file_a, file_b)
+                win_pairs[pair] = win_pairs.get(pair, 0) + 1
+    top_pair = None
+    if win_pairs:
+        (repo, a, b), n = min(win_pairs.items(), key=lambda kv: (-kv[1], kv[0]))
+        top_pair = {"repo": repo, "file_a": a, "file_b": b, "shared": n}
+    files_touched = conn.execute(
+        f"SELECT COUNT(*) c FROM (SELECT DISTINCT repo_id, file FROM events "
+        f"WHERE ts >= ? AND repo_id IN ({placeholders}))",
+        [win_start, *repo_ids]).fetchone()["c"]  # plan files INCLUDED (RV10)
+    win_commits = conn.execute(
+        f"SELECT COUNT(*) c FROM commits WHERE ts >= ? "
+        f"AND repo_id IN ({placeholders})",
+        [win_start, *repo_ids]).fetchone()["c"]
+    wrapped = {
+        "days": [{"day": d["day"], "events": d["events"], "minutes": d["minutes"]}
+                 for d in activity_calendar[-7:]],
+        "top_task": top_task, "busiest_hour": busiest_hour,
+        "files_touched": files_touched, "commits": win_commits,
+        "top_pair": top_pair,
+    }
+
     return {"mode_counts": mode_counts, "events_per_task": events_per_task,
             "activity_daily": activity_daily,
             "activity_calendar": activity_calendar,
             "effort_per_task": effort_per_task,
             "punch_card": punch_card,
-            "file_coupling": file_coupling}
+            "file_coupling": file_coupling,
+            "wrapped": wrapped}
+
+
+def _empty_wrapped (now_iso: str) -> dict:
+    """v0.1.8.0 A.2: fixed empty-scope `wrapped` shape (the v0.1.5.0 RV28
+    rule) - 7 zero days (the calendar projection), null sub-objects."""
+    return {"days": [{"day": d["day"], "events": 0, "minutes": 0}
+                     for d in _empty_calendar(now_iso)[-7:]],
+            "top_task": None, "busiest_hour": None,
+            "files_touched": 0, "commits": 0, "top_pair": None}
 
 
 def _empty_daily (now_iso: str) -> list[dict]:

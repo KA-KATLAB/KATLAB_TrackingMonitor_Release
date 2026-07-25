@@ -27,6 +27,16 @@ export interface StatsData {
   punch_card: number[][];
   // v0.1.7.0 D1 (A.1): top-10 task-level coupling pairs, file_a < file_b.
   file_coupling: { repo: string; file_a: string; file_b: string; shared: number }[];
+  // v0.1.8.0 D3 (A.2): the last-7-UTC-days story — nullable sub-objects,
+  // fixed shape in BOTH backend return paths (the v0.1.5.0 RV28 rule).
+  wrapped: {
+    days: { day: string; events: number; minutes: number }[];
+    top_task: { repo: string; task_ref: string; minutes: number; sessions: number } | null;
+    busiest_hour: { dow: number; hour: number; events: number } | null;
+    files_touched: number;
+    commits: number;
+    top_pair: { repo: string; file_a: string; file_b: string; shared: number } | null;
+  };
 }
 
 const GRID = "#334155"; // slate-700
