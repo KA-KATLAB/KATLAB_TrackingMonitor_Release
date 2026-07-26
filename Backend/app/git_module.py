@@ -83,16 +83,23 @@ def _to_utc_z (iso_with_offset: str) -> str:
 
 
 def commit_info (repo: Path, ref: str = "HEAD") -> dict:
-    """F36: the ONE commit-reading path (hash, message, ts, files) via `git show`."""
+    """F36: the ONE commit-reading path (hash, parents, message, ts, files)
+    via `git show`. v0.1.9.0 A.1: %P rides the SAME call - the raw value is
+    space-separated full parent hashes; "" for a root commit (known-empty,
+    distinct from the pre-upgrade NULL rows)."""
     out = _run(
         repo, "show", "--name-only", "--no-renames",
-        "--format=%H%n%cI%n%s", ref,
+        "--format=%H%n%P%n%cI%n%s", ref,
     )
     lines = out.splitlines()
-    commit_hash, committer_iso, message = lines[0], lines[1], lines[2] if len(lines) > 2 else ""
-    files = [ln.strip().replace("\\", "/") for ln in lines[3:] if ln.strip()]
+    commit_hash = lines[0]
+    parents = lines[1] if len(lines) > 1 else ""
+    committer_iso = lines[2]
+    message = lines[3] if len(lines) > 3 else ""
+    files = [ln.strip().replace("\\", "/") for ln in lines[4:] if ln.strip()]
     return {
         "hash": commit_hash,
+        "parents": parents,
         "ts": _to_utc_z(committer_iso),
         "message": message,
         "files": files,

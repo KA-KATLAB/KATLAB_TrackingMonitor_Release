@@ -1,5 +1,8 @@
 import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
+// v0.1.9.0 D4 (B.2): the gitGraph renderer — mermaid itself stays a dynamic
+// import INSIDE this module (R9), loading only on first graph expand.
+import { renderGitGraph } from "./mermaidGraph";
 import { buildFileTree } from "./fileTree";
 import { CommandPalette, PaletteEntry } from "./CommandPalette";
 import { exportDigest } from "./digest";
@@ -10,11 +13,14 @@ import { fmtAge, fmtMinutes, fmtRel, fmtTs } from "./format";
 import { notifyPickNeeded, notifyStatusChange, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
 import { StatsData } from "./charts";
 import { useReveal } from "./reveal";
-import { MODE_BADGE, MODE_COLOR, SWEPT_COLOR, prefersReducedMotion, sessionColor, withViewTransition } from "./theme";
+import { EFFORT_GAP_MAX_MIN, MODE_BADGE, MODE_COLOR, SWEPT_COLOR, prefersReducedMotion, sessionColor, withViewTransition } from "./theme";
+import { ComboMeter } from "./comboMeter";
 import { connectWs } from "./ws";
 import { OverviewView } from "./OverviewView";
 
 const PAGE = 500; // F38 pagination page size
+// v0.1.9.0 D3 (C.2): combo milestones — crossing one exactly fires the pop.
+const COMBO_MILESTONES = new Set([5, 10, 25, 50, 100, 250]);
 
 type Tab = string | "ALL";
 type View = "changes" | "history" | "overview"; // v0.1.3.0 D2
@@ -38,6 +44,15 @@ export default function App () {
   const [toasts, setToasts] = useState<{ repo: string; n: number }[]>([]);
   const [burst, setBurst] = useState<{ repo: string; n: number } | null>(null);
   const celebrationN = useRef(0);
+  // v0.1.9.0 D3 (C.2): live combo — count + lastMs in REFS (RV7: the WS
+  // handler closes over mount-time state), count MIRRORED to state by value
+  // for rendering; comboN is the milestone-burst nonce (celebrationN stays
+  // the celebration's own counter — never shared).
+  const comboCountRef = useRef(0);
+  const comboLastMsRef = useRef(0);
+  const comboN = useRef(0);
+  const [comboCount, setComboCount] = useState(0);
+  const [comboBurst, setComboBurst] = useState<number | null>(null);
   // v0.1.7.0 CFT-3: STABLE onClose identities for the two overlay modals —
   // an inline arrow (new identity every App render) re-ran the modals'
   // [onClose]-dep'd overlay effect on every 60s tick / WS sync while open;
@@ -105,6 +120,22 @@ export default function App () {
       if (msg.type === "event_resolved" || msg.type === "commit_detected") debouncedSync();
       if (msg.type === "task_updated" || msg.type === "warning") debouncedSync();
       if (msg.type === "event_resolved") {
+        // v0.1.9.0 D3 (C.2): combo — ONE increment per live message, all in
+        // the handler body (RV7: refs for fresh math, state mirror by value;
+        // no updater-function side effects). Burst fires only on an exact
+        // milestone crossing, never hidden / reduced-motion (D6 rules), and
+        // clears after ~900ms with the nonce-compare guard (RV11).
+        const nowMs = Date.now();
+        const chained = nowMs - comboLastMsRef.current <= EFFORT_GAP_MAX_MIN * 60_000;
+        const next = chained ? comboCountRef.current + 1 : 1;
+        comboCountRef.current = next;
+        comboLastMsRef.current = nowMs;
+        setComboCount(next);
+        if (COMBO_MILESTONES.has(next) && !document.hidden && !prefersReducedMotion()) {
+          const n = ++comboN.current;
+          setComboBurst(n);
+          window.setTimeout(() => setComboBurst((b) => (b === n ? null : b)), 900);
+        }
         // v0.1.5.0 D3 (C.3): a live queue-lander arms the guard banner —
         // rendered only while the repo is actually violating (see render).
         const d = msg.data as { repo_id?: string; mode?: string };
@@ -319,6 +350,9 @@ export default function App () {
             <TabButton active={view === "history"} onClick={() => withViewTransition(() => setView("history"))} label="History" />
             <TabButton active={showLegend} onClick={() => setShowLegend(!showLegend)} label="?"
               title="Legend - what every badge and state means" />
+            {/* v0.1.9.0 D3 (C.2): live combo chip — left of the bell */}
+            <ComboMeter count={comboCount} lastMs={comboLastMsRef.current}
+              burst={comboBurst} />
             {/* v0.1.5.0 D4 (C.4): the ONE bell — cross-repo triage panel */}
             <AttentionBell repos={repos} events={events} tasks={tasks} violationOf={violationOf}
               open={panelOpen} onToggle={() => setPanelOpen(!panelOpen)}
@@ -1359,6 +1393,14 @@ function HistoryView ({ repos }: { repos: Repo[] }) {
   const [repoId, setRepoId] = useState(repos[0]?.id ?? "");
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [exhausted, setExhausted] = useState(false);
+  // v0.1.9.0 D4 (B.2): commit graph card — default collapsed (mermaid's
+  // chunk loads only on first expand, R9), not persisted.
+  const [showGraph, setShowGraph] = useState(false);
+  const [graphSvg, setGraphSvg] = useState("");
+  const [graphShown, setGraphShown] = useState(0);
+  const [graphBusy, setGraphBusy] = useState(false);
+  const [graphNote, setGraphNote] = useState("");
+  const graphRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async (id: string, offset: number) => {
     if (!id) return;
@@ -1376,6 +1418,46 @@ function HistoryView ({ repos }: { repos: Repo[] }) {
     if (id) void load(id, 0);
   }, [repoId, firstRepoId, load]);
 
+  // v0.1.9.0 D4 (B.2): render on expand + newest-hash/repo change ONLY
+  // (load-more appends OLDER rows — the first 20 stay identical). The
+  // GraphPanel effect recipe VERBATIM (RV10): alive flag discards a
+  // mid-flight render on any dep change or unmount; errors -> inline note.
+  const newestHash = entries[0]?.commit.hash ?? "";
+  const branch = repos.find((r) => r.id === repoId)?.branch ?? "main";
+  // Refs so the effect reads the CURRENT page/branch without widening its
+  // deps (entries identity changes on load-more; repos on every poll).
+  const entriesRef = useRef(entries); entriesRef.current = entries;
+  const branchRef = useRef(branch); branchRef.current = branch;
+  useEffect(() => {
+    if (!showGraph || !newestHash) { setGraphSvg(""); setGraphNote(""); return; }
+    let alive = true;
+    setGraphBusy(true); setGraphNote("");
+    (async () => {
+      try {
+        const { svg, meta } = await renderGitGraph(entriesRef.current, branchRef.current);
+        if (!alive) return;
+        setGraphSvg(svg);
+        setGraphShown(meta.shown);
+      } catch (e) {
+        if (alive) { setGraphSvg(""); setGraphNote(String(e)); }
+      } finally {
+        if (alive) setGraphBusy(false);
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showGraph, repoId, newestHash]);
+
+  // The GraphPanel injection idiom: DOMParser + adoptNode, never innerHTML.
+  useEffect(() => {
+    const host = graphRef.current;
+    if (!host) return;
+    if (!graphSvg) { host.replaceChildren(); return; }
+    const doc = new DOMParser().parseFromString(graphSvg, "text/html");
+    const parsed = doc.querySelector("svg");
+    if (parsed) host.replaceChildren(document.adoptNode(parsed));
+  }, [graphSvg]);
+
   return (
     <div>
       <div className="mb-3 flex items-center gap-2">
@@ -1384,7 +1466,30 @@ function HistoryView ({ repos }: { repos: Repo[] }) {
           className="min-h-[28px] rounded bg-slate-800 px-2 py-1 text-xs">
           {repos.map((r) => <option key={r.id} value={r.id}>{r.id}</option>)}
         </select>
+        <button onClick={() => setShowGraph(!showGraph)} aria-pressed={showGraph}
+          title="toggle the commit graph (latest 20 commits, real parents)"
+          className={`min-h-[28px] rounded px-2 py-1 text-xs ${
+            showGraph ? "bg-teal-800 text-white" : "bg-slate-800 hover:bg-slate-700"}`}>
+          ⎇ graph
+        </button>
+        {graphBusy && <span className="text-xs text-slate-400">rendering…</span>}
       </div>
+      {showGraph && (
+        <div className="mb-3 rounded border border-slate-700 bg-slate-900 p-3">
+          {graphNote && <p className="mb-2 text-xs italic text-slate-400">{graphNote}</p>}
+          <div ref={graphRef} className="overflow-x-auto" role="img"
+            aria-label="commit graph" />
+          {graphSvg && (
+            <p className="mt-1 text-[11px] text-slate-400">
+              latest {graphShown} of {entries.length} fetched commits · merge side
+              branches summarized to their tip (*)
+            </p>
+          )}
+          {!graphBusy && !graphSvg && !graphNote && (
+            <p className="text-xs text-slate-400">No commits to graph.</p>
+          )}
+        </div>
+      )}
       {entries.map(({ commit, events }) => (
         <div key={commit.hash} className="mb-3 rounded border border-slate-700 bg-slate-900 p-3">
           <div className="flex items-baseline gap-2">

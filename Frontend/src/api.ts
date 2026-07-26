@@ -42,7 +42,10 @@ export interface TrackedEvent {
 }
 
 export interface HistoryEntry {
-  commit: { hash: string; message: string; ts: string; files_json: string };
+  commit: { hash: string; message: string; ts: string; files_json: string;
+    // v0.1.9.0 A.1: raw %P — space-separated full parent hashes;
+    // "" = root commit, null = pre-upgrade row (older than the backfill window)
+    parents: string | null };
   events: TrackedEvent[];
 }
 

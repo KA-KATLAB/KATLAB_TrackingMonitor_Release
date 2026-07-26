@@ -20,7 +20,7 @@ FastAPI server (single process)
   · git module (STRICTLY read-only: status/diff/log/show)
   · SQLite (events · tasks · commits)
         ▼
-REST + WebSocket → React UI (status bar + branch chips + session pulse + CLEAN ✓ celebration · task sidebar · changes-by-task · diff viewer · file story · manual-pick queue · Overview dashboard: KPIs, charts, year calendar + streak, day lanes + 30-second activity replay, weekly wrapped, punch card, change coupling, task→commit map · session dots + session timeline · effort estimates · discipline guard · attention bell + rhythm nudges + OS alerts · Ctrl+K palette · daily digest export · view-transition nav · history)
+REST + WebSocket → React UI (status bar + branch chips + session pulse + CLEAN ✓ celebration + live capture combo · task sidebar · changes-by-task · diff viewer · file story · manual-pick queue · Overview dashboard: KPIs, charts, year calendar + streak + isometric skyline city, day lanes + 30-second activity replay, weekly wrapped, punch card, change coupling, trophy case, task→commit map · session dots + session timeline · effort estimates · discipline guard · attention bell + rhythm nudges + OS alerts · Ctrl+K palette · daily digest export · view-transition nav · history + commit graph)
 ```
 
 ### Hybrid-C resolution — never silently guess

@@ -7,7 +7,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
 import { fmtMinutes } from "./format";
-import { CalendarHeatmap, RAMP, streakOf } from "./calendarHeatmap";
+import { CalendarHeatmap, RAMP, RampLegend, streakOf } from "./calendarHeatmap";
+import { Skyline } from "./skyline";
+import { TrophyCase } from "./trophies";
 import { DayLanes } from "./dayLanes";
 import { PunchCard } from "./punchCard";
 import { StatsData, activityLine, eventsPerTaskBar, modeDoughnut } from "./charts";
@@ -34,6 +36,14 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
 }) {
 
   const totalEvents = stats ? Object.values(stats.mode_counts).reduce((a, b) => a + b, 0) : 0;
+  // v0.1.9.0 D1 (B.1): flat | city calendar toggle — DEFAULT city (the
+  // release centerpiece), persisted under the notify.ts key convention.
+  const [calView, setCalView] = useState<"city" | "flat">(
+    () => (localStorage.getItem("katlab.calendarView") === "flat" ? "flat" : "city"));
+  const pickCalView = (v: "city" | "flat") => {
+    setCalView(v);
+    localStorage.setItem("katlab.calendarView", v);
+  };
   // Coupling rank display: rows arrive API-ranked (-shared, repo, a, b) —
   // make the ranking VISIBLE: #n numeral + ×N badge tinted by strength
   // (quartile of the max, the calendar/punch-card bucket rule; shared >= 1
@@ -85,10 +95,29 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
                     🔥 {streakOf(stats.activity_calendar)}-day streak
                   </span>
                 )}
+                {/* v0.1.9.0 D1 (B.1): flat | city toggle — instant switch
+                    (crossfades are for nav, not filters) */}
+                <span role="group" aria-label="calendar view"
+                  className={`${streakOf(stats.activity_calendar) >= 2 ? "ml-2" : "ml-auto"} flex gap-1 font-normal`}>
+                  {(["flat", "city"] as const).map((v) => (
+                    <button key={v} aria-pressed={calView === v}
+                      onClick={() => pickCalView(v)}
+                      className={`rounded px-1.5 py-0.5 text-[11px] ${
+                        calView === v
+                          ? "bg-teal-800 text-white"
+                          : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+                      {v}
+                    </button>
+                  ))}
+                </span>
               </div>
               <div className="overflow-x-auto">
-                <CalendarHeatmap calendar={stats.activity_calendar} />
+                {calView === "city"
+                  ? <Skyline calendar={stats.activity_calendar} />
+                  : <CalendarHeatmap calendar={stats.activity_calendar} />}
               </div>
+              {/* v0.1.9.0 B.1 (RV8): ONE legend home below whichever view */}
+              <RampLegend />
             </div>
             {/* v0.1.8.0 D1 (B.1): day lanes — year -> day -> aggregates
                 chronology; the stats prop is the RV9 freshness signal. */}
@@ -135,6 +164,10 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
                 </div>
               </div>
             </div>
+            {/* v0.1.9.0 D2 (C.1): trophy case — below the 2-col row, above
+                the Mermaid GraphPanel; scope-aware ranks (stats arrive
+                server-scoped, Finisher filters the tasks prop client-side) */}
+            <TrophyCase stats={stats} tasks={tasks} scope={scope} />
           </>
         )}
       </section>

@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS commits (
     message     TEXT NOT NULL,
     ts          TEXT NOT NULL,          -- ISO 8601 UTC-Z
     files_json  TEXT NOT NULL,          -- JSON array of touched files
+    parents     TEXT,                   -- v0.1.9.0: space-separated parent hashes ("" = root, NULL = pre-upgrade)
     PRIMARY KEY (repo_id, hash)
 );
 

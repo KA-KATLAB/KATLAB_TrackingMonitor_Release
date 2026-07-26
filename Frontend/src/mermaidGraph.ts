@@ -66,9 +66,9 @@ export function buildBackbone (input: GraphInput): BuildResult {
   return { def: lines.join("\n"), capped: total - shown, shown, total };
 }
 
-export async function renderBackbone (input: GraphInput): Promise<{ svg: string; meta: BuildResult }> {
-  const meta = buildBackbone(input);
-  if (!meta.def) return { svg: "", meta };
+async function ensureMermaid () {
+  // R9: mermaid stays a dynamic import (its own Vite chunk); ONE initialize
+  // shared by the backbone flowchart AND the v0.1.9.0 gitGraph.
   const mermaid = (await import("mermaid")).default;
   if (!initialized) {
     mermaid.initialize({
@@ -81,10 +81,82 @@ export async function renderBackbone (input: GraphInput): Promise<{ svg: string;
         // A.1/D3 (v0.1.4.0): SVG text ignores page CSS — the graph must
         // adopt the pairing here (fallback stack keeps it offline-safe).
         fontFamily: '"Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif',
+        // v0.1.9.0 D4 (B.2): gitGraph vars ride the SAME single initialize —
+        // teal main line, amber/purple/sky side branches, house label colors.
+        git0: DIAGRAM.accent, git1: "#f59e0b", git2: "#9333ea", git3: "#0284c7",
+        gitBranchLabel0: DIAGRAM.bg,
+        commitLabelColor: DIAGRAM.text, commitLabelBackground: DIAGRAM.bg,
+        tagLabelColor: DIAGRAM.text, tagLabelBackground: DIAGRAM.surface,
+        tagLabelBorder: DIAGRAM.accent,
       },
     });
     initialized = true;
   }
+  return mermaid;
+}
+
+export async function renderBackbone (input: GraphInput): Promise<{ svg: string; meta: BuildResult }> {
+  const meta = buildBackbone(input);
+  if (!meta.def) return { svg: "", meta };
+  const mermaid = await ensureMermaid();
+  const { svg } = await mermaid.render(`ve-graph-${seq++}`, meta.def); // R9: fresh id
+  return { svg, meta };
+}
+
+// --- v0.1.9.0 D4 (B.2): commit graph — real parents, bounded decoration ---
+
+export interface GitGraphResult { def: string | null; shown: number; total: number; }
+
+const GIT_CAP = 20; // latest N of the fetched page
+
+export function buildGitGraph (entries: HistoryEntry[], branchName: string): GitGraphResult {
+  const total = entries.length;
+  if (total === 0) return { def: null, shown: 0, total: 0 }; // RV3: empty page
+  // RV2: the main branch is RENAMED via the init directive — every checkout
+  // must use this sanitized name, never a literal "main". CFT-1: checkout
+  // statements QUOTE it — a detached-HEAD repo's main is the SHORT HASH
+  // (digit-led) and the grammar's bare REFERENCE token requires a leading
+  // letter (parse-proven both ways against @mermaid-js/parser).
+  const main = safe(branchName || "main").replace(/\s+/g, "_") || "main";
+  const page = entries.slice(0, GIT_CAP).map((e) => e.commit);
+  const walk = [...page].reverse(); // oldest-first; main line = page order
+  const short = (h: string) => h.slice(0, 7);
+  const sideSeen = new Map<string, number>(); // RV4: same-tip repeats -> *2, *3
+  const lines = [
+    `%%{init: {'gitGraph': {'mainBranchName': '${main}'}}}%%`,
+    "gitGraph",
+  ];
+  walk.forEach((c, i) => {
+    const tag = i === walk.length - 1 ? ' tag: "HEAD"' : ""; // RV5: newest's OWN form
+    const parents = (c.parents ?? "").trim() ? c.parents!.trim().split(/\s+/) : [];
+    if (parents.length >= 2) {
+      // RV4/RV5/RV6: a merge renders SOLELY via this decoration — one side
+      // node (parent #2 tip, "*"-suffixed: the tip usually also sits on the
+      // main line as its own page row), branch keyed by M's OWN short7, and
+      // the merge statement carries M's id (mermaid auto-labels otherwise).
+      // Parents beyond the 2nd stay list-only (octopus — RV6).
+      const tip = short(parents[1]);
+      const n = (sideSeen.get(tip) ?? 0) + 1;
+      sideSeen.set(tip, n);
+      const b = `b_${short(c.hash)}`;
+      lines.push(`  branch ${b}`);
+      lines.push(`  checkout ${b}`);
+      lines.push(`  commit id: "${tip}${n === 1 ? "*" : `*${n}`}"`);
+      lines.push(`  checkout "${main}"`); // CFT-1: quoted — digit-led mains
+      lines.push(`  merge ${b} id: "${short(c.hash)}"${tag}`);
+    } else {
+      // 1 parent, "" (root) and NULL (pre-upgrade row) all chain plainly.
+      lines.push(`  commit id: "${short(c.hash)}"${tag}`);
+    }
+  });
+  return { def: lines.join("\n"), shown: page.length, total };
+}
+
+export async function renderGitGraph (entries: HistoryEntry[], branchName: string):
+  Promise<{ svg: string; meta: GitGraphResult }> {
+  const meta = buildGitGraph(entries, branchName);
+  if (!meta.def) return { svg: "", meta };
+  const mermaid = await ensureMermaid();
   const { svg } = await mermaid.render(`ve-graph-${seq++}`, meta.def); // R9: fresh id
   return { svg, meta };
 }

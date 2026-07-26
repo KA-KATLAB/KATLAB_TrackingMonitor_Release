@@ -63,9 +63,22 @@ body {
   animation: chip-pop 180ms ease-out;
 }
 
+/* v0.1.9.0 D3 (C.2): combo milestone pop — the chip scales briefly; the
+   particles reuse .burst-p. App gates firing (hidden tab / reduced motion),
+   this block guards besides. */
+@keyframes combo-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+.combo-pop {
+  animation: combo-pop 300ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pulse-dot { animation: none; }
   .burst-p { display: none; }
   .toast-enter { animation: none; }
   .chip-pop { animation: none; }
+  .combo-pop { animation: none; }
 }

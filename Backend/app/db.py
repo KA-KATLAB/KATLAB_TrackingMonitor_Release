@@ -39,14 +39,19 @@ def get_conn () -> sqlite3.Connection:
 def init_db (repos: list) -> None:
     conn = get_conn()
     conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
-    # v0.1.5.0 D1 + v0.1.6.0 D2 (A.2): additive migrations for pre-existing
-    # databases - CREATE IF NOT EXISTS above never alters an existing events
-    # table. Idempotent needed-columns loop: PRAGMA-guarded, one ALTER per
-    # missing column, covers v0.1.4.0-era AND v0.1.5.0-era databases.
-    columns = {row["name"] for row in conn.execute("PRAGMA table_info(events)")}
-    for column in ("session_id", "branch"):
-        if column not in columns:
-            conn.execute(f"ALTER TABLE events ADD COLUMN {column} TEXT")
+    # v0.1.5.0 D1 + v0.1.6.0 D2 + v0.1.9.0 A.1: additive migrations for
+    # pre-existing databases - CREATE IF NOT EXISTS above never alters an
+    # existing table. Idempotent needed-columns loop, generalized per table:
+    # PRAGMA-guarded, one ALTER per missing column.
+    needed: dict[str, tuple[str, ...]] = {
+        "events": ("session_id", "branch"),
+        "commits": ("parents",),
+    }
+    for table, wanted in needed.items():
+        columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        for column in wanted:
+            if column not in columns:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT")
     for repo in repos:
         conn.execute(
             "INSERT INTO repos (id, name, path) VALUES (?, ?, ?) "
@@ -170,11 +175,13 @@ def set_manual_task (event_id: int, task_ref: str) -> None:
 def upsert_commit (repo_id: str, commit: dict) -> None:
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO commits (repo_id, hash, message, ts, files_json) VALUES (?, ?, ?, ?, ?) "
+            "INSERT INTO commits (repo_id, hash, message, ts, files_json, parents) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(repo_id, hash) DO UPDATE SET message = excluded.message, "
-            "ts = excluded.ts, files_json = excluded.files_json",
+            "ts = excluded.ts, files_json = excluded.files_json, "
+            "parents = excluded.parents",
             (repo_id, commit["hash"], commit["message"], commit["ts"],
-             json.dumps(commit["files"])),
+             json.dumps(commit["files"]), commit["parents"]),
         )
 
 
