@@ -310,6 +310,19 @@ def get_activity_buckets (repo_id: str, now_iso: str, buckets: int = 12,
     return out
 
 
+def _is_plan_file (plan_files: set, repo_id: str, file: str) -> bool:
+    """v0.1.10.0 A.1 (Amendment A1): the DOUBLE plan-file exclusion - a file
+    is plan-shaped if the parsed tasks table says so OR its basename follows
+    the documented PLAN_*.txt naming (Plan_Format_Spec). Plans absent from
+    the task cache (done/re-synced/legacy) escape the tasks-table set alone
+    (RV2, dry-run-proven on the real DB); the basename arm is purely
+    additive. Shared by coupling (BOTH call sites) + identity + churn."""
+    if (repo_id, file) in plan_files:
+        return True
+    base = file.rsplit("/", 1)[-1]
+    return base.startswith("PLAN_") and base.endswith(".txt")
+
+
 def get_stats (repo_ids: list[str], now_iso: str) -> dict:
     """D5: fixed-shape aggregates over `repo_ids` (R23: caller passes the
     CONFIGURED ids for ALL scope, or a single id for a repo scope).
@@ -324,7 +337,11 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
                 "effort_per_task": [],  # v0.1.6.0 B.1: fixed shape (RV28 rule)
                 "punch_card": [[0] * 24 for _ in range(7)],  # v0.1.7.0 A.1
                 "file_coupling": [],  # v0.1.7.0 A.1: fixed shape (RV28 rule)
-                "wrapped": _empty_wrapped(now_iso)}  # v0.1.8.0 A.2
+                "wrapped": _empty_wrapped(now_iso),  # v0.1.8.0 A.2
+                # v0.1.10.0 A.1: fixed shapes (RV28 rule)
+                "identity": {"extensions": [], "ext_total": 0, "sessions": 0,
+                             "first_event_ts": None, "commits": 0},
+                "file_churn": []}
     placeholders = ",".join("?" * len(repo_ids))
 
     # mode_counts: zero-filled to all 6 (R1)
@@ -413,7 +430,7 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
             f"SELECT DISTINCT repo_id, task_ref, file FROM events "
             f"WHERE task_ref IS NOT NULL AND repo_id IN ({placeholders})",
             repo_ids):
-        if (r["repo_id"], r["file"]) in plan_files:
+        if _is_plan_file(plan_files, r["repo_id"], r["file"]):  # A1 retrofit
             continue
         task_files.setdefault((r["repo_id"], r["task_ref"]), set()).add(r["file"])
     pair_counts: dict = {}
@@ -430,6 +447,45 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
         for (repo, a, b), n in sorted(
             pair_counts.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
     ]  # ties break by (repo, file_a, file_b) ascending - stable top-10
+
+    # v0.1.10.0 A.1 (D1+D2): ONE file-level scan feeds identity + churn -
+    # plan files excluded via the A1 double exclusion (the shared helper).
+    file_rows = [
+        r for r in conn.execute(
+            f"SELECT repo_id, file, COUNT(*) c, MAX(ts) m FROM events "
+            f"WHERE repo_id IN ({placeholders}) GROUP BY repo_id, file",
+            repo_ids)
+        if not _is_plan_file(plan_files, r["repo_id"], r["file"])
+    ]
+    # EXT RULE (D1): lowercase tail after the LAST "." of the BASENAME;
+    # no dot / empty tail -> "" (the client labels it "(no ext)").
+    ext_counts: dict[str, int] = {}
+    for r in file_rows:
+        base = r["file"].rsplit("/", 1)[-1]
+        tail = base.rsplit(".", 1)[1].lower() if "." in base else ""
+        ext_counts[tail] = ext_counts.get(tail, 0) + r["c"]
+    identity = {
+        "extensions": [
+            {"ext": e, "count": c}
+            for e, c in sorted(ext_counts.items(), key=lambda kv: (-kv[1], kv[0]))[:8]
+        ],
+        "ext_total": sum(ext_counts.values()),
+        "sessions": conn.execute(
+            f"SELECT COUNT(DISTINCT session_id) FROM events "
+            f"WHERE session_id IS NOT NULL AND repo_id IN ({placeholders})",
+            repo_ids).fetchone()[0],
+        "first_event_ts": conn.execute(
+            f"SELECT MIN(ts) FROM events WHERE repo_id IN ({placeholders})",
+            repo_ids).fetchone()[0],
+        # ALL-TIME commits - the 365d calendar is the wrong "since born" basis
+        "commits": conn.execute(
+            f"SELECT COUNT(*) FROM commits WHERE repo_id IN ({placeholders})",
+            repo_ids).fetchone()[0],
+    }
+    file_churn = [
+        {"repo": r["repo_id"], "file": r["file"], "events": r["c"], "last_ts": r["m"]}
+        for r in sorted(file_rows, key=lambda r: (-r["c"], r["repo_id"], r["file"]))[:20]
+    ]
 
     # v0.1.5.0 D2 (B.1): 365-day calendar - events reuse raw_days (already a
     # full-table day GROUP BY); commits bucketed identically. Zero-filled,
@@ -499,7 +555,7 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
             f"SELECT DISTINCT repo_id, task_ref, file FROM events "
             f"WHERE task_ref IS NOT NULL AND ts >= ? "
             f"AND repo_id IN ({placeholders})", [win_start, *repo_ids]):
-        if (r["repo_id"], r["file"]) in plan_files:
+        if _is_plan_file(plan_files, r["repo_id"], r["file"]):  # A1 retrofit
             continue
         win_files.setdefault((r["repo_id"], r["task_ref"]), set()).add(r["file"])
     win_pairs: dict = {}
@@ -537,7 +593,9 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
             "effort_per_task": effort_per_task,
             "punch_card": punch_card,
             "file_coupling": file_coupling,
-            "wrapped": wrapped}
+            "wrapped": wrapped,
+            "identity": identity,      # v0.1.10.0 A.1 (D1)
+            "file_churn": file_churn}  # v0.1.10.0 A.1 (D2)
 
 
 def _empty_wrapped (now_iso: str) -> dict:

@@ -9,6 +9,8 @@ import { api, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
 import { fmtMinutes } from "./format";
 import { CalendarHeatmap, RAMP, RampLegend, streakOf } from "./calendarHeatmap";
 import { Skyline } from "./skyline";
+import { IdentityCard } from "./identityCard";
+import { ChurnMap } from "./churnMap";
 import { TrophyCase } from "./trophies";
 import { DayLanes } from "./dayLanes";
 import { PunchCard } from "./punchCard";
@@ -163,6 +165,26 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
                   <PunchCard matrix={stats.punch_card} />
                 </div>
               </div>
+            </div>
+            {/* v0.1.10.0 D1+D2 (B.1/B.2): identity | churn map — the new
+                2-col row below coupling/punch, above the trophy case; the
+                churn card hides entirely at 0 rows (the coupling-card
+                precedent) and the row collapses to identity alone. */}
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <div data-reveal className="rounded border border-slate-700 bg-slate-900 p-3">
+                <div className="overflow-x-auto">
+                  <IdentityCard identity={stats.identity}
+                    calendar={stats.activity_calendar} scope={scope} />
+                </div>
+              </div>
+              {stats.file_churn.length > 0 && (
+                <div data-reveal className="rounded border border-slate-700 bg-slate-900 p-3">
+                  <div className="overflow-x-auto">
+                    <ChurnMap churn={stats.file_churn}
+                      onOpenFileStory={onOpenFileStory} />
+                  </div>
+                </div>
+              )}
             </div>
             {/* v0.1.9.0 D2 (C.1): trophy case — below the 2-col row, above
                 the Mermaid GraphPanel; scope-aware ranks (stats arrive

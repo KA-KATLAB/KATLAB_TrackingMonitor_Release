@@ -31,6 +31,7 @@ Do this BEFORE any hooked session edits this repo — an un-ignored `events.json
 ## Step 3 — Plan authoring rules
 
 - Plans live in **`temp/Plan/PLAN_*.txt`** (enhanced format ONLY — legacy plans are invisible to the tracker: zero tasks, no errors)
+- The `PLAN_*.txt` **naming is load-bearing** (v0.1.10.0): any file whose basename starts `PLAN_` and ends `.txt` is treated as a PLAN by the tracker's statistics (excluded from the identity/churn/coupling surfaces so code heat stays honest) — even when its tasks are done or it parses to zero tasks. Never give a non-plan file a `PLAN_*.txt` name; captures on it still count as events, but it disappears from those stats views
 - Format spec: `TrackingMonitor/Docs/Plan_Format_Spec.md` (task blocks at column 0; required tags id/title/status; UTF-8; repo-relative `<files>` globs)
 - Discipline: keep **exactly ONE task `in-progress`** per repo at a time; flip statuses as you work — the tracker re-parses live
 - Full standing rules (flip-before-edit, empty manual-pick queue): `TrackingMonitor/Docs/Tracking_Discipline.md`

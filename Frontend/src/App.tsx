@@ -15,6 +15,7 @@ import { StatsData } from "./charts";
 import { useReveal } from "./reveal";
 import { EFFORT_GAP_MAX_MIN, MODE_BADGE, MODE_COLOR, SWEPT_COLOR, prefersReducedMotion, sessionColor, withViewTransition } from "./theme";
 import { ComboMeter } from "./comboMeter";
+import { FocusMode } from "./focusMode";
 import { connectWs } from "./ws";
 import { OverviewView } from "./OverviewView";
 
@@ -53,6 +54,9 @@ export default function App () {
   const comboN = useRef(0);
   const [comboCount, setComboCount] = useState(0);
   const [comboBurst, setComboBurst] = useState<number | null>(null);
+  // v0.1.10.0 D3 (C.1): ambient focus mode — STABLE onClose (CFT-3 rule).
+  const [focusOpen, setFocusOpen] = useState(false);
+  const closeFocus = useCallback(() => setFocusOpen(false), []);
   // v0.1.7.0 CFT-3: STABLE onClose identities for the two overlay modals —
   // an inline arrow (new identity every App render) re-ran the modals'
   // [onClose]-dep'd overlay effect on every 60s tick / WS sync while open;
@@ -301,6 +305,9 @@ export default function App () {
     { section: "Views", label: "Changes", run: () => setView("changes") },
     { section: "Views", label: "Overview", run: () => setView("overview") },
     { section: "Views", label: "History", run: () => setView("history") },
+    { section: "Views", label: "Enter focus mode", // v0.1.10.0 D3 (C.1)
+      hint: "ambient wall display — Esc exits",
+      run: () => setFocusOpen(true) },
     { section: "Repos", label: "ALL repos", run: () => setTab("ALL") },
     ...repos.map((r): PaletteEntry => ({
       section: "Repos", label: r.id, hint: r.clean ? "CLEAN ✓" : `${r.count} uncommitted`,
@@ -386,6 +393,13 @@ export default function App () {
 
       {timelineSession && ( /* v0.1.6.0 D3 (C.3): static snapshot modal */
         <SessionTimeline session={timelineSession} onClose={closeTimeline} />
+      )}
+
+      {focusOpen && ( /* v0.1.10.0 D3 (C.1): the ambient wall display —
+          scope snapshots inside at mount (RV3); repos passed WHOLE, the
+          overlay filters by its snapshot (data-driven, offline included) */
+        <FocusMode scope={tab === "ALL" ? undefined : tab} repos={repos}
+          events={events} stats={stats} onClose={closeFocus} />
       )}
 
       {fileStory && ( /* v0.1.7.0 D2 (B.2): the life of one file */
@@ -768,6 +782,12 @@ function Legend ({ onClose }: { onClose: () => void }) {
         <b className="text-amber-300">done, uncommitted</b> (work finished, commit pending) →{" "}
         <b className="text-emerald-300">done ✓</b> (every change committed). A repo is{" "}
         <b className="text-emerald-300">CLEAN ✓</b> when git reports zero uncommitted changes.
+      </p>
+      <p className="mt-1.5 text-slate-400">
+        {/* v0.1.10.0 D3 (C.1): discoverability — the palette is the entry */}
+        Focus mode: press <b className="text-slate-300">Ctrl+K</b> →{" "}
+        <b className="text-slate-300">Enter focus mode</b> for a full-screen ambient
+        wall display (live status, in-flight feed, skyline); <b>Esc</b> or ✕ exits.
       </p>
     </div>
   );

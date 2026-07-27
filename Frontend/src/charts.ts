@@ -37,6 +37,17 @@ export interface StatsData {
     commits: number;
     top_pair: { repo: string; file_a: string; file_b: string; shared: number } | null;
   };
+  // v0.1.10.0 D1 (A.1): repo identity — fixed shape both paths; the A1
+  // double exclusion strips plan files from the extension mix.
+  identity: {
+    extensions: { ext: string; count: number }[]; // top 8, (-count, ext)
+    ext_total: number;
+    sessions: number;
+    first_event_ts: string | null;
+    commits: number; // ALL-TIME (not the 365d calendar window)
+  };
+  // v0.1.10.0 D2 (A.1): top-20 file churn (plan files excluded, A1).
+  file_churn: { repo: string; file: string; events: number; last_ts: string }[];
 }
 
 const GRID = "#334155"; // slate-700

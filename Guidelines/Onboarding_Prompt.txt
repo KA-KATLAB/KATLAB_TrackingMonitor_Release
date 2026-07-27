@@ -16,6 +16,7 @@ Onboard THIS repo to KATLAB TrackingMonitor so my new detailed plans are tracked
    - <why>: free text shown in the UI as the reason for the change
    - Discipline: exactly ONE task in-progress at a time; flip statuses live as you work (the tracker re-parses on save); declare <files> precisely
    - The tracker parses ONLY this format — legacy plan formats are invisible to it
+   - The PLAN_*.txt naming is LOAD-BEARING (v0.1.10.0): any file whose basename starts PLAN_ and ends .txt is treated as a plan by the tracker's statistics (excluded from the identity/churn/coupling views) — NEVER give a non-plan file that name
 
 4. Persist the tracking discipline into THIS repo's own CLAUDE.md (merge, don't overwrite): a short standing-rules section — flip the task to in-progress BEFORE editing, exactly ONE task in-progress at a time, flip to done right after finishing, declare <files> precisely, keep the manual-pick queue empty (full rules: Tracking_Discipline.md above) — so every FUTURE session here follows them without re-reading TrackingMonitor docs.
 
