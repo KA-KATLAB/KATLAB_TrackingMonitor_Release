@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import { Repo, TrackedEvent } from "./api";
 import { StatsData } from "./charts";
 import { Skyline } from "./skyline";
+import { GoalRings } from "./goalRings";
 import { streakOf } from "./calendarHeatmap";
 import { fmtMinutes } from "./format";
 import { MODE_BADGE, MODE_COLOR } from "./theme";
@@ -135,6 +136,13 @@ export function FocusMode ({ scope: scopeProp, repos, events, stats, onClose }: 
             </div>
           )}
         </div>
+
+        {stats && ( /* v0.1.11.0 C.1: compact goal rings — element 7 on the
+            wall (read-only; goals from the same localStorage; the wall
+            scope is snapshotted, so no scope key is needed here) */
+          <GoalRings compact scope={scope}
+            calendar={stats.activity_calendar} />
+        )}
 
         <div className="flex items-center gap-2 text-sm text-slate-400">
           {alive && <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-teal-400" />}

@@ -11,6 +11,8 @@ import { CalendarHeatmap, RAMP, RampLegend, streakOf } from "./calendarHeatmap";
 import { Skyline } from "./skyline";
 import { IdentityCard } from "./identityCard";
 import { ChurnMap } from "./churnMap";
+import { GoalRings } from "./goalRings";
+import { CouplingArcs } from "./couplingArcs";
 import { TrophyCase } from "./trophies";
 import { DayLanes } from "./dayLanes";
 import { PunchCard } from "./punchCard";
@@ -45,6 +47,14 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
   const pickCalView = (v: "city" | "flat") => {
     setCalView(v);
     localStorage.setItem("katlab.calendarView", v);
+  };
+  // v0.1.11.0 D2 (B.2): list | arcs coupling toggle — DEFAULT arcs (the
+  // flat|city recipe verbatim).
+  const [couplingView, setCouplingView] = useState<"arcs" | "list">(
+    () => (localStorage.getItem("katlab.couplingView") === "list" ? "list" : "arcs"));
+  const pickCouplingView = (v: "arcs" | "list") => {
+    setCouplingView(v);
+    localStorage.setItem("katlab.couplingView", v);
   };
   // Coupling rank display: rows arrive API-ranked (-shared, repo, a, b) —
   // make the ranking VISIBLE: #n numeral + ×N badge tinted by strength
@@ -131,30 +141,54 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
               {stats.file_coupling.length > 0 && (
                 <div data-reveal className="rounded border border-slate-700 bg-slate-900 p-3">
-                  <div className="mb-2 text-xs font-semibold text-slate-300">
-                    Files that change together
+                  <div className="mb-2 flex items-center text-xs font-semibold text-slate-300">
+                    <span>Files that change together</span>
+                    {/* v0.1.11.0 D2 (B.2): list | arcs — the flat|city
+                        recipe verbatim, default arcs */}
+                    <span role="group" aria-label="coupling view"
+                      className="ml-auto flex gap-1 font-normal">
+                      {(["list", "arcs"] as const).map((v) => (
+                        <button key={v} aria-pressed={couplingView === v}
+                          onClick={() => pickCouplingView(v)}
+                          className={`rounded px-1.5 py-0.5 text-[11px] ${
+                            couplingView === v
+                              ? "bg-teal-800 text-white"
+                              : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+                          {v}
+                        </button>
+                      ))}
+                    </span>
                   </div>
-                  <div className="space-y-1 overflow-x-auto text-xs">
-                    {stats.file_coupling.map((c, i) => (
-                      <div key={`${c.repo}|${c.file_a}|${c.file_b}`}
-                        className="flex items-center gap-1.5 font-mono">
-                        <span className="w-6 shrink-0 text-right text-[10px] text-slate-500">
-                          #{i + 1}
-                        </span>
-                        {scope === undefined && (
-                          <span className="shrink-0 text-[10px] text-slate-500">{c.repo}</span>
-                        )}
-                        <CouplingFile repo={c.repo} file={c.file_a} onOpen={onOpenFileStory} />
-                        <span className="shrink-0 text-slate-500">↔</span>
-                        <CouplingFile repo={c.repo} file={c.file_b} onOpen={onOpenFileStory} />
-                        <span title={`changed together in ${c.shared} task${c.shared === 1 ? "" : "s"}`}
-                          className="ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
-                          style={{ backgroundColor: RAMP[Math.min(4, Math.max(1, Math.ceil((c.shared / couplingMax) * 4)))] }}>
-                          ×{c.shared}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  {couplingView === "arcs" && (
+                    <div className="overflow-x-auto">
+                      <CouplingArcs pairs={stats.file_coupling}
+                        couplingMax={couplingMax}
+                        onOpenFileStory={onOpenFileStory} />
+                    </div>
+                  )}
+                  {couplingView === "list" && (
+                    <div className="space-y-1 overflow-x-auto text-xs">
+                      {stats.file_coupling.map((c, i) => (
+                        <div key={`${c.repo}|${c.file_a}|${c.file_b}`}
+                          className="flex items-center gap-1.5 font-mono">
+                          <span className="w-6 shrink-0 text-right text-[10px] text-slate-500">
+                            #{i + 1}
+                          </span>
+                          {scope === undefined && (
+                            <span className="shrink-0 text-[10px] text-slate-500">{c.repo}</span>
+                          )}
+                          <CouplingFile repo={c.repo} file={c.file_a} onOpen={onOpenFileStory} />
+                          <span className="shrink-0 text-slate-500">↔</span>
+                          <CouplingFile repo={c.repo} file={c.file_b} onOpen={onOpenFileStory} />
+                          <span title={`changed together in ${c.shared} task${c.shared === 1 ? "" : "s"}`}
+                            className="ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+                            style={{ backgroundColor: RAMP[Math.min(4, Math.max(1, Math.ceil((c.shared / couplingMax) * 4)))] }}>
+                            ×{c.shared}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               <div data-reveal className="rounded border border-slate-700 bg-slate-900 p-3">
@@ -166,11 +200,19 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
                 </div>
               </div>
             </div>
-            {/* v0.1.10.0 D1+D2 (B.1/B.2): identity | churn map — the new
-                2-col row below coupling/punch, above the trophy case; the
-                churn card hides entirely at 0 rows (the coupling-card
-                precedent) and the row collapses to identity alone. */}
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            {/* v0.1.10.0 D1+D2 + v0.1.11.0 D1 (B.1): rings | identity |
+                churn — the row is now lg:grid-cols-3 with today's goals
+                FIRST; the rings instance is KEYED BY SCOPE (RV2a/RV3 —
+                ONLY the rings remount on a tab switch, this view itself
+                must keep persisting); the churn card still hides at 0
+                rows. */}
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <div data-reveal className="rounded border border-slate-700 bg-slate-900 p-3">
+                <div className="overflow-x-auto">
+                  <GoalRings key={scope ?? "ALL"} scope={scope}
+                    calendar={stats.activity_calendar} />
+                </div>
+              </div>
               <div data-reveal className="rounded border border-slate-700 bg-slate-900 p-3">
                 <div className="overflow-x-auto">
                   <IdentityCard identity={stats.identity}
