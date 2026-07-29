@@ -189,6 +189,16 @@ export default function App () {
     return () => clearInterval(timer);
   }, []);
 
+  // v0.1.12.0 D2 (C.1): taskbar badge on the INSTALLED PWA — n = the
+  // ALL-tab uncommitted KPI basis EXACTLY (non-offline sum, RV1: a stale
+  // offline count must never pin a wrong number to the taskbar). Feature-
+  // detected; the calls reject when the app is not installed — silenced.
+  useEffect(() => {
+    if (!("setAppBadge" in navigator)) return;
+    const n = repos.filter((r) => !r.offline).reduce((s, r) => s + r.count, 0);
+    (n > 0 ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
+  }, [repos]);
+
   // v0.1.7.0 D6 (C.3): toast dismissal — its ✕ or ANY click outside the
   // toast stack (the AttentionBell click-out precedent). Toasts are NOT
   // overlays: no data-overlay-open, Ctrl+K stays available while they wait.

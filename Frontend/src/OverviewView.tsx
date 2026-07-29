@@ -13,6 +13,7 @@ import { IdentityCard } from "./identityCard";
 import { ChurnMap } from "./churnMap";
 import { GoalRings } from "./goalRings";
 import { CouplingArcs } from "./couplingArcs";
+import { MomentumStrip } from "./momentum";
 import { TrophyCase } from "./trophies";
 import { DayLanes } from "./dayLanes";
 import { PunchCard } from "./punchCard";
@@ -83,6 +84,9 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
         )}
         {stats && totalEvents > 0 && (
           <>
+            {/* v0.1.12.0 D1 (B.1): the trend layer between "now" (KPIs)
+                and "distribution" (charts) — week-over-week momentum. */}
+            <MomentumStrip calendar={stats.activity_calendar} scope={scope} />
             <div className="grid gap-4 lg:grid-cols-3">
               <ChartCard title="Attribution health">
                 <ChartCanvas make={(c) => modeDoughnut(c, stats)} dep={stats} />

@@ -62,6 +62,33 @@ def create_app () -> FastAPI:
         @app.get("/favicon.ico")
         def favicon ():
             return FileResponse(FRONTEND_DIST / "favicon.svg", media_type="image/svg+xml")
+
+        # v0.1.12.0 D2 (B.2): the PWA shell. Explicit routes ONLY - no
+        # StaticFiles mount for /icons (RV2: StaticFiles raises at
+        # CONSTRUCTION on a missing directory, so a stale pre-v0.1.12.0
+        # dist would pass the FRONTEND_DIST guard yet kill the server at
+        # startup; explicit routes degrade to per-request errors instead).
+        @app.get("/manifest.webmanifest")
+        def manifest ():
+            return FileResponse(FRONTEND_DIST / "manifest.webmanifest",
+                                media_type="application/manifest+json")
+
+        @app.get("/sw.js")
+        def service_worker ():
+            # no-cache: a stale service worker is the classic PWA trap.
+            return FileResponse(FRONTEND_DIST / "sw.js",
+                                media_type="application/javascript",
+                                headers={"Cache-Control": "no-cache"})
+
+        @app.get("/icons/icon-192.png")
+        def icon_192 ():
+            return FileResponse(FRONTEND_DIST / "icons" / "icon-192.png",
+                                media_type="image/png")
+
+        @app.get("/icons/icon-512.png")
+        def icon_512 ():
+            return FileResponse(FRONTEND_DIST / "icons" / "icon-512.png",
+                                media_type="image/png")
     else:
         @app.get("/")
         def index_missing ():
