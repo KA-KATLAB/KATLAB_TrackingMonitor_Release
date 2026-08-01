@@ -75,10 +75,38 @@ body {
   animation: combo-pop 300ms ease-out;
 }
 
+/* v0.1.13.0 D2 (B.2): Kat — breathing body, periodic blink, excited
+   bounce. Pure CSS on an always-mounted SVG; the media block below is
+   the ONE kill switch (RV4). */
+@keyframes pet-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+.pet-breathe {
+  animation: pet-breathe 3s ease-in-out infinite;
+}
+@keyframes pet-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+.pet-blink {
+  animation: pet-blink 6s linear infinite;
+}
+@keyframes pet-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.pet-bounce {
+  animation: pet-bounce 0.8s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pulse-dot { animation: none; }
   .burst-p { display: none; }
   .toast-enter { animation: none; }
   .chip-pop { animation: none; }
   .combo-pop { animation: none; }
+  .pet-breathe { animation: none; }
+  .pet-blink { animation: none; }
+  .pet-bounce { animation: none; }
 }

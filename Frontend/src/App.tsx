@@ -13,7 +13,8 @@ import { fmtAge, fmtMinutes, fmtRel, fmtTs } from "./format";
 import { notifyPickNeeded, notifyStatusChange, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
 import { StatsData } from "./charts";
 import { useReveal } from "./reveal";
-import { EFFORT_GAP_MAX_MIN, MODE_BADGE, MODE_COLOR, SWEPT_COLOR, prefersReducedMotion, sessionColor, withViewTransition } from "./theme";
+import { EFFORT_GAP_MAX_MIN, MODE_BADGE, MODE_COLOR, SWEPT_COLOR, UNCOMMITTED_AGE_H, prefersReducedMotion, sessionColor, withViewTransition } from "./theme";
+import { Pet, moodOf } from "./pet";
 import { ComboMeter } from "./comboMeter";
 import { FocusMode } from "./focusMode";
 import { connectWs } from "./ws";
@@ -304,6 +305,10 @@ export default function App () {
   }, [tab, repos, tasks, events]);
 
   const visibleRepos = tab === "ALL" ? repos : repos.filter((r) => r.id === tab);
+  // v0.1.13.0 D2 (B.2): Kat's mood — a plain per-render derivation (no
+  // effect, no state); the combo timestamp is ref-read exactly like the
+  // ComboMeter feed. Full repos state, never the tab-filtered view.
+  const petMood = moodOf(repos, comboCount, comboLastMsRef.current, Date.now());
   const visibleTasks = tab === "ALL" ? tasks : tasks.filter((t) => t.repo === tab);
   const visibleEvents = tab === "ALL" ? events : events.filter((e) => e.repo_id === tab);
 
@@ -367,6 +372,9 @@ export default function App () {
             <TabButton active={view === "history"} onClick={() => withViewTransition(() => setView("history"))} label="History" />
             <TabButton active={showLegend} onClick={() => setShowLegend(!showLegend)} label="?"
               title="Legend - what every badge and state means" />
+            {/* v0.1.13.0 D2 (B.2): Kat — immediately LEFT of the combo
+                chip (the arcade cluster, RV3) */}
+            <Pet mood={petMood} />
             {/* v0.1.9.0 D3 (C.2): live combo chip — left of the bell */}
             <ComboMeter count={comboCount} lastMs={comboLastMsRef.current}
               burst={comboBurst} />
@@ -409,7 +417,7 @@ export default function App () {
           scope snapshots inside at mount (RV3); repos passed WHOLE, the
           overlay filters by its snapshot (data-driven, offline included) */
         <FocusMode scope={tab === "ALL" ? undefined : tab} repos={repos}
-          events={events} stats={stats} onClose={closeFocus} />
+          events={events} stats={stats} mood={petMood} onClose={closeFocus} />
       )}
 
       {fileStory && ( /* v0.1.7.0 D2 (B.2): the life of one file */
@@ -630,8 +638,9 @@ const SWEPT_TIP = "swept — attached to HEAD when the repo went CLEAN (file not
 const swatch = "rounded px-1.5 py-0.5 text-[11px] font-bold text-white";
 
 // v0.1.6.0 D4 (C.4): nudge thresholds — frontend constants this release.
+// v0.1.13.0 B.2: UNCOMMITTED_AGE_H lifted to theme.ts (one source for
+// the bell nudge AND the pet) — imported above, behavior unchanged.
 const IDLE_TASK_H = 24;
-const UNCOMMITTED_AGE_H = 48;
 const olderThanH = (iso: string, hours: number) =>
   Date.now() - new Date(iso).getTime() > hours * 3_600_000;
 

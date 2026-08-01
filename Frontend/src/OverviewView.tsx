@@ -14,6 +14,7 @@ import { ChurnMap } from "./churnMap";
 import { GoalRings } from "./goalRings";
 import { CouplingArcs } from "./couplingArcs";
 import { MomentumStrip } from "./momentum";
+import { SnakeCalendar } from "./snakeGame";
 import { TrophyCase } from "./trophies";
 import { DayLanes } from "./dayLanes";
 import { PunchCard } from "./punchCard";
@@ -41,11 +42,15 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
 }) {
 
   const totalEvents = stats ? Object.values(stats.mode_counts).reduce((a, b) => a + b, 0) : 0;
-  // v0.1.9.0 D1 (B.1): flat | city calendar toggle — DEFAULT city (the
-  // release centerpiece), persisted under the notify.ts key convention.
-  const [calView, setCalView] = useState<"city" | "flat">(
-    () => (localStorage.getItem("katlab.calendarView") === "flat" ? "flat" : "city"));
-  const pickCalView = (v: "city" | "flat") => {
+  // v0.1.9.0 D1 (B.1): flat | city calendar toggle — DEFAULT city,
+  // persisted under the notify.ts key convention. v0.1.13.0 D1 (B.1):
+  // the union widens with "snake" — legacy stored values stay valid,
+  // unknown/absent still defaults "city".
+  const [calView, setCalView] = useState<"city" | "flat" | "snake">(() => {
+    const v = localStorage.getItem("katlab.calendarView");
+    return v === "flat" || v === "snake" ? v : "city";
+  });
+  const pickCalView = (v: "city" | "flat" | "snake") => {
     setCalView(v);
     localStorage.setItem("katlab.calendarView", v);
   };
@@ -115,7 +120,7 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
                     (crossfades are for nav, not filters) */}
                 <span role="group" aria-label="calendar view"
                   className={`${streakOf(stats.activity_calendar) >= 2 ? "ml-2" : "ml-auto"} flex gap-1 font-normal`}>
-                  {(["flat", "city"] as const).map((v) => (
+                  {(["flat", "city", "snake"] as const).map((v) => (
                     <button key={v} aria-pressed={calView === v}
                       onClick={() => pickCalView(v)}
                       className={`rounded px-1.5 py-0.5 text-[11px] ${
@@ -130,7 +135,9 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
               <div className="overflow-x-auto">
                 {calView === "city"
                   ? <Skyline calendar={stats.activity_calendar} />
-                  : <CalendarHeatmap calendar={stats.activity_calendar} />}
+                  : calView === "snake"
+                    ? <SnakeCalendar calendar={stats.activity_calendar} />
+                    : <CalendarHeatmap calendar={stats.activity_calendar} />}
               </div>
               {/* v0.1.9.0 B.1 (RV8): ONE legend home below whichever view */}
               <RampLegend />

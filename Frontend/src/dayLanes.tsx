@@ -13,6 +13,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, TrackedEvent } from "./api";
+import { RAMP, rampBucket } from "./calendarHeatmap";
 import { fmtMinutes, fmtTs } from "./format";
 import { EFFORT_GAP_MAX_MIN, EFFORT_TAIL_MIN, MODE_BADGE, MODE_COLOR,
   prefersReducedMotion, sessionColor } from "./theme";
@@ -33,6 +34,14 @@ export function DayLanes ({ scope, stats }:
   { scope: string | undefined; stats: unknown }) {
   const today = localDayISO(new Date());
   const [day, setDay] = useState(today);
+  // v0.1.13.0 D3 (B.3): lanes | clock — a second projection of the SAME
+  // fetched rows (the flat|city recipe; persisted, default lanes).
+  const [laneView, setLaneView] = useState<"lanes" | "clock">(
+    () => (localStorage.getItem("katlab.dayView") === "clock" ? "clock" : "lanes"));
+  const pickLaneView = (v: "lanes" | "clock") => {
+    setLaneView(v);
+    localStorage.setItem("katlab.dayView", v);
+  };
   const [rows, setRows] = useState<TrackedEvent[] | null>(null);
   const [truncated, setTruncated] = useState(false);
   const [error, setError] = useState("");
@@ -187,7 +196,25 @@ export function DayLanes ({ scope, stats }:
           <span className="font-normal text-amber-300">(fetched window)</span>
         )}
         <span className="ml-auto flex items-center gap-1 font-normal">
-          {!replay && rows && rows.length > 0 && (
+          {/* v0.1.13.0 D3 (B.3): lanes | clock toggle — the clock button
+              is DISABLED while replay is armed (the RV9-v0.1.8.0
+              no-refetch-during-replay discipline; the engine can never
+              be raced from the clock side). */}
+          <span role="group" aria-label="day view" className="mr-2 flex gap-1">
+            {(["lanes", "clock"] as const).map((v) => (
+              <button key={v} aria-pressed={laneView === v}
+                onClick={() => pickLaneView(v)}
+                disabled={v === "clock" && replay}
+                title={v === "clock" && replay ? "exit replay first" : undefined}
+                className={`rounded px-1.5 py-0.5 text-[11px] ${
+                  laneView === v
+                    ? "bg-teal-800 text-white"
+                    : "bg-slate-800 text-slate-400 hover:bg-slate-700"} disabled:opacity-30 disabled:hover:bg-slate-800`}>
+                {v}
+              </button>
+            ))}
+          </span>
+          {!replay && laneView === "lanes" && rows && rows.length > 0 && (
             <button onClick={armReplay}
               title="replay this day — the whole day in 30 seconds at 1x"
               className="mr-2 rounded bg-teal-700 px-2 py-0.5 text-[11px] font-bold text-white hover:bg-teal-600">
@@ -205,7 +232,13 @@ export function DayLanes ({ scope, stats }:
       {rows && rows.length === 0 && !error && (
         <p className="text-xs text-slate-400">No captures this day.</p>
       )}
-      {rows && rows.length > 0 && (
+      {/* v0.1.13.0 D3 (B.3): the clock — same rows, polar projection; at
+          0 rows NEITHER view renders an svg (RV12 — the shared empty
+          paragraph above covers it, mirroring the lanes' gate). */}
+      {rows && rows.length > 0 && laneView === "clock" && (
+        <DayClock rows={rows} day={day} isToday={isToday} />
+      )}
+      {rows && rows.length > 0 && laneView === "lanes" && (
         <div className="overflow-x-auto">
           <svg width={WIDTH} height={height} role="img"
             aria-label={`activity lanes for ${day} (local time)`}>
@@ -320,5 +353,77 @@ export function DayLanes ({ scope, stats }:
       )}
       {!rows && !error && <p className="text-xs text-slate-500">Loading…</p>}
     </div>
+  );
+}
+
+// v0.1.13.0 D3 (B.3): the day as a dial — 24 LOCAL-hour wedges from the
+// SAME fetched rows (zero new fetches); midnight at TOP, clockwise; outer
+// radius 26 + sqrt(count/dayMax) * 84 (the skyline area-honesty rule),
+// inner 24; fills = the shared RAMP bucket vs the day max; zero hours are
+// hairline ticks. The live hand renders only when the picked day IS today
+// and is computed AT RENDER — the P8 60s tick moves it with no new timer.
+function DayClock ({ rows, day, isToday }:
+  { rows: TrackedEvent[]; day: string; isToday: boolean }) {
+  const hours = Array.from({ length: 24 }, () => 0);
+  for (const r of rows) hours[new Date(r.ts).getHours()] += 1;
+  const max = Math.max(...hours);
+  const C = 130, R_IN = 24;
+  const pt = (r: number, deg: number): [number, number] => [
+    C + r * Math.cos((deg - 90) * Math.PI / 180),
+    C + r * Math.sin((deg - 90) * Math.PI / 180),
+  ];
+  const f = (n: number) => n.toFixed(1);
+  const wedge = (h: number, rOut: number) => {
+    const a0 = h * 15 + 1, a1 = (h + 1) * 15 - 1; // hairline gap between wedges
+    const [x0, y0] = pt(rOut, a0), [x1, y1] = pt(rOut, a1);
+    const [x2, y2] = pt(R_IN, a1), [x3, y3] = pt(R_IN, a0);
+    return `M ${f(x0)} ${f(y0)} A ${rOut} ${rOut} 0 0 1 ${f(x1)} ${f(y1)} ` +
+      `L ${f(x2)} ${f(y2)} A ${R_IN} ${R_IN} 0 0 0 ${f(x3)} ${f(y3)} Z`;
+  };
+  const now = new Date();
+  const handDeg = (now.getHours() + now.getMinutes() / 60) * 15;
+  const [hx, hy] = pt(112, handDeg);
+  return (
+    <svg viewBox="0 0 260 260" width={260} height={260} className="mx-auto block"
+      role="img" aria-label={`activity clock for ${day} (local time)`}>
+      {hours.map((c, h) => {
+        if (c === 0) {
+          const [x0, y0] = pt(R_IN, h * 15 + 7.5);
+          const [x1, y1] = pt(R_IN + 4, h * 15 + 7.5);
+          return <line key={h} x1={f(x0)} y1={f(y0)} x2={f(x1)} y2={f(y1)}
+            stroke="#334155" strokeWidth={1} />;
+        }
+        const rOut = 26 + Math.sqrt(c / max) * 84;
+        return (
+          <path key={h} d={wedge(h, rOut)} fill={RAMP[rampBucket(c, max)]}>
+            <title>
+              {`${String(h).padStart(2, "0")}:00-${String(h + 1).padStart(2, "0")}:00 (local) — ${c} event${c === 1 ? "" : "s"}`}
+            </title>
+          </path>
+        );
+      })}
+      {[0, 6, 12, 18].map((h) => {
+        const [x, y] = pt(118, h * 15);
+        return (
+          <text key={h} x={f(x)} y={f(y + 3)} textAnchor="middle" fontSize={9}
+            className="fill-slate-500">
+            {h}
+          </text>
+        );
+      })}
+      {isToday && (
+        <g>
+          <line x1={C} y1={C} x2={f(hx)} y2={f(hy)}
+            stroke="#14b8a6" strokeWidth={1.5} />
+          <circle cx={C} cy={C} r={2} fill="#14b8a6" />
+        </g>
+      )}
+      <text x={C} y={122} textAnchor="middle" fontSize={10}
+        className="fill-slate-400">{day}</text>
+      <text x={C} y={138} textAnchor="middle" fontSize={13} fontWeight="bold"
+        className="fill-slate-100">{rows.length.toLocaleString("en-US")}</text>
+      <text x={C} y={150} textAnchor="middle" fontSize={8}
+        className="fill-slate-500">events (local)</text>
+    </svg>
   );
 }

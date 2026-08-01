@@ -23,6 +23,11 @@ export const SWEPT_COLOR = "#71717a"; // zinc-500
 export const EFFORT_GAP_MAX_MIN = 15;
 export const EFFORT_TAIL_MIN = 2;
 
+// v0.1.6.0 D4: the bell's uncommitted-age nudge threshold (hours).
+// v0.1.13.0 B.2: LIFTED here from App.tsx — ONE source for the bell
+// nudge AND the pet's "anxious" mood (never a mirrored copy).
+export const UNCOMMITTED_AGE_H = 48;
+
 // v0.1.5.0 D1 (C.1): identity color for session dots - deterministic hash
 // -> HSL hue, saturation/lightness fixed for the dark palette. An IDENTITY
 // cue, not a mode (modes stay in MODE_COLOR); same session = same color
