@@ -65,6 +65,23 @@ If nothing appears, check in this order:
 3. `python` is not on PATH for the session
 4. a managed-settings policy restricts hooks (a managed policy exists on this PC; treated as model-pin-only until a failed smoke says otherwise)
 
+## Optional — README badge (v0.2.0.1+)
+
+The server renders a live stats card per registered repo:
+
+```markdown
+![KATLAB](http://127.0.0.1:8100/badge/<repo_id>.svg)
+```
+
+- Shows the repo's last-7-days event count + its live status chip
+  (CLEAN ✓ / N uncommitted / OFFLINE); refreshes within ~5 minutes.
+- **Honest limit:** it renders in LOCAL previews only (VS Code markdown
+  preview, local doc tools). github.com can NOT display it — GitHub's
+  camo image proxy cannot reach `127.0.0.1`. Do not expect it on the
+  hosted README page.
+- Adding it is THIS repo's own choice — entirely optional, never
+  required by the tracking contract.
+
 ## Notes
 
 - The tracker only READS this repo (git status/diff/log/show — never any mutation).

@@ -14,6 +14,7 @@ import { ChurnMap } from "./churnMap";
 import { GoalRings } from "./goalRings";
 import { CouplingArcs } from "./couplingArcs";
 import { MomentumStrip } from "./momentum";
+import { exportReport } from "./reportHtml";
 import { SnakeCalendar } from "./snakeGame";
 import { TrophyCase } from "./trophies";
 import { DayLanes } from "./dayLanes";
@@ -79,6 +80,13 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
             <button onClick={onOpenWrapped}
               className="ml-auto rounded bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-200 hover:bg-slate-700">
               Your week ✨
+            </button>
+          )}
+          {stats && ( /* v0.2.0.1 D1 (B.1): the 7d report, current scope */
+            <button onClick={() => exportReport(stats, scope, 7)}
+              title="download this scope's 7-day report as one self-contained HTML file"
+              className={`${onOpenWrapped ? "ml-2" : "ml-auto"} rounded bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-200 hover:bg-slate-700`}>
+              Report ⬇
             </button>
           )}
         </h2>

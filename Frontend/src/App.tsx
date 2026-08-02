@@ -6,6 +6,7 @@ import { renderGitGraph } from "./mermaidGraph";
 import { buildFileTree } from "./fileTree";
 import { CommandPalette, PaletteEntry } from "./CommandPalette";
 import { exportDigest } from "./digest";
+import { exportReport } from "./reportHtml";
 import { FileStory } from "./FileStory";
 import { SessionTimeline } from "./SessionTimeline";
 import { WrappedCard } from "./WrappedCard";
@@ -350,6 +351,12 @@ export default function App () {
       run: () => setWrappedOpen(true) },
     { section: "Actions", label: "Open Legend", run: () => setShowLegend(true) },
     { section: "Actions", label: "Export daily digest", run: () => void doDigest() },
+    // v0.2.0.1 D1 (B.1): the report exports — Actions, beside the digest
+    // (RV1); no-op while stats is null (the entries stay listed).
+    { section: "Actions", label: "Export report — 7 days", hint: "current scope",
+      run: () => { if (stats) exportReport(stats, tab === "ALL" ? undefined : tab, 7); } },
+    { section: "Actions", label: "Export report — 30 days", hint: "current scope",
+      run: () => { if (stats) exportReport(stats, tab === "ALL" ? undefined : tab, 30); } },
     { section: "Actions", label: "Clear task + session filters",
       run: () => { setTaskFilter(null); setSessionFilter(null); } },
   ];

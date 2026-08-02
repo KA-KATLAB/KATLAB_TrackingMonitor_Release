@@ -10,11 +10,12 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .api import routes, ws
+from .badge import build_badge, events_last_7d
 from .config import ConfigAuthoringError, load_config
 from .version import __version__
 from .watcher import Tracker
@@ -43,6 +44,24 @@ def create_app () -> FastAPI:
     app.state.tracker = tracker
     app.include_router(routes.router)
     app.include_router(ws.router)
+
+    # v0.2.0.1 D2 (B.2): the live stats badge - root-level (README-
+    # friendly URL), OUTSIDE the FRONTEND_DIST guard (server-rendered,
+    # no dist needed). Local previews only - github.com's camo proxy
+    # cannot reach 127.0.0.1 (the guideline states the limit).
+    @app.get("/badge/{repo_id}.svg")
+    def badge (repo_id: str):
+        status = tracker.status.get(repo_id)
+        if status is None:
+            raise HTTPException(status_code=404, detail=f"unknown repo: {repo_id}")
+        svg = build_badge(repo_id, clean=bool(status.get("clean")),
+                          offline=bool(status.get("offline")),
+                          count=int(status.get("count", 0)),
+                          events_7d=events_last_7d(repo_id))
+        # max-age=300: a live badge that local previews refresh within
+        # minutes (never no-store - VS Code re-fetches politely).
+        return Response(content=svg, media_type="image/svg+xml",
+                        headers={"Cache-Control": "max-age=300"})
 
     if FRONTEND_DIST.exists():
         app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")

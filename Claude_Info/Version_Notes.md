@@ -1,5 +1,15 @@
 # Version Notes
 
+## v0.2.0.1 — Report & Badge (2026-08-02)
+
+**Key Highlights**
+
+- Thirteenth harvest cycle (git-wrapped generator class · github-readme-stats class); plan passed a 14-pass CDD review loop (7 findings RV1-RV7, 5/5 consecutive clean) — the finding themes were HONESTY pins: RV2 three report sections are served ALL-TIME (punch card, identity, effort/churn top tables) and now carry explicit "(all-time)" heading markers inside a range document; RV5 the hero's commits figure reads sum(calendar[-N:].commits), NEVER the all-time stats/identity commits (battery poison fixture: 3 vs 999,999); RV6 the badge XML-escapes the interpolated repo id (parser round-trip proven); RV1 the palette entries JOIN the existing "Actions" section beside the digest (never a new section)
+- **The Report** (D1/B.1): `reportHtml.ts` — a string-builder document (the digest.ts recipe grown up: dark inline CSS, the fonts-with-fallback precedent, Blob download named `KATLAB_Report_<scope|ALL>_<7d|30d>_<date>.html`); consumes STATS + SCOPE ONLY (RV7 — no repos/tasks inputs); ranges 7d/30d as calendar-tail projections; sections: range-true hero (4 calendar sums) → momentum (the strip's delta law VERBATIM + a 2N-point sparkline, prior half 0.35) → RAMP-bucketed daily strip (range max) → all-time rhythm punch mini → all-time identity donut (stroke-dasharray arcs) → all-time top-5 tables (churn scope-filtered) → wrapped on the 7d report ONLY (served as last-7-UTC-days, never stretched) → footer "KATLAB TrackingMonitor — generated <local ts>" with NO version claim (RV3); entries: the Overview "Report ⬇" button (7d current scope) + two Actions palette entries, all no-ops while stats is null; battery 15/15
+- **The Badge** (D2/B.2): `Backend/app/badge.py` + ONE main.py root route GET `/badge/{repo_id}.svg` (OUTSIDE the FRONTEND_DIST guard — server-rendered; unknown repo → 404; image/svg+xml + Cache-Control max-age=300): a 380x80 slate-950 card with the teal ring mark, the repo id (XML-escaped, RV6), "N events · last 7d (UTC)" via `{:,}`, and the StatusBar-palette status chip; data = the tracker's in-memory status + ONE read-only COUNT via the THREAD-LOCAL get_conn (db.py byte-untouched; the substr day-bucket law — review-proven parity 40=40/302=302); python battery 9/9. HONEST LIMIT everywhere it matters: github.com's camo cannot reach 127.0.0.1 — the badge lives in LOCAL previews (VS Code)
+- **Cross-repo:** Installation_Guideline.md + Onboarding_Prompt.txt gain the OPTIONAL README-badge section (the first contract ADDITION since v0.1.10.0 — optional, never required; each repo's own AI decides)
+- **Scope:** backend diff = version.py + main.py (one route) + the new badge.py; no schema, no existing-endpoint change, no new git calls; zero new deps; no new localStorage keys
+
 ## v0.2.0.0 — KATLAB City (2026-08-02)
 
 **Key Highlights**

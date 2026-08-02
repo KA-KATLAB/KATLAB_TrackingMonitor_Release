@@ -22,4 +22,6 @@ Onboard THIS repo to KATLAB TrackingMonitor so my new detailed plans are tracked
 
 5. Steps 4-5 of the guideline (registering this repo in TrackingMonitor's Config/repos.yaml + restarting the server + coordinating the smoke test) are MY job — do NOT do them. Just report back: the exact plan-file location(s) you will use, and each step's pass/fail.
 
+6. OPTIONAL (v0.2.0.1+, this repo's own choice — never required): the tracker serves a live stats badge at http://127.0.0.1:8100/badge/<repo_id>.svg (last-7-days events + live status chip). You MAY embed it in this repo's README via ![KATLAB](http://127.0.0.1:8100/badge/<repo_id>.svg) — it renders in LOCAL previews only (VS Code markdown preview); github.com cannot display it (GitHub's camo proxy cannot reach 127.0.0.1).
+
 Constraints: no git mutation commands in this repo unless I explicitly ask; stop and ask me ASAP if anything conflicts with this repo's existing rules.
