@@ -16,6 +16,7 @@ import { useReveal } from "./reveal";
 import { EFFORT_GAP_MAX_MIN, MODE_BADGE, MODE_COLOR, SWEPT_COLOR, UNCOMMITTED_AGE_H, prefersReducedMotion, sessionColor, withViewTransition } from "./theme";
 import { Pet, moodOf } from "./pet";
 import { ComboMeter } from "./comboMeter";
+import { CityView } from "./city";
 import { FocusMode } from "./focusMode";
 import { connectWs } from "./ws";
 import { OverviewView } from "./OverviewView";
@@ -25,7 +26,7 @@ const PAGE = 500; // F38 pagination page size
 const COMBO_MILESTONES = new Set([5, 10, 25, 50, 100, 250]);
 
 type Tab = string | "ALL";
-type View = "changes" | "history" | "overview"; // v0.1.3.0 D2
+type View = "changes" | "history" | "overview" | "city"; // v0.1.3.0 D2; v0.2.0.0 D3: the 4th view
 
 export default function App () {
   const [repos, setRepos] = useState<Repo[]>([]);
@@ -320,6 +321,7 @@ export default function App () {
     { section: "Views", label: "Changes", run: () => setView("changes") },
     { section: "Views", label: "Overview", run: () => setView("overview") },
     { section: "Views", label: "History", run: () => setView("history") },
+    { section: "Views", label: "City", run: () => setView("city") }, // v0.2.0.0 D3
     { section: "Views", label: "Enter focus mode", // v0.1.10.0 D3 (C.1)
       hint: "ambient wall display — Esc exits",
       run: () => setFocusOpen(true) },
@@ -370,6 +372,8 @@ export default function App () {
             <TabButton active={view === "changes"} onClick={() => withViewTransition(() => setView("changes"))} label="Changes" />
             <TabButton active={view === "overview"} onClick={() => withViewTransition(() => setView("overview"))} label="Overview" />
             <TabButton active={view === "history"} onClick={() => withViewTransition(() => setView("history"))} label="History" />
+            {/* v0.2.0.0 D3 (B.3): the 4th view — the living workspace */}
+            <TabButton active={view === "city"} onClick={() => withViewTransition(() => setView("city"))} label="City" />
             <TabButton active={showLegend} onClick={() => setShowLegend(!showLegend)} label="?"
               title="Legend - what every badge and state means" />
             {/* v0.1.13.0 D2 (B.2): Kat — immediately LEFT of the combo
@@ -499,6 +503,17 @@ export default function App () {
               onOpenWrapped={() => setWrappedOpen(true)} />
           )}
           {view === "history" && <HistoryView repos={visibleRepos.filter((r) => !r.offline)} />}
+          {view === "city" && ( /* v0.2.0.0 D3 (B.3): workspace-wide by
+              design — full repos/tasks/events, never tab-filtered; the
+              scoped stats prop serves ONLY as the freshness nonce */
+            <CityView repos={repos} tasks={tasks} events={events}
+              mood={petMood} stats={stats}
+              onOpenFileStory={(repo, file) => setFileStory({ repo, file })}
+              onGoRepo={(repoId) => withViewTransition(() => {
+                setTab(repoId);
+                setView("overview");
+              })} />
+          )}
         </main>
       </div>
     </div>

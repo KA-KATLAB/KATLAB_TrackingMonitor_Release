@@ -100,6 +100,29 @@ body {
   animation: pet-bounce 0.8s ease-in-out infinite;
 }
 
+/* v0.2.0.0 D2 (B.2): KATLAB City liveliness — event-rain drops fall
+   from the sky band to rooftop level; Kat walks the street. Both join
+   the ONE reduced-motion media block below. */
+@keyframes city-drop {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(120px); opacity: 0; }
+}
+.city-drop {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 9999px;
+  background-color: #14b8a6;
+  animation: city-drop 0.8s ease-in forwards;
+}
+@keyframes kat-walk {
+  0% { left: 2%; }
+  100% { left: 82%; }
+}
+.kat-walk {
+  animation: kat-walk 45s ease-in-out infinite alternate;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pulse-dot { animation: none; }
   .burst-p { display: none; }
@@ -109,4 +132,6 @@ body {
   .pet-breathe { animation: none; }
   .pet-blink { animation: none; }
   .pet-bounce { animation: none; }
+  .city-drop { display: none; }
+  .kat-walk { animation: none; }
 }
