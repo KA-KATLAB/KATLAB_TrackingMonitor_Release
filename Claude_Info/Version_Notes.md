@@ -1,5 +1,15 @@
 # Version Notes
 
+## v0.2.1.0 — Records & Snapshots (2026-08-02)
+
+**Key Highlights**
+
+- Fourteenth harvest cycle (Strava Best-Efforts class · Tinycon dynamic-favicon class · "share your city"); the FOURTH all-frontend release (backend diff = version.py only); plan passed a 6-pass CDD review loop (2 findings RV1-RV2, 5/5 consecutive clean) with the record math proven LIVE pre-implementation: maxStreakOf 11 vs streakOf 9 — the max-run/current-run split is necessary on real data — and the snapshot's class-inlining transform proven on real CityScene markup (15 class attrs → 0, idempotent)
+- **Personal records** (D1/B.1): `records.tsx` — four rows from the served calendar (best day captures/effort, longest streak via the new exported `maxStreakOf`, best rolling 7d week via `bestRolling7`); DISPLAY spans the full calendar while DETECTION compares today against the record-to-beat over calendar[:-1] (today excluded) with the STRICTLY-GREATER law (ties never fire; a break fires exactly once via the prev-raw-values crossing — the goalRings recipe); break → the ~12-particle celebration burst on the row + a ~4s "NEW RECORD 🏆" banner (nonce-compare + unmount clears); the instance is scope-keyed at the call site; "(last 365d, UTC)" honesty heading; the ARCADE SHELF created (RV1): a new lg:grid-cols-2 row wraps TrophyCase | Records (trophies first — a deliberate documented placement change); battery 12/12
+- **Live status favicon** (D2/B.2): `favicon.ts` — drawStatusFavicon canvas → data-URL (teal ring on slate-950 CLEAN / amber dot + clamped count dirty; `clampCount` exported, >99 → "99+"); one App effect on [repos] swaps the rel="icon" link href/type — the basis expression is the app-badge line VERBATIM (grep-proven ×2: the presence surfaces never disagree); feature-detected silent no-op; the static favicon.svg stays for cold loads; manifest icons untouched; Safari ignores dynamic favicons — documented
+- **City snapshot** (D3/B.3): the City h2 gains the Overview flex treatment (RV2) + a "snapshot ⬇" button; the exported `inlineSvgClasses` pure transform maps the scene's four fill classes to hexes and strips ALL class attributes (a standalone .svg has no Tailwind — text would be invisible otherwise), XML declaration + Blob → `KATLAB_City_<date>.svg`; the rain/fireworks/Kat live on the HTML overlay — excluded by construction; battery 5/5 on the shipped transform over real markup
+- **Scope:** all-frontend (version.py only), zero new deps, no new localStorage keys, cross-repo contract unchanged
+
 ## v0.2.0.1 — Report & Badge (2026-08-02)
 
 **Key Highlights**

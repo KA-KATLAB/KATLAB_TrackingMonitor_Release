@@ -202,6 +202,25 @@ export function CityScene ({ districts, churnMax, mood, nowMs, localHour,
 interface Drop { id: number; x: number; batch: number }
 interface Burst { repo: string; n: number; x: number }
 
+// v0.2.1.0 D3 (B.3): the snapshot exporter's PURE transform (exported
+// for the battery): a standalone .svg has no Tailwind, so the scene's
+// four fill classes are inlined to their hexes and ALL class attributes
+// stripped (cursor-pointer etc. are meaningless in a file). Idempotent.
+const FILL_MAP: Record<string, string> = {
+  "fill-slate-200": "#e2e8f0",
+  "fill-slate-500": "#64748b",
+  "fill-amber-400": "#fbbf24",
+  "fill-white": "#ffffff",
+};
+
+export function inlineSvgClasses (markup: string): string {
+  let out = markup;
+  for (const [cls, hex] of Object.entries(FILL_MAP)) {
+    out = out.replaceAll(`class="${cls}"`, `fill="${hex}"`);
+  }
+  return out.replace(/ class="[^"]*"/g, "");
+}
+
 export function CityView ({ repos, tasks, events, mood, stats,
   onOpenFileStory, onGoRepo }: {
   repos: Repo[];
@@ -309,6 +328,29 @@ export function CityView ({ repos, tasks, events, mood, stats,
     if (catchUpRef.current !== null) clearTimeout(catchUpRef.current);
   }, []);
 
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  // v0.2.1.0 D3 (B.3): clone the scene svg, inline the fill classes,
+  // download as a standalone file (the report Blob mechanics). The
+  // rain/fireworks/Kat live on the HTML overlay — excluded by
+  // construction (the button title says so).
+  const snapshot = () => {
+    const svg = containerRef.current?.querySelector("svg");
+    if (!svg) return;
+    const now = new Date();
+    const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    // CFT-1: XMLSerializer, NEVER outerHTML — the HTML serializer omits
+    // xmlns (the scene JSX never sets it) and a standalone .svg without
+    // the namespace fails to render; XMLSerializer auto-adds it.
+    const markup = `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      inlineSvgClasses(new XMLSerializer().serializeToString(svg));
+    const blob = new Blob([markup], { type: "image/svg+xml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `KATLAB_City_${day}.svg`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   const nowMs = Date.now();
   const churnMax = Math.max(1,
     ...[...churn.values()].flatMap((rows) => rows.map((r) => r.events)));
@@ -321,11 +363,18 @@ export function CityView ({ repos, tasks, events, mood, stats,
 
   return (
     <section>
-      <h2 className="mb-3 border-l-4 border-teal-500 pl-2 text-sm font-bold text-slate-200">
-        KATLAB City — the living workspace
+      {/* v0.2.1.0 D3 (B.3, RV2): the h2 gains the Overview header's flex
+          treatment — the snapshot button rides ml-auto. */}
+      <h2 className="mb-3 flex items-center border-l-4 border-teal-500 pl-2 text-sm font-bold text-slate-200">
+        <span>KATLAB City — the living workspace</span>
+        <button onClick={snapshot}
+          title="download the city model as a standalone SVG — live overlays not included"
+          className="ml-auto rounded bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-200 hover:bg-slate-700">
+          snapshot ⬇
+        </button>
       </h2>
       <div className="overflow-x-auto rounded border border-slate-700 bg-slate-900 p-3">
-        <div className="relative" style={{ width, height: HEIGHT }}>
+        <div ref={containerRef} className="relative" style={{ width, height: HEIGHT }}>
           <CityScene districts={districts} churnMax={churnMax} mood={mood}
             nowMs={nowMs} localHour={new Date().getHours()}
             onOpenFileStory={onOpenFileStory} onGoRepo={onGoRepo} />

@@ -6,6 +6,7 @@ import { renderGitGraph } from "./mermaidGraph";
 import { buildFileTree } from "./fileTree";
 import { CommandPalette, PaletteEntry } from "./CommandPalette";
 import { exportDigest } from "./digest";
+import { drawStatusFavicon } from "./favicon";
 import { exportReport } from "./reportHtml";
 import { FileStory } from "./FileStory";
 import { SessionTimeline } from "./SessionTimeline";
@@ -200,6 +201,20 @@ export default function App () {
     if (!("setAppBadge" in navigator)) return;
     const n = repos.filter((r) => !r.offline).reduce((s, r) => s + r.count, 0);
     (n > 0 ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
+  }, [repos]);
+
+  // v0.2.1.0 D2 (B.2): the live status favicon — the SAME non-offline
+  // basis as the badge above (the presence surfaces never disagree);
+  // feature-detected (link + 2d context), silent no-op otherwise.
+  useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) return;
+    const n = repos.filter((r) => !r.offline).reduce((s, r) => s + r.count, 0);
+    const url = drawStatusFavicon(n === 0, n);
+    if (url) {
+      link.href = url;
+      link.type = "image/png";
+    }
   }, [repos]);
 
   // v0.1.7.0 D6 (C.3): toast dismissal — its ✕ or ANY click outside the

@@ -14,6 +14,7 @@ import { ChurnMap } from "./churnMap";
 import { GoalRings } from "./goalRings";
 import { CouplingArcs } from "./couplingArcs";
 import { MomentumStrip } from "./momentum";
+import { Records } from "./records";
 import { exportReport } from "./reportHtml";
 import { SnakeCalendar } from "./snakeGame";
 import { TrophyCase } from "./trophies";
@@ -247,10 +248,14 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
                 </div>
               )}
             </div>
-            {/* v0.1.9.0 D2 (C.1): trophy case — below the 2-col row, above
-                the Mermaid GraphPanel; scope-aware ranks (stats arrive
-                server-scoped, Finisher filters the tasks prop client-side) */}
-            <TrophyCase stats={stats} tasks={tasks} scope={scope} />
+            {/* v0.1.9.0 D2 (C.1): trophy case; v0.2.1.0 D1 (B.1, RV1): the
+                ARCADE SHELF — trophies | records in a 2-col row (trophies
+                first; a deliberate documented placement change). The
+                records instance ALONE is scope-keyed (the rings law). */}
+            <div className="grid gap-4 lg:grid-cols-2">
+              <TrophyCase stats={stats} tasks={tasks} scope={scope} />
+              <Records key={scope ?? "ALL"} calendar={stats.activity_calendar} />
+            </div>
           </>
         )}
       </section>
