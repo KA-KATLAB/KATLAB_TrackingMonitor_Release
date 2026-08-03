@@ -1,5 +1,14 @@
 # Version Notes
 
+## v0.2.2.0 — The Plan Board (2026-08-03)
+
+**Key Highlights**
+
+- Fifteenth harvest cycle — sourced from the Live_arch mine (the EA repo's living-architecture site: the developing.md/now.md "current work at the top" philosophy mapped onto the served tasks); plan passed a 7-pass CDD review loop (3 findings RV1-RV3, 5/5 consecutive clean); NOT taken from the mine (standing rejections hold): LikeC4/C4 (logic map), the light-theme toggle, docs linters
+- **The Plan Board** (D1/B.1): `planBoard.tsx` — `groupActivePlans` (exported, battery-proven) groups the tab-scoped tasks by (repo, plan_file); ACTIVE = ≥1 non-done task (done-only plans never render; zero actives hides the card — the coupling precedent); sort = max(last_event_ts) DESC with nulls LAST + deterministic ties; per plan: basename header (both path separators) + repo chip + done/total + a segmented bar (done teal / in-progress amber riding the pulse-dot class — already in the ONE reduced-motion block / pending slate, served order); the SPOTLIGHT renders the SHORT task id via split(" - ").pop() (RV3 — the KpiRow busiest-task precedent; full refs ride title attrs) + title + the 2-line-clamped why + up to 4 file chips ("+N") opening FileStory; NEXT UP = the first pending (short id); the no-in-progress state renders honestly ("no task in progress" — the discipline guard keeps the nagging). PLACEMENT (RV1): a SIBLING of the KpiRow line BEFORE both totalEvents branches — task-driven, never event-gated (a fresh repo with plans shows missions pre-capture); battery 16/16
+- **Hygiene** (D2/D.1): `npm update postcss` → 8.5.25 (≥ the 8.5.18 Dependabot-HIGH patch floor; nanoid 3.3.17 rode along inside postcss's own tree) — the LOCKFILE-only diff, package.json byte-identical; build GREEN after; exposure was ~nil (dev-scope, build-time, own CSS only) — hygiene, not an active risk
+- **Scope:** all-frontend + the lockfile bump (version.py the only Backend touch), zero NEW deps, no new localStorage keys, cross-repo contract unchanged
+
 ## v0.2.1.0 — Records & Snapshots (2026-08-02)
 
 **Key Highlights**

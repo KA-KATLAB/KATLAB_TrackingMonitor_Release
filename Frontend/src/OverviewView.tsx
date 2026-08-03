@@ -14,6 +14,7 @@ import { ChurnMap } from "./churnMap";
 import { GoalRings } from "./goalRings";
 import { CouplingArcs } from "./couplingArcs";
 import { MomentumStrip } from "./momentum";
+import { PlanBoard } from "./planBoard";
 import { Records } from "./records";
 import { exportReport } from "./reportHtml";
 import { SnakeCalendar } from "./snakeGame";
@@ -93,6 +94,14 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
         </h2>
         {statsError && <p className="text-sm text-rose-300">{statsError}</p>}
         {stats && <KpiRow stats={stats} repos={repos} uncommitted={uncommitted} />}
+        {/* v0.2.2.0 D1 (B.1, RV1): the now-layer — a SIBLING before both
+            totalEvents branches (never nested; the board is task-driven,
+            not event-driven), gated on its OWN data (the component hides
+            itself at zero active plans). */}
+        {stats && (
+          <PlanBoard tasks={tasks}
+            onOpenFileStory={(repo, file) => onOpenFileStory?.(repo, file)} />
+        )}
         {stats && totalEvents === 0 && (
           <p className="text-sm text-slate-400">No events captured yet — nothing to chart.</p>
         )}
