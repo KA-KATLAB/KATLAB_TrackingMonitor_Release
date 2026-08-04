@@ -14,6 +14,30 @@ export interface Repo {
   activity_buckets: number[]; // v0.1.3.0 D3/R8/R16: 12x5-min for the sparkline
 }
 
+// v0.2.3.0 D2 (B.2): the /api/health payload — nullables mirror the
+// route's guarded stats; mtime is ISO-Z, comparable with last_event_ts.
+export interface HealthServer {
+  version: string;
+  started_ts: string;
+  db_bytes: number | null;
+  watchers_alive: number;
+  watchers_total: number;
+  hook_registered: boolean;
+  hook_settings_path: string;
+}
+export interface HealthRepo {
+  id: string;
+  offline: boolean;
+  last_event_ts: string | null;
+  events_jsonl_bytes: number | null;
+  events_jsonl_mtime: string | null;
+  warning_count: number;
+}
+export interface HealthPayload {
+  server: HealthServer;
+  repos: HealthRepo[];
+}
+
 export interface Task {
   repo: string;
   plan_file: string;
@@ -60,6 +84,7 @@ async function call<T> (url: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   repos: () => call<Repo[]>("/api/repos"),
+  health: () => call<HealthPayload>("/api/health"), // v0.2.3.0 D2 (B.2)
   tasks: (repo?: string) => call<Task[]>(`/api/tasks${repo ? `?repo=${repo}` : ""}`),
   events: (params: { repo?: string; uncommitted?: boolean; limit?: number; offset?: number;
     session?: string; file?: string; since?: string; until?: string }) => {

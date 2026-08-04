@@ -3,13 +3,22 @@
 
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from .. import db, git_module
+from ..version import __version__
 
 router = APIRouter(prefix="/api")
+
+# v0.2.3.0 A.1: stamped once at import time == server start (uvicorn
+# imports this module inside the single serving process).
+STARTED_TS = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+# The hook line the Installation_Guideline registers (user-scope).
+_HOOK_MARKER = "katlab_tracking_hook.py"
 
 
 def _now_z () -> str:
@@ -49,6 +58,53 @@ def list_repos (request: Request):
         for repo in tracker.config.repos
     ]
     return envelope(data)
+
+
+@router.get("/health")
+def health (request: Request):
+    """v0.2.3.0 A.1: read-only self-audit — zero git calls, zero DB
+    writes. The hook check is a TEXT presence scan, not schema
+    validation (surfaced honestly in the UI as "line present")."""
+    tracker = _tracker(request)
+    try:
+        db_bytes = db.DB_PATH.stat().st_size
+    except OSError:
+        db_bytes = None
+    settings_path = Path.home() / ".claude" / "settings.json"
+    try:
+        hook_registered = _HOOK_MARKER in settings_path.read_text(encoding="utf-8")
+    except OSError:
+        hook_registered = False
+    repos = []
+    for repo in tracker.config.repos:
+        try:
+            st = repo.events_file.stat()
+            jsonl_bytes: int | None = st.st_size
+            jsonl_mtime: str | None = datetime.fromtimestamp(
+                st.st_mtime, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+        except OSError:
+            jsonl_bytes = None
+            jsonl_mtime = None
+        repos.append({
+            "id": repo.id,
+            "offline": repo.offline,
+            "last_event_ts": db.get_last_event_ts(repo.id),  # the D9 heartbeat read
+            "events_jsonl_bytes": jsonl_bytes,
+            "events_jsonl_mtime": jsonl_mtime,  # ISO-Z — comparable with last_event_ts
+            "warning_count": len(tracker.warnings.get(repo.id, [])),
+        })
+    return envelope({
+        "server": {
+            "version": __version__,
+            "started_ts": STARTED_TS,
+            "db_bytes": db_bytes,
+            "watchers_alive": sum(1 for t in tracker._tasks if not t.done()),
+            "watchers_total": len(tracker._tasks),
+            "hook_registered": hook_registered,
+            "hook_settings_path": str(settings_path),
+        },
+        "repos": repos,
+    })
 
 
 @router.get("/stats")

@@ -1,5 +1,14 @@
 # Version Notes
 
+## v0.2.3.0 — Editor & Health (2026-08-04)
+
+**Key Highlights**
+
+- Sixteenth harvest cycle — the Live_arch RE-mine (source-links.js "nothing is guessed" + the audit scripts' "an orphaned page is worse than a missing one"); the folder is now MINED OUT/retired for product ideas; plan passed a 16-pass CDD review loop (12 findings RV1-RV12, 5/5 consecutive clean)
+- **Open in editor** (D1/B.1): the ONE `editor ↗` anchor chip in the FileStory header — the convergence point every file chip already opens (plan board, coupling, treemap, changes-by-task, city buildings; RV1: NOT the palette). `repoPath` prop threaded via the repoBranch precedent; href = `vscode://file/` + encodeURI(absPath with all backslashes normalized) + the post-encode `#`→`%23` (RV6 — `#` is legal on Windows and encodeURI leaves it raw; `?` needs nothing, Windows forbids it); null-guard hides the chip; VS Code user-confirmed as THE editor; honest caveat in the notes (protocol handler required)
+- **Health panel** (D2/A.1+B.2): `GET /api/health` in routes.py — READ-ONLY self-audit (zero git calls, zero DB writes; the first REST addition since /badge v0.2.0.1): server block (version, STARTED_TS import-time stamp, guarded DB_PATH.stat, watchers alive/total from the tracker._tasks done() scan, hook = never-raising TEXT scan of ~/.claude/settings.json for the hook line + the checked path) + per-repo block in config order (db.get_last_event_ts — the D9 heartbeat read /repos uses (RV2), guarded stat of the EXISTING repo.events_file property (RV3/IMPL-1) with mtime serialized ISO-Z to match last_event_ts (RV9), warning COUNTS only — the F47 banner keeps the surface (F5)). Frontend `healthPanel.tsx`: neutral "sys" header chip (no polling, no dot) + modal (fetch-at-open per the RV17 rule, STABLE onClose) with EXPORTED presentational HealthBody({data}) (RV8 — the battery shape); rows: uptime/DB-size ("—" on modeled null — RV12) / watchers green-red / hook "line present ✓/line missing ✗" (RV10 — the honest presence-only wording) / capture freshness "12m ago"/"never" / jsonl size with the last-log-write title attr = the INGEST-LAG hover (RV5; suppressed when null — RV12) / warning counts muted-0/amber; palette entry "Open system health" under Views
+- **Scope:** backend touch = version.py + routes.py ONLY; zero new deps; no new localStorage keys; cross-repo contract unchanged
+
 ## v0.2.2.0 — The Plan Board (2026-08-03)
 
 **Key Highlights**

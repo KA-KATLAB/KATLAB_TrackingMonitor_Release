@@ -15,8 +15,9 @@ import { EFFORT_GAP_MAX_MIN, EFFORT_TAIL_MIN, MODE_BADGE, MODE_COLOR, sessionCol
 
 const PAGE = 500, MAX_PAGES = 3;
 
-export function FileStory ({ repo, file, repoBranch, onClose }:
-  { repo: string; file: string; repoBranch: string | null; onClose: () => void }) {
+export function FileStory ({ repo, file, repoPath, repoBranch, onClose }:
+  { repo: string; file: string; repoPath: string | null;
+    repoBranch: string | null; onClose: () => void }) {
   const [rows, setRows] = useState<TrackedEvent[] | null>(null);
   const [error, setError] = useState("");
   const [truncated, setTruncated] = useState(false);
@@ -77,6 +78,16 @@ export function FileStory ({ repo, file, repoBranch, onClose }:
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-700 px-4 py-2 text-sm">
           <span className="truncate font-mono font-semibold text-slate-100" title={file}>{file}</span>
           <span className="text-[11px] text-slate-500">{repo}</span>
+          {/* v0.2.3.0 D1 (B.1): the ONE editor link — every file chip in
+              the app converges on this header. "#" is legal in Windows
+              filenames and encodeURI leaves it raw (RV6) -> %23 after. */}
+          {repoPath && (
+            <a href={`vscode://file/${encodeURI(`${repoPath}/${file}`.replace(/\\/g, "/")).replace(/#/g, "%23")}`}
+              title="Open in VS Code"
+              className="rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-sky-300 hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
+              editor ↗
+            </a>
+          )}
           {rows && rows.length > 0 && (
             <span className="text-[11px] text-slate-400"
               title="estimated from capture timestamps — 15-min gap rule">

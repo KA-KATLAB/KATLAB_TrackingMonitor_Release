@@ -20,6 +20,7 @@ import { Pet, moodOf } from "./pet";
 import { ComboMeter } from "./comboMeter";
 import { CityView } from "./city";
 import { FocusMode } from "./focusMode";
+import { HealthButton, HealthModal } from "./healthPanel";
 import { connectWs } from "./ws";
 import { OverviewView } from "./OverviewView";
 
@@ -61,6 +62,9 @@ export default function App () {
   // v0.1.10.0 D3 (C.1): ambient focus mode — STABLE onClose (CFT-3 rule).
   const [focusOpen, setFocusOpen] = useState(false);
   const closeFocus = useCallback(() => setFocusOpen(false), []);
+  // v0.2.3.0 D2 (B.2): health panel — STABLE onClose (the same rule).
+  const [healthOpen, setHealthOpen] = useState(false);
+  const closeHealth = useCallback(() => setHealthOpen(false), []);
   // v0.1.7.0 CFT-3: STABLE onClose identities for the two overlay modals —
   // an inline arrow (new identity every App render) re-ran the modals'
   // [onClose]-dep'd overlay effect on every 60s tick / WS sync while open;
@@ -341,6 +345,9 @@ export default function App () {
     { section: "Views", label: "Enter focus mode", // v0.1.10.0 D3 (C.1)
       hint: "ambient wall display — Esc exits",
       run: () => setFocusOpen(true) },
+    { section: "Views", label: "Open system health", // v0.2.3.0 D2 (B.2)
+      hint: "watchers · hook · capture freshness",
+      run: () => setHealthOpen(true) },
     { section: "Repos", label: "ALL repos", run: () => setTab("ALL") },
     ...repos.map((r): PaletteEntry => ({
       section: "Repos", label: r.id, hint: r.clean ? "CLEAN ✓" : `${r.count} uncommitted`,
@@ -404,6 +411,8 @@ export default function App () {
             {/* v0.1.9.0 D3 (C.2): live combo chip — left of the bell */}
             <ComboMeter count={comboCount} lastMs={comboLastMsRef.current}
               burst={comboBurst} />
+            {/* v0.2.3.0 D2 (B.2): the health chip — neutral, no polling */}
+            <HealthButton onClick={() => setHealthOpen(true)} />
             {/* v0.1.5.0 D4 (C.4): the ONE bell — cross-repo triage panel */}
             <AttentionBell repos={repos} events={events} tasks={tasks} violationOf={violationOf}
               open={panelOpen} onToggle={() => setPanelOpen(!panelOpen)}
@@ -448,8 +457,13 @@ export default function App () {
 
       {fileStory && ( /* v0.1.7.0 D2 (B.2): the life of one file */
         <FileStory repo={fileStory.repo} file={fileStory.file}
+          repoPath={repos.find((r) => r.id === fileStory.repo)?.path ?? null}
           repoBranch={repos.find((r) => r.id === fileStory.repo)?.branch ?? null}
           onClose={closeFileStory} />
+      )}
+
+      {healthOpen && ( /* v0.2.3.0 D2 (B.2): the self-audit panel */
+        <HealthModal onClose={closeHealth} />
       )}
 
       {wrappedOpen && stats && ( /* v0.1.8.0 D3 (C.1): your week */
