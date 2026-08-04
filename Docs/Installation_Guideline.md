@@ -58,6 +58,8 @@ Ask the user to add an entry to `TrackingMonitor/Config/repos.yaml`:
 1. From ANY Claude Code session **started AFTER the user-scope hook registration** (restart the session if unsure), edit a scratch file in THIS repo (Edit/Write)
 2. Confirm `<repo_root>/.katlab_tracking/events.jsonl` exists and its last line is a JSON event for that file (repo-relative, forward slashes)
 
+**One-glance verdict (v0.2.3.0+):** the tracker's **health panel** (the "sys" chip in the UI header, or `curl http://127.0.0.1:8100/api/health`) shows the whole smoke result at once — hook **line present ✓**, this repo's capture freshness ("2m ago" after the smoke edit), and the growing `events.jsonl` size. If the panel shows "line missing ✗" or freshness "never" after a smoke edit, walk the checklist below.
+
 If nothing appears, check in this order:
 
 1. the session was started before the hook registration → restart it
