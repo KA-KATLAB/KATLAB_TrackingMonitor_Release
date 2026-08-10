@@ -1,5 +1,14 @@
 # Version Notes
 
+## v0.2.4.0 — The Chronicle (2026-08-06)
+
+**Key Highlights**
+
+- Seventeenth harvest cycle — "Focus on MkDocs" (user 2026-08-04): the Live_arch doc tool identified as MkDocs 1.6.1; the git-cliff/devlog-cli auto-docs class beaten on data (they GUESS the why; the tracker KNOWS it). Plan passed a 19-pass CDD review loop (37 findings RV1-RV37, 5/5 consecutive clean incl. live-data proofs: RV9 stale refs exist in production, RV17 non-additivity 649-vs-375 min, 29-file mirror link audit zero 404s)
+- **The Chronicle** (A.1-B.1): `Scripts/Chronicle/generate.py` + `pages.py` — stdlib-only generator against the RUNNING server's REST (D2; envelope unwrap, pages of 500 cap 20, ~10s timeouts RV34, UTF-8 both ends RV33, ALL fetches before the first write RV10) emitting a full MkDocs site into gitignored `Chronicle/runtime/`: Overview (status cards + 365d totals + the ONLY data-through stamp — RV29), Devlog (page per active UTC day; whys, files, served ≈minutes, commits, "(unattributed)" bucket RV32), Plans (RV8 path-flattened filenames + RV37 full-path nav labels, plan-board sort), Changelog-by-reason (RV9 stale-ref law live-proven), Docs mirror (byte-verbatim incl. LICENSE — RV5) + temp/Ref mermaid diagrams page; write-only-if-changed ATOMIC sink (RV27) + FULL-expected-set sweep (RV14/RV22) + calendar-diff incremental ticks (RV19 — catch-up-ingest safe); md/YAML escape laws (D10/RV30)
+- **The stack** (C.1): MkDocs 1.6.1 + mermaid2 + panzoom + pymdownx (own requirements.txt, plain pip — user-agreed; product deps untouched), stock theme restyled Bootswatch-Darkly at the CSS layer (T5) + the generated KATLAB product-look stylesheet (IMPL-3, user-requested polish: app fonts with offline-safe fallbacks, slate-950 + teal glow, card lists, dark tables/nav); the four Live_arch proven tricks harvested verbatim: T1 use_directory_urls:false (file:// view), T2 UMD mermaid (never CDN ESM), T3 explicit --livereload (the click>=8.2 trap), T6 fence_mermaid superfences form (RV16 — blank-diagram trap on non-Material themes), + the GENERATED fix_windows_paths build hook (IMPL-1: mermaid2's os.path.relpath emits BACKSLASHED script paths on Windows — the Live_arch hook lesson, caught live post-build); five bats: install/generate/serve/live/view with RV25 guards, + `Scripts/_start_all.bat` (IMPL-5, user-requested: ONE double-click starts the tracker if 8100 is dark then the Chronicle living site; underscore prefix sorts it on top), RV13 existing-site fallback, RV26 loop lifecycle (own titled window, heartbeat lock at runtime root RV28, self-exit on dark serve port), port 8200 (D4)
+- **Scope:** backend diff = version.py ONLY; no UI change (palette entry backlogged as R-AY, user 2026-08-06); no new endpoints/schema/git calls; cross-repo contract unchanged; gitignore + Chronicle module + docs are the whole diff
+
 ## v0.2.3.0 — Editor & Health (2026-08-04)
 
 **Key Highlights**

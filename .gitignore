@@ -22,6 +22,8 @@ node_modules/
 # Runtime data — regenerated, never commit
 data/
 Demo/runtime/
+Chronicle/runtime/
+Scripts/Chronicle/assets/vendor/
 *.db
 *.db-shm
 *.db-wal

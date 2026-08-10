@@ -1,0 +1,21 @@
+# KATLAB Chronicle - exact dependency set (PLAN v0.2.4.0 C.1).
+# Install once: double-click install.bat (plain pip, no venv - the
+# Live_arch precedent, user-agreed 2026-08-04). Product runtime deps
+# are UNTOUCHED - this set belongs to the Chronicle module only (D1).
+
+mkdocs==1.6.1
+
+# Click >= 8.2 resolves MkDocs 1.6.1's --livereload/--no-livereload
+# feature-switch pair wrong: plain `mkdocs serve` silently passes
+# livereload=False (diagnosed in Live_arch 2026-07-31). serve.bat
+# passes --livereload explicitly (T3); this pin is belt-and-braces.
+click<8.2
+
+# Diagrams: mermaid fences + alt-scroll pan/zoom (the Live_arch pins).
+mkdocs-mermaid2-plugin==1.2.3
+mkdocs-panzoom-plugin==0.5.2
+
+# superfences' home (T6/RV16: the fence MUST be mermaid2.fence_mermaid
+# on a non-Material theme). Pinned explicitly so the set is explicit -
+# the Live_arch discipline.
+pymdown-extensions>=10.7
