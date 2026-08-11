@@ -8,6 +8,8 @@ the generated mkdocs.yml passes yq() (RV30). Builders receive SERVED
 values only (D5) - no re-clustering, no derived effort.
 """
 
+import re
+
 # D10: kills links/HTML/emphasis/code-outs; backslash-escaping covers
 # CommonMark punctuation including < and > (blocks raw HTML).
 _MD_ESCAPE = set("\\`*_{}[]()#!|<>")
@@ -91,6 +93,30 @@ def build_devlog_index (day_totals: list[tuple[str, int, int]]) -> str:
             lines += [f"## {month}", ""]
         lines.append(f"- [{day}]({day}.md) — {events} events · "
                      f"{commits} commits")
+    return "\n".join(lines) + FOOTER
+
+
+def build_story_index (page_names: list[str]) -> str:
+    """PLAN v0.2.5.0 B.1: the Story index - FILENAMES ONLY (RV42:
+    md-safe by construction; callers pass RECOGNIZED pages only),
+    grouped by type, no timestamps (the RV13 clock-free boundary)."""
+    diaries = sorted((n for n in page_names
+                      if re.match(r"^\d{4}-\d{2}-\d{2}\.md$", n)),
+                     reverse=True)
+    weeks = sorted((n for n in page_names if n.startswith("week-")),
+                   reverse=True)
+    releases = sorted((n for n in page_names
+                       if n.startswith("release-")), reverse=True)
+    lines = ["# \U0001F4D6 Story", "",
+             "*AI-written pages - each page's footer names the model "
+             "and generation time*", ""]
+    for title, group in (("Daily diaries", diaries),
+                         ("Weekly retros", weeks),
+                         ("Release drafts", releases)):
+        if group:
+            lines += [f"## {title}", ""]
+            lines += [f"- [{n[:-3]}]({n})" for n in group]
+            lines.append("")
     return "\n".join(lines) + FOOTER
 
 

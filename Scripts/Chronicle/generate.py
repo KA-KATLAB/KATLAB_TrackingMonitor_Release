@@ -17,7 +17,7 @@ import socket
 import sys
 import time
 import urllib.request
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pages
@@ -278,6 +278,23 @@ def build_and_write (model: dict, cache: dict) -> tuple[int, int]:
         emit(rel, pages.build_changelog(rid, entries, truncated))
         changelog_nav.append((rid, rel))
 
+    # ---- story (PLAN v0.2.5.0 B.1: the Scribe's AI-written pages) ----
+    # RV41/RV42: RECOGNIZED page patterns only - index.md excluded (a
+    # naive *.md glob would count the generate-owned index itself),
+    # alien files out of contract (never counted/indexed/deleted).
+    story_root = DOCS / "story"
+    diary_rx = re.compile(r"^\d{4}-\d{2}-\d{2}\.md$")
+    story_pages = []
+    if story_root.is_dir():
+        for f in sorted(story_root.glob("*.md")):
+            if f.name != "index.md" and (
+                    diary_rx.match(f.name)
+                    or f.name.startswith("week-")
+                    or f.name.startswith("release-")):
+                story_pages.append(f.name)
+    if story_pages:  # RV35: hidden at zero pages - no index, no nav
+        emit("story/index.md", pages.build_story_index(story_pages))
+
     # ---- diagrams + mirror ----
     if model["diagrams"]:
         emit("architecture.md", pages.build_architecture(model["diagrams"]))
@@ -308,6 +325,15 @@ def build_and_write (model: dict, cache: dict) -> tuple[int, int]:
     devlog_children += [(d, f"devlog/{d}.md")
                         for d in days_desc[:RECENT_NAV_DAYS]]  # RV12
     nav.append(("\U0001F4D3 Devlog", devlog_children))
+    if story_pages:  # PLAN v0.2.5.0 RV8: index + DIARIES cap-14 only
+        # (weeklies/releases are reached via the index - the devlog
+        # >14 precedent; un-nav'd pages are mkdocs INFO, strict-safe)
+        story_diaries = sorted((n for n in story_pages
+                                if diary_rx.match(n)), reverse=True)
+        story_children = [("All entries", "story/index.md")]
+        story_children += [(n[:-3], f"story/{n}")
+                           for n in story_diaries[:RECENT_NAV_DAYS]]
+        nav.append(("\U0001F4D6 Story", story_children))
     if plan_nav_by_repo:  # repo groups in CONFIG order (the /repos order)
         nav.append(("\U0001F4CB Plans",
                     [(r["id"], plan_nav_by_repo[r["id"]]) for r in repos
@@ -364,17 +390,29 @@ def build_and_write (model: dict, cache: dict) -> tuple[int, int]:
     if single.exists() and single.resolve() not in expected:
         single.unlink()
         removed += 1
+    # PLAN v0.2.5.0 RV35/RV41: the story INDEX is GENERATE-OWNED -
+    # removed at zero recognized pages (story PAGES are never swept;
+    # a stale index with dead links would strict-fail view.bat).
+    story_index = DOCS / "story" / "index.md"
+    if not story_pages and story_index.exists():
+        story_index.unlink()
+        removed += 1
 
     cache.clear()
     cache.update(model["day_triples"])
     return written, removed
 
 
-def run_once (cache: dict) -> None:
+def run_once (cache: dict) -> dict:
+    # PLAN v0.2.5.0 RV31: the PRE-FETCH stamp gates scribe candidates
+    # (internal key - never emitted into any page).
+    fetched_at = datetime.now(timezone.utc).isoformat()
     model = fetch_model(cache)          # RV10: everything before any write
+    model["_fetched_at"] = fetched_at
     written, removed = build_and_write(model, cache)
     print(f"[chronicle] site current - {written} file(s) written, "
           f"{removed} removed")
+    return model
 
 
 def port_alive (port: int) -> bool:
@@ -400,13 +438,22 @@ def loop (interval: float, dark_exit: int = DARK_TICKS_EXIT,
     try:
         while True:
             os.utime(LOCK_FILE)  # heartbeat (outside docs_dir - RV28)
+            model = None
             try:
-                run_once(cache)
+                model = run_once(cache)
             except Exception as exc:  # RV13/RV34: skip, retry next tick
                 print(f"[chronicle] tick skipped - tracker unavailable "
                       f"({exc.__class__.__name__})")
             os.utime(LOCK_FILE)  # CFT-2: a slow cold tick (many timed-out
             # calls) must never look STALE to a second instance mid-run
+            if model is not None:
+                # PLAN v0.2.5.0 RV22: LAZY import (a module-top import
+                # would be circular - scribe imports generate); RV36:
+                # the lock-utime callable keeps the lock fresh during
+                # the scribe spawn (auto_tick contains its own errors).
+                import scribe
+                scribe.auto_tick(model,
+                                 heartbeat=lambda: os.utime(LOCK_FILE))
             if port_alive(SITE_PORT):
                 dark = 0
             else:
