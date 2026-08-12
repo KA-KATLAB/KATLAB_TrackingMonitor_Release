@@ -190,7 +190,9 @@ def invoke_claude (prompt: str, data_doc: str, heartbeat=None):
         [exe, "-p", prompt, "--model", _model_name(),
          "--output-format", "json"],
         cwd=str(cwd), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL)
+        stderr=subprocess.DEVNULL,
+        # R-BD: all handles are piped - no window, nothing lost
+        creationflags=subprocess.CREATE_NO_WINDOW)
     stdin_bytes = data_doc.encode("utf-8")  # RV2 explicit
     waited = 0.0
     first = True

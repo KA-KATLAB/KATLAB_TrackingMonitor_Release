@@ -24,6 +24,10 @@ def _run (repo: Path, *args: str) -> str:
             ["git", "-C", str(repo), *args],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
             timeout=15,
+            # v0.2.6.0 R-BD: the server is windowless pythonw - an
+            # unflagged console child FLASHES a conhost window on every
+            # git poll (the "blinking windows" bug).
+            creationflags=subprocess.CREATE_NO_WINDOW,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise GitError(str(exc))

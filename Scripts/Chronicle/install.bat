@@ -29,4 +29,4 @@ if errorlevel 1 (
     echo [WARN] mermaid UMD fetch failed - diagrams will use the CDN script ^(online only^).
 )
 
-echo Done. Next: generate.bat (one-shot) / serve.bat / live.bat / view.bat
+echo Done. Next: generate.bat (one-shot build) / view.bat (offline) - the running tracker serves the living site at /chronicle/

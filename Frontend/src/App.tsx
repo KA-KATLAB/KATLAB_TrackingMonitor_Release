@@ -18,6 +18,7 @@ import { useReveal } from "./reveal";
 import { EFFORT_GAP_MAX_MIN, MODE_BADGE, MODE_COLOR, SWEPT_COLOR, UNCOMMITTED_AGE_H, prefersReducedMotion, sessionColor, withViewTransition } from "./theme";
 import { Pet, moodOf } from "./pet";
 import { ComboMeter } from "./comboMeter";
+import { ChronicleView } from "./chronicleView";
 import { CityView } from "./city";
 import { FocusMode } from "./focusMode";
 import { HealthButton, HealthModal } from "./healthPanel";
@@ -29,7 +30,7 @@ const PAGE = 500; // F38 pagination page size
 const COMBO_MILESTONES = new Set([5, 10, 25, 50, 100, 250]);
 
 type Tab = string | "ALL";
-type View = "changes" | "history" | "overview" | "city"; // v0.1.3.0 D2; v0.2.0.0 D3: the 4th view
+type View = "changes" | "history" | "overview" | "city" | "chronicle"; // v0.1.3.0 D2; v0.2.0.0 D3: the 4th view; v0.2.6.0 C.1: the 5th — the in-app Chronicle
 
 export default function App () {
   const [repos, setRepos] = useState<Repo[]>([]);
@@ -342,6 +343,8 @@ export default function App () {
     { section: "Views", label: "Overview", run: () => setView("overview") },
     { section: "Views", label: "History", run: () => setView("history") },
     { section: "Views", label: "City", run: () => setView("city") }, // v0.2.0.0 D3
+    { section: "Views", label: "Open Chronicle view", // v0.2.6.0 C.1 (R-AY absorbed)
+      run: () => setView("chronicle") },
     { section: "Views", label: "Enter focus mode", // v0.1.10.0 D3 (C.1)
       hint: "ambient wall display — Esc exits",
       run: () => setFocusOpen(true) },
@@ -371,6 +374,8 @@ export default function App () {
       run: () => setTimelineSession(sessionFilter) } as PaletteEntry] : []), // v0.1.6.0 D3
     { section: "Actions", label: "View weekly wrapped", // v0.1.8.0 D3 (C.1)
       run: () => setWrappedOpen(true) },
+    { section: "Actions", label: "Open Chronicle in a new tab ↗", // v0.2.6.0 C.1
+      run: () => window.open("/chronicle/", "_blank") },
     { section: "Actions", label: "Open Legend", run: () => setShowLegend(true) },
     { section: "Actions", label: "Export daily digest", run: () => void doDigest() },
     // v0.2.0.1 D1 (B.1): the report exports — Actions, beside the digest
@@ -403,6 +408,8 @@ export default function App () {
             <TabButton active={view === "history"} onClick={() => withViewTransition(() => setView("history"))} label="History" />
             {/* v0.2.0.0 D3 (B.3): the 4th view — the living workspace */}
             <TabButton active={view === "city"} onClick={() => withViewTransition(() => setView("city"))} label="City" />
+            {/* v0.2.6.0 C.1 (R-BB): the 5th view — the in-app Chronicle */}
+            <TabButton active={view === "chronicle"} onClick={() => withViewTransition(() => setView("chronicle"))} label="Chronicle" />
             <TabButton active={showLegend} onClick={() => setShowLegend(!showLegend)} label="?"
               title="Legend - what every badge and state means" />
             {/* v0.1.13.0 D2 (B.2): Kat — immediately LEFT of the combo
@@ -411,6 +418,10 @@ export default function App () {
             {/* v0.1.9.0 D3 (C.2): live combo chip — left of the bell */}
             <ComboMeter count={comboCount} lastMs={comboLastMsRef.current}
               burst={comboBurst} />
+            {/* v0.2.6.0 C.1: the 📖 chip — the Chronicle IS a view now */}
+            <TabButton active={view === "chronicle"}
+              onClick={() => withViewTransition(() => setView("chronicle"))}
+              label="📖" title="Open the Chronicle — the living docs site" />
             {/* v0.2.3.0 D2 (B.2): the health chip — neutral, no polling */}
             <HealthButton onClick={() => setHealthOpen(true)} />
             {/* v0.1.5.0 D4 (C.4): the ONE bell — cross-repo triage panel */}
@@ -549,6 +560,11 @@ export default function App () {
                 setTab(repoId);
                 setView("overview");
               })} />
+          )}
+          {view === "chronicle" && ( /* v0.2.6.0 C.1 (R-BB): the living
+              docs site INSIDE the app — same-origin iframe of the
+              tracker's own /chronicle/ mount (R-BA) */
+            <ChronicleView />
           )}
         </main>
       </div>
@@ -858,6 +874,14 @@ function Legend ({ onClose }: { onClose: () => void }) {
         Focus mode: press <b className="text-slate-300">Ctrl+K</b> →{" "}
         <b className="text-slate-300">Enter focus mode</b> for a full-screen ambient
         wall display (live status, in-flight feed, skyline); <b>Esc</b> or ✕ exits.
+      </p>
+      <p className="mt-1.5 text-slate-400">
+        {/* v0.2.6.0 C.1: the in-app Chronicle + the RV31 focus boundary */}
+        Chronicle: the <b className="text-slate-300">📖</b> chip or the{" "}
+        <b className="text-slate-300">Chronicle</b> tab opens the living docs site
+        in-app (devlog, plans, changelog, AI diary). While the embedded site holds
+        keyboard focus, app shortcuts (<b>Ctrl+K</b>) pause — click any header
+        element to restore them.
       </p>
     </div>
   );

@@ -67,11 +67,11 @@ Detailed docs live in `Claude_Info/` (mirrors the EA + UM repo pattern):
 
 **Release notes convention (every release)**: current version = `TrackingMonitor_v<X.Y.Z.W>_Release_Notes.md` at the REPO ROOT; on each new release, MOVE the previous one to `Docs/Release_Notes/Archive/`. Format mirrors the UM repo (Theme → intro → Highlights → Cross-repo).
 
-**Run the tracker**: double-click `Scripts/start_tracking_monitor.bat` → UI at `http://127.0.0.1:8100` (host/port in `Config/repos.yaml`)
+**Run the tracker**: double-click `Scripts/start_tracking_monitor.bat` → UI at `http://127.0.0.1:8100` · Chronicle at `http://127.0.0.1:8100/chronicle/` (host/port in `Config/repos.yaml`; v0.2.6.0: the server runs HIDDEN — no persistent window; logs at `data/logs/`; the server owns the Chronicle regen loop)
 
-**Stop / restart the tracker**: double-click `Scripts/stop_tracking_monitor.bat` / `Scripts/restart_tracking_monitor.bat` (stop kills whatever LISTENs on the configured port; restart = stop + fresh start in its own window)
+**Stop / restart the tracker**: double-click `Scripts/stop_tracking_monitor.bat` / `Scripts/restart_tracking_monitor.bat` (stop kills whatever LISTENs on the configured port — the Chronicle loop dies with it; restart = stop + silent fresh start)
 
-**Demo mode (zero real repos)**: double-click `Scripts/Demo/start_demo.bat` → self-generated scratch data → UI at `http://127.0.0.1:8101` (coexists with the real tracker; regenerated fresh each launch under gitignored `Demo/runtime/`). Stop / restart: `Scripts/Demo/stop_demo.bat` / `Scripts/Demo/restart_demo.bat`
+**Demo mode (zero real repos)**: double-click `Scripts/Demo/start_demo.bat` → self-generated scratch data → UI at `http://127.0.0.1:8101`, also hidden (log: `data/logs/demo.log`; coexists with the real tracker; regenerated fresh each launch under gitignored `Demo/runtime/`; the demo never spawns the Chronicle loop). Stop / restart: `Scripts/Demo/stop_demo.bat` / `Scripts/Demo/restart_demo.bat`
 
 ## 🧹 **CLEAN CODE STANDARDS**
 

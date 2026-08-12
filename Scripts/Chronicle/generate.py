@@ -13,12 +13,15 @@ Console prints stay ASCII (the RV33 lesson applies to stdout too).
 import json
 import os
 import re
+import shutil
 import socket
+import subprocess
 import sys
 import time
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pages
 
@@ -27,10 +30,14 @@ HTTP_TIMEOUT = 10.0          # RV34
 PAGE_LIMIT = 500             # D2/RV12
 MAX_PAGES = 20               # D2/RV12: hard cap per call-site
 RECENT_NAV_DAYS = 14         # D9/RV12
-SITE_PORT = 8200             # D4
 DARK_TICKS_EXIT = 10         # RV26
 LOCK_STALE_FACTOR = 3        # RV26
 DEFAULT_LOOP_SECONDS = 60
+# PLAN v0.2.6.0 RV16: a LIVE-lock rejection retries (a crashed
+# tracker's orphan loop holds the lock up to ~10min; the restarted
+# tracker's child must not exit instantly and leave it loop-less).
+LOCK_RETRY_S = 30.0
+LOCK_RETRY_BUDGET_S = 900.0
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent
@@ -63,6 +70,10 @@ def base_url () -> str:
 
 
 BASE = base_url()
+# PLAN v0.2.6.0 B.1: 8200 is retired - the loop's dark-port self-exit
+# watches the TRACKER's own port (F10: from the config via BASE), and
+# the site_url points at the tracker's /chronicle/ mount.
+TRACKER_PORT = urlsplit(BASE).port or 8100
 
 
 def http_json (path: str):
@@ -364,6 +375,8 @@ def build_and_write (model: dict, cache: dict) -> tuple[int, int]:
         docs_children.append(("Release Notes", root_notes + archive))
     nav.append(("\U0001F3DB Docs", docs_children))
 
+    written += write_if_changed(DOCS / "assets" / "refresh.js",
+                                pages.build_refresh_js().encode("utf-8"))
     mermaid_js = ("assets/vendor/mermaid.min.js"
                   if "mermaid.min.js" in vendored else CDN_MERMAID)
     bootswatch = ("assets/vendor/bootswatch-darkly.css"
@@ -371,7 +384,7 @@ def build_and_write (model: dict, cache: dict) -> tuple[int, int]:
     written += write_if_changed(RUNTIME / "mkdocs.yml",
                                 pages.build_mkdocs_yml(
                                     nav, mermaid_js, bootswatch,
-                                    f"http://127.0.0.1:{SITE_PORT}/")
+                                    f"{BASE}/chronicle/")
                                 .encode("utf-8"))
 
     # ---- sweep (RV14/RV22: vs the FULL expected set) ----
@@ -410,9 +423,60 @@ def run_once (cache: dict) -> dict:
     model = fetch_model(cache)          # RV10: everything before any write
     model["_fetched_at"] = fetched_at
     written, removed = build_and_write(model, cache)
+    model["_changed"] = written + removed  # v0.2.6.0: the --build gate
     print(f"[chronicle] site current - {written} file(s) written, "
           f"{removed} removed")
     return model
+
+
+def build_site () -> None:
+    """PLAN v0.2.6.0 B.1 (RV7/RV9): non-strict `mkdocs build` into
+    site.new, then the ATOMIC RENAME-FIRST swap - the old site is
+    renamed WHOLE (an open handle fails the rename wholesale, never
+    half) before the new one takes its place; any failure leaves a
+    complete site serving and retries next tick."""
+    site = RUNTIME / "site"
+    site_new = RUNTIME / "site.new"
+    site_old = RUNTIME / "site.old"
+    r = subprocess.run([sys.executable, "-m", "mkdocs", "build",
+                        "-f", str(RUNTIME / "mkdocs.yml"),
+                        "-d", str(site_new)],
+                       capture_output=True, text=True, encoding="utf-8",
+                       # R-BD: never a window, even from a windowless
+                       # parent (output is piped - nothing is lost)
+                       creationflags=subprocess.CREATE_NO_WINDOW)
+    if r.returncode != 0:
+        tail = (r.stderr or r.stdout or "").strip().splitlines()
+        print("[chronicle] build failed - keeping the current site"
+              + (f" ({tail[-1]})" if tail else ""))
+        return
+    try:
+        if site_old.exists():
+            shutil.rmtree(site_old)  # leftover of a prior partial swap
+        if site.exists():
+            os.replace(site, site_old)   # WHOLE-or-not-at-all rename
+        os.replace(site_new, site)
+        print("[chronicle] site built + swapped")
+    except OSError as exc:
+        if not site.exists() and site_old.exists():
+            try:
+                os.replace(site_old, site)  # rollback - never site-less
+            except OSError:
+                pass
+        print(f"[chronicle] swap failed - old site keeps serving "
+              f"({exc.__class__.__name__}); retry next tick")
+        return
+    try:
+        if site_old.exists():
+            shutil.rmtree(site_old)
+    except OSError:
+        pass  # orphan dir; the next swap's pre-clean removes it
+
+
+def build_if_needed (model: dict) -> None:
+    """--build: after a changed tick, or when the site is missing."""
+    if model.get("_changed") or not (RUNTIME / "site" / "index.html").is_file():
+        build_site()
 
 
 def port_alive (port: int) -> bool:
@@ -424,14 +488,38 @@ def port_alive (port: int) -> bool:
 
 
 def loop (interval: float, dark_exit: int = DARK_TICKS_EXIT,
-          stale_factor: int = LOCK_STALE_FACTOR) -> int:
-    """RV26 lifecycle: single-instance heartbeat lock (mtime), self-exit
-    after dark_exit consecutive ticks with the serve port dark."""
+          stale_factor: int = LOCK_STALE_FACTOR,
+          do_build: bool = False) -> int:
+    """RV26-class lifecycle: single-instance heartbeat lock (mtime),
+    self-exit after dark_exit consecutive ticks with the TRACKER port
+    dark (v0.2.6.0: 8200 retired - the tracker owns this loop, and a
+    dead tracker means nothing to regenerate for)."""
     RUNTIME.mkdir(parents=True, exist_ok=True)
-    if LOCK_FILE.exists() and (time.time() - LOCK_FILE.stat().st_mtime
-                               < stale_factor * interval):
-        print("[chronicle] another regen loop is already running - exiting")
-        return 0
+    # PLAN v0.2.6.0 RV16: a LIVE lock retries instead of instant-exit
+    # (a crashed tracker's orphan holds the lock up to ~10min; the
+    # restarted tracker's spawned child must inherit the loop when
+    # the orphan self-exits - the tracker never respawns it).
+    def lock_alive () -> bool:
+        # CFT-13: stat INSIDE try - the designed RV16 scenario is an
+        # orphan whose self-exit unlinks the lock BETWEEN our checks;
+        # a bare exists()+stat() pair crashes the child on that gap
+        # (FileNotFoundError) and re-opens the loop-less hole.
+        try:
+            return (time.time() - LOCK_FILE.stat().st_mtime
+                    < stale_factor * interval)
+        except OSError:
+            return False  # lock gone (or unreadable) - free to acquire
+
+    waited = 0.0
+    while lock_alive():
+        if waited == 0:
+            print("[chronicle] another regen loop holds the lock - "
+                  "retrying for up to 15m (RV16)")
+        if waited >= LOCK_RETRY_BUDGET_S:
+            print("[chronicle] lock still held - exiting")
+            return 0
+        time.sleep(LOCK_RETRY_S)
+        waited += LOCK_RETRY_S
     LOCK_FILE.write_text("chronicle regen loop heartbeat\n", encoding="utf-8")
     dark = 0
     cache: dict = {}
@@ -447,6 +535,10 @@ def loop (interval: float, dark_exit: int = DARK_TICKS_EXIT,
             os.utime(LOCK_FILE)  # CFT-2: a slow cold tick (many timed-out
             # calls) must never look STALE to a second instance mid-run
             if model is not None:
+                if do_build:  # v0.2.6.0 B.1: build BEFORE the scribe -
+                    # a fresh story page lands in the NEXT tick's build
+                    build_if_needed(model)
+                    os.utime(LOCK_FILE)  # a ~1s build must not age it
                 # PLAN v0.2.5.0 RV22: LAZY import (a module-top import
                 # would be circular - scribe imports generate); RV36:
                 # the lock-utime callable keeps the lock fresh during
@@ -454,12 +546,12 @@ def loop (interval: float, dark_exit: int = DARK_TICKS_EXIT,
                 import scribe
                 scribe.auto_tick(model,
                                  heartbeat=lambda: os.utime(LOCK_FILE))
-            if port_alive(SITE_PORT):
+            if port_alive(TRACKER_PORT):
                 dark = 0
             else:
                 dark += 1
                 if dark >= dark_exit:
-                    print("[chronicle] serve port dark - loop exiting")
+                    print("[chronicle] tracker port dark - loop exiting")
                     return 0
             time.sleep(interval)
     finally:
@@ -489,14 +581,17 @@ def verify () -> int:
 def main (argv: list[str]) -> int:
     if "--verify" in argv:
         return verify()
+    do_build = "--build" in argv  # v0.2.6.0 B.1
     if "--loop" in argv:
         idx = argv.index("--loop")
         seconds = (float(argv[idx + 1]) if idx + 1 < len(argv)
                    and argv[idx + 1].replace(".", "", 1).isdigit()
                    else DEFAULT_LOOP_SECONDS)
-        return loop(seconds)
+        return loop(seconds, do_build=do_build)
     try:
-        run_once({})
+        model = run_once({})
+        if do_build:  # a manual one-shot refreshes the served site
+            build_if_needed(model)
         return 0
     except Exception as exc:
         print(f"[ABORT] tracker not reachable at {BASE} - start the "
