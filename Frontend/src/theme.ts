@@ -23,6 +23,29 @@ export const SWEPT_COLOR = "#71717a"; // zinc-500
 export const EFFORT_GAP_MAX_MIN = 15;
 export const EFFORT_TAIL_MIN = 2;
 
+// v0.2.10.0 D2 (A.1, R-BN): the flow chip's law — the LIVE face of the
+// effort chain (EFFORT_GAP_MAX_MIN above mirrors db.py; the ALGORITHM
+// home stays there — this is a presentation-only derivation). Consumed
+// by flowChip.tsx at render; App.tsx's WS handler feeds the chain refs
+// and the P8 60s tick supplies minute growth + expiry. PURE for the
+// battery. count >= 2: one capture is not a flow (the chip's on-
+// boundary); Math.max(1, …): never "0m" (the wxTip precedent — and it
+// gracefully clamps a clock-set-back negative too).
+export function flowState (count: number, startMs: number, lastMs: number,
+  nowMs: number): { on: boolean; minutes: number } {
+  const on = count >= 2 && nowMs - lastMs <= EFFORT_GAP_MAX_MIN * 60_000;
+  return { on, minutes: on ? Math.max(1, Math.floor((nowMs - startMs) / 60_000)) : 0 };
+}
+
+// v0.2.10.0 D6 (A.1, R-BO): odometer milestones — event IDS EVER (the
+// ONE global AUTOINCREMENT odometer, schema.sql events.id — ids are
+// never reused, even after deletes). DISTINCT from App-local
+// COMBO_MILESTONES (chain COUNTS that reset per gap): same suffix,
+// different semantics — never conflate the two Sets. Checked at App's
+// event_resolved id-read site; exported for the battery.
+export const ODOMETER_MILESTONES: ReadonlySet<number> = new Set(
+  [5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000]);
+
 // v0.1.6.0 D4: the bell's uncommitted-age nudge threshold (hours).
 // v0.1.13.0 B.2: LIFTED here from App.tsx — ONE source for the bell
 // nudge AND the pet's "anxious" mood (never a mirrored copy).

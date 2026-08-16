@@ -17,9 +17,10 @@ import { playChime, playFanfare, playTick, setSoundEnabled, soundWanted } from "
 import { copyCommitDraft } from "./draft";
 import { StatsData } from "./charts";
 import { useReveal } from "./reveal";
-import { EFFORT_GAP_MAX_MIN, MODE_BADGE, MODE_COLOR, RELEASE_RX, SWEPT_COLOR, UNCOMMITTED_AGE_H, prefersReducedMotion, prefix3, sessionColor, withViewTransition } from "./theme";
+import { EFFORT_GAP_MAX_MIN, MODE_BADGE, MODE_COLOR, ODOMETER_MILESTONES, RELEASE_RX, SWEPT_COLOR, UNCOMMITTED_AGE_H, prefersReducedMotion, prefix3, sessionColor, withViewTransition } from "./theme";
 import { Pet, moodOf, wardrobeOf } from "./pet";
 import { ComboMeter } from "./comboMeter";
+import { FlowChip } from "./flowChip";
 import { ChronicleView } from "./chronicleView";
 import { CityView } from "./city";
 import { FocusMode } from "./focusMode";
@@ -63,6 +64,10 @@ export default function App () {
   // the celebration's own counter — never shared).
   const comboCountRef = useRef(0);
   const comboLastMsRef = useRef(0);
+  // v0.2.10.0 D3 (A.3a, R-BN): the current chain's birth stamp — set
+  // exactly when next === 1 in the WS handler (init 0 is safe: the
+  // first event is always next === 1, so on ⇒ stamped, never zero).
+  const comboStartMsRef = useRef(0);
   const comboN = useRef(0);
   const [comboCount, setComboCount] = useState(0);
   const [comboBurst, setComboBurst] = useState<number | null>(null);
@@ -185,6 +190,17 @@ export default function App () {
         // the user opted in (beside the combo, never instead).
         const evId = (msg.data as { id?: unknown }).id;
         playTick(typeof evId === "number" ? evId : 0);
+        // v0.2.10.0 D7/D8 (A.3c, R-BO): the odometer — event IDS EVER
+        // (one global AUTOINCREMENT; ids never reused). UI-closed
+        // misses are accepted (the WS-gap law); a brief WS gap self-
+        // recovers via the F29 catch-up replay. playChime self-gates
+        // (sound.ts law); the 8s timer clears by nonce-compare only.
+        if (typeof evId === "number" && ODOMETER_MILESTONES.has(evId)) {
+          const n = ++odoN.current;
+          setOdoNote({ id: evId, n });
+          playChime();
+          window.setTimeout(() => setOdoNote((cur) => (cur && cur.n === n ? null : cur)), 8_000);
+        }
         // v0.1.9.0 D3 (C.2): combo — ONE increment per live message, all in
         // the handler body (RV7: refs for fresh math, state mirror by value;
         // no updater-function side effects). Burst fires only on an exact
@@ -193,6 +209,7 @@ export default function App () {
         const nowMs = Date.now();
         const chained = nowMs - comboLastMsRef.current <= EFFORT_GAP_MAX_MIN * 60_000;
         const next = chained ? comboCountRef.current + 1 : 1;
+        if (next === 1) comboStartMsRef.current = nowMs; // v0.2.10.0 D3: chain birth
         comboCountRef.current = next;
         comboLastMsRef.current = nowMs;
         setComboCount(next);
@@ -430,6 +447,11 @@ export default function App () {
   // the digestNote recipe (~3s, repo-keyed).
   const [draftNote, setDraftNote] = useState<{ repo: string; ok: boolean; n: number } | null>(null);
   const draftNoteN = useRef(0);
+  // v0.2.10.0 D8 (A.3c, R-BO): the odometer moment — nonce-compare
+  // timer (the v0.2.9.0 CFT-2 law); dies by its own 8s clock, immune
+  // to the outside-click toast clear (that handler clears TOASTS only).
+  const [odoNote, setOdoNote] = useState<{ id: number; n: number } | null>(null);
+  const odoN = useRef(0);
   const doDraft = useCallback(async (repoId: string) => {
     const ok = await copyCommitDraft(repoId, events, tasks);
     // CFT-2: NONCE-compare clear (the celebration law) — a repo-keyed
@@ -630,6 +652,11 @@ export default function App () {
             {/* v0.1.9.0 D3 (C.2): live combo chip — left of the bell */}
             <ComboMeter count={comboCount} lastMs={comboLastMsRef.current}
               burst={comboBurst} />
+            {/* v0.2.10.0 D5 (A.3b, R-BN): the flow chip — TIME-IN-CHAIN,
+                the combo's sibling (sky/water vs amber/fire); pure, the
+                P8 tick grows/expires it */}
+            <FlowChip count={comboCount} startMs={comboStartMsRef.current}
+              lastMs={comboLastMsRef.current} />
             {/* v0.2.6.0 C.1: the 📖 chip — the Chronicle IS a view now */}
             <TabButton active={view === "chronicle"}
               onClick={() => withViewTransition(() => setView("chronicle"))}
@@ -769,12 +796,22 @@ export default function App () {
         <WrappedCard stats={stats} tasks={tasks} onClose={closeWrapped} />
       )}
 
-      {toasts.length > 0 && ( /* v0.1.7.0 D6 (C.3): persistent celebration
-          toasts — z-30, BELOW every overlay (RV3: a record waits under a
-          dim, never pierces it); one per repo, newest replaces; dismissed
-          by ✕ or any outside click. NOT an overlay (no data-overlay-open). */
+      {(toasts.length > 0 || odoNote !== null) && ( /* v0.1.7.0 D6 (C.3):
+          persistent celebration toasts — z-30, BELOW every overlay (RV3: a
+          record waits under a dim, never pierces it); one per repo, newest
+          replaces; dismissed by ✕ or any outside click. NOT an overlay (no
+          data-overlay-open). v0.2.10.0 D8: the odometer card shares the
+          column (condition widened). */
         <div data-toast-stack
           className="fixed bottom-4 right-4 z-30 flex flex-col items-end gap-2">
+          {odoNote && ( /* v0.2.10.0 D8 (A.3c, R-BO): FIRST child — the
+              bottom-anchored column grows upward, so this 8s transient
+              never shifts the persistent CLEAN records below; no ✕ (a
+              self-expiring moment, not a record); amber vs emerald. */
+            <div className="toast-enter flex items-center gap-3 rounded border border-amber-600/60 bg-slate-900 px-4 py-2 text-sm shadow-xl">
+              <span>🎉 capture #{odoNote.id.toLocaleString("en-US")} — the odometer rolls</span>
+            </div>
+          )}
           {toasts.map((t) => (
             <div key={`${t.repo}|${t.n}`}
               className="toast-enter flex items-center gap-3 rounded border border-emerald-600/60 bg-slate-900 px-4 py-2 text-sm shadow-xl">
@@ -1205,6 +1242,15 @@ function Legend ({ onClose }: { onClose: () => void }) {
         <b className="text-slate-300">daydreams</b> — cycling City / Overview /
         Chronicle until any click or key restores exactly where you were (turn off
         via the palette: "Attract mode").
+      </p>
+      <p className="mt-1.5 text-slate-400">
+        {/* v0.2.10.0 A.3d: the flow chip + odometer moments */}
+        The <b className="text-sky-300">🌊 flow</b> chip times your current
+        unbroken work chain (captures under {EFFORT_GAP_MAX_MIN} min apart — the
+        same law as effort); it appears from the second chained capture and rests
+        when the chain breaks. Capture <b className="text-slate-300">milestones</b>{" "}
+        (the 5,000th, 10,000th, …) roll by as a brief amber card — with a chime
+        when sounds are on.
       </p>
     </div>
   );
