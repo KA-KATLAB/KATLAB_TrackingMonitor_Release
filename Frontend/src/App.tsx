@@ -14,6 +14,7 @@ import { WrappedCard } from "./WrappedCard";
 import { fmtAge, fmtMinutes, fmtRel, fmtTs } from "./format";
 import { notifyPickNeeded, notifyRelease, notifyStatusChange, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
 import { playChime, playFanfare, playTick, setSoundEnabled, soundWanted } from "./sound";
+import { copyCommitDraft } from "./draft";
 import { StatsData } from "./charts";
 import { useReveal } from "./reveal";
 import { EFFORT_GAP_MAX_MIN, MODE_BADGE, MODE_COLOR, RELEASE_RX, SWEPT_COLOR, UNCOMMITTED_AGE_H, prefersReducedMotion, prefix3, sessionColor, withViewTransition } from "./theme";
@@ -29,6 +30,10 @@ import { OverviewView } from "./OverviewView";
 const PAGE = 500; // F38 pagination page size
 // v0.1.9.0 D3 (C.2): combo milestones — crossing one exactly fires the pop.
 const COMBO_MILESTONES = new Set([5, 10, 25, 50, 100, 250]);
+// v0.2.9.0 D5 (C.1, R-BM): the daydream constants — generous and calm.
+const ATTRACT_IDLE_MS = 10 * 60_000;
+const ATTRACT_CYCLE_MS = 25_000;
+const ATTRACT_VIEWS: ("city" | "overview" | "chronicle")[] = ["city", "overview", "chronicle"];
 
 type Tab = string | "ALL";
 type View = "changes" | "history" | "overview" | "city" | "chronicle"; // v0.1.3.0 D2; v0.2.0.0 D3: the 4th view; v0.2.6.0 C.1: the 5th — the in-app Chronicle
@@ -420,6 +425,83 @@ export default function App () {
     const effective = await setSoundEnabled(!soundOn);
     setSoundOn(effective);
   }, [soundOn]);
+  // v0.2.9.0 D2/D3 (A.2, R-BL): the commit-draft action — clipboard
+  // only, forever (the click is the gesture); the inline note rides
+  // the digestNote recipe (~3s, repo-keyed).
+  const [draftNote, setDraftNote] = useState<{ repo: string; ok: boolean; n: number } | null>(null);
+  const draftNoteN = useRef(0);
+  const doDraft = useCallback(async (repoId: string) => {
+    const ok = await copyCommitDraft(repoId, events, tasks);
+    // CFT-2: NONCE-compare clear (the celebration law) — a repo-keyed
+    // compare let a rapid re-click's note be cleared EARLY by the
+    // first click's timer.
+    const n = ++draftNoteN.current;
+    setDraftNote({ repo: repoId, ok, n });
+    window.setTimeout(() => {
+      setDraftNote((cur) => (cur && cur.n === n ? null : cur));
+    }, 3000);
+  }, [events, tasks]);
+
+  // v0.2.9.0 D5 (C.1, R-BM): attract mode — the daydream. Own passive
+  // idle stamps (the App listener pattern); the 30s arm-check with the
+  // RV1/RV4a suppressions; the carousel + the RV6 click-catcher exit.
+  const lastInputRef = useRef(Date.now());
+  useEffect(() => {
+    const stamp = () => { lastInputRef.current = Date.now(); };
+    window.addEventListener("pointerdown", stamp, { passive: true });
+    window.addEventListener("keydown", stamp, { passive: true });
+    return () => {
+      window.removeEventListener("pointerdown", stamp);
+      window.removeEventListener("keydown", stamp);
+    };
+  }, []);
+  const [attractOn, setAttractOn] = useState(
+    localStorage.getItem("katlab.attract") !== "off");
+  const toggleAttract = useCallback(() => {
+    setAttractOn((on) => {
+      localStorage.setItem("katlab.attract", on ? "off" : "on");
+      return !on;
+    });
+  }, []);
+  const [dreaming, setDreaming] = useState(false);
+  const dreamSnapRef = useRef<{ tab: Tab; view: View } | null>(null);
+  const dreamIdxRef = useRef(0);
+  useEffect(() => { // the arm-check (never daydream over work — RV1/RV4a)
+    if (dreaming) return;
+    const timer = window.setInterval(() => {
+      if (!attractOn || healthOpen || document.hidden
+          || document.body.dataset.overlayOpen
+          || view === "chronicle") return; // the iframe blind spot (RV4a)
+      if (Date.now() - lastInputRef.current >= ATTRACT_IDLE_MS) {
+        dreamSnapRef.current = { tab, view };
+        dreamIdxRef.current = 0;
+        setDreaming(true);
+        withViewTransition(() => setView("city")); // dreams start at the City
+      }
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [dreaming, attractOn, healthOpen, view, tab]);
+  useEffect(() => { // the 25s carousel
+    if (!dreaming) return;
+    const timer = window.setInterval(() => {
+      dreamIdxRef.current = (dreamIdxRef.current + 1) % ATTRACT_VIEWS.length;
+      withViewTransition(() => setView(ATTRACT_VIEWS[dreamIdxRef.current]));
+    }, ATTRACT_CYCLE_MS);
+    return () => window.clearInterval(timer);
+  }, [dreaming]);
+  const wakeFromDream = useCallback(() => {
+    const snap = dreamSnapRef.current;
+    lastInputRef.current = Date.now();
+    setDreaming(false);
+    if (snap) withViewTransition(() => { setTab(snap.tab); setView(snap.view); });
+  }, []);
+  useEffect(() => { // keydown exit (RV6: keys wake too; chord
+    // pass-through is intent-honoring — the palette opens post-wake)
+    if (!dreaming) return;
+    const onKey = () => wakeFromDream();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dreaming, wakeFromDream]);
 
   // v0.1.5.0 D7 (D.3): digest export — a fetch failure ABORTS with an
   // inline note next to the button; nothing downloads (RV20).
@@ -489,6 +571,16 @@ export default function App () {
     // toggle shape (the visible-effect rule).
     { section: "Actions", label: `Sounds: turn ${soundOn ? "off" : "on"}`,
       run: () => { setPanelOpen(true); void toggleSound(); } },
+    // v0.2.9.0 A.2 (R-BL): one draft action per DIRTY repo (the
+    // sessionFilter dynamic-entry precedent).
+    ...repos.filter((r) => !r.offline && r.count > 0).map((r) => ({
+      section: "Actions", label: `Copy commit draft — ${r.id}`,
+      run: () => void doDraft(r.id),
+    } as PaletteEntry)),
+    // v0.2.9.0 D5 (C.1, R-BM): the attract opt-out (the visible-effect
+    // rule — the label reflects the flip).
+    { section: "Actions", label: `Attract mode: turn ${attractOn ? "off" : "on"}`,
+      run: () => toggleAttract() },
     ...(sessionFilter ? [{ section: "Actions", label: "View session timeline",
       run: () => setTimelineSession(sessionFilter) } as PaletteEntry] : []), // v0.1.6.0 D3
     { section: "Actions", label: "View weekly wrapped", // v0.1.8.0 D3 (C.1)
@@ -577,8 +669,18 @@ export default function App () {
             {digestNote && <span className="self-center text-[11px] text-amber-300">{digestNote}</span>}
           </div>
         </div>
-        <StatusBar repos={visibleRepos} violationOf={violationOf} burst={burst} />
+        <StatusBar repos={visibleRepos} violationOf={violationOf} burst={burst}
+          onDraft={(id) => void doDraft(id)} draftNote={draftNote} />
       </header>
+
+      {dreaming && ( /* v0.2.9.0 D5 (C.1, RV4b/RV6): the daydream's
+          CLICK-CATCHER — transparent, owns ALL pointer input; the exit
+          fires on CLICK (the full gesture completes here — never
+          pointerdown, the unmount click-through law); keys wake via
+          the window listener; sits below the release banner's z-40. */
+        <div className="fixed inset-0 z-30 cursor-pointer"
+          onClick={wakeFromDream} aria-label="wake from attract mode" />
+      )}
 
       {releases.length > 0 && ( /* v0.2.7.0 D8 (C.1, R-BG): the release
           moment — a TOP-LEVEL slot outside the view switch (RV6: shows
@@ -771,12 +873,16 @@ function TabButton ({ active, onClick, label, title }:
 
 // Status bar: CLEAN / N uncommitted / OFFLINE (F46) + capture heartbeat (D9)
 // + v0.1.5.0 D3 discipline micro-chip (absent when exactly 1 in-progress).
-function StatusBar ({ repos, violationOf, burst }:
+function StatusBar ({ repos, violationOf, burst, onDraft, draftNote }:
   { repos: Repo[]; violationOf: (repoId: string) => number | null;
     // v0.1.7.0 D6 (C.3): burst nonce — the matching repo's CLEAN chip
     // renders the particle burst; naturally skipped when the chip is not
     // rendered (other tab / repo currently dirty).
-    burst: { repo: string; n: number } | null }) {
+    burst: { repo: string; n: number } | null;
+    // v0.2.9.0 A.2 (R-BL): the commit-draft chip (dirty repos only) +
+    // its repo-keyed inline note (the digestNote recipe).
+    onDraft: (repoId: string) => void;
+    draftNote: { repo: string; ok: boolean; n: number } | null }) {
   return (
     <div className="mt-2 flex flex-wrap gap-3">
       {repos.map((r) => {
@@ -819,6 +925,20 @@ function StatusBar ({ repos, violationOf, burst }:
             ) : (
               <span className="rounded bg-amber-500 px-2 py-0.5 text-xs font-bold text-slate-950">
                 {r.count} uncommitted change{r.count === 1 ? "" : "s"}
+              </span>
+            )}
+            {!r.offline && !r.clean && ( /* v0.2.9.0 A.2 (R-BL): the
+                draft chip — composes the commit message from this
+                repo's KNOWN attribution; clipboard only, forever. */
+              <button onClick={() => onDraft(r.id)}
+                title="copy a commit-message draft composed from this repo's uncommitted attribution"
+                className="rounded bg-slate-700 px-1.5 py-0.5 text-[11px] text-slate-200 hover:bg-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
+                draft 📋
+              </button>
+            )}
+            {draftNote?.repo === r.id && (
+              <span className={`text-[11px] ${draftNote.ok ? "text-emerald-300" : "text-amber-300"}`}>
+                {draftNote.ok ? "copied ✓" : "clipboard blocked ✗"}
               </span>
             )}
             {violation !== null && (
@@ -1076,6 +1196,15 @@ function Legend ({ onClose }: { onClose: () => void }) {
         <b className="text-slate-300">chime</b> on CLEAN ✓, a short{" "}
         <b className="text-slate-300">fanfare</b> on a release — synthesized, quiet,
         and playing even while the tab is hidden (the background-awareness channel).
+      </p>
+      <p className="mt-1.5 text-slate-400">
+        {/* v0.2.9.0 A.2/C.1: the draft chip + the daydream */}
+        The <b className="text-slate-300">draft 📋</b> chip on a dirty repo copies a
+        commit-message draft composed from its uncommitted attribution (fill in the
+        version — the tracker never runs git). After 10 idle minutes the tracker{" "}
+        <b className="text-slate-300">daydreams</b> — cycling City / Overview /
+        Chronicle until any click or key restores exactly where you were (turn off
+        via the palette: "Attract mode").
       </p>
     </div>
   );

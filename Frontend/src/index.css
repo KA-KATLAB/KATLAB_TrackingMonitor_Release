@@ -142,6 +142,22 @@ body {
   animation: wx-drift 8s ease-in-out infinite alternate;
 }
 
+/* v0.2.9.0 B.1 (R-BK): the recovery rainbow — a TRANSIENT decoration
+   (the city-drop class: display:none under reduced motion — unlike
+   the weather's animation:none, a rainbow is celebration, not
+   truth). Fades in, holds, fades out over ~2.5s. */
+@keyframes rainbow-p {
+  0% { opacity: 0; }
+  25% { opacity: 0.8; }
+  75% { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+.rainbow-p {
+  animation: rainbow-p 2.5s ease-in-out forwards;
+  opacity: 0;
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pulse-dot { animation: none; }
   .burst-p { display: none; }
@@ -155,4 +171,5 @@ body {
   .kat-walk { animation: none; }
   .wx-drop { animation: none; }
   .wx-fog { animation: none; }
+  .rainbow-p { display: none; }
 }

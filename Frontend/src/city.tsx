@@ -312,6 +312,15 @@ export function CityScene ({ districts, churnMax, mood, nowMs, localHour,
 
 interface Drop { id: number; x: number; batch: number }
 interface Burst { repo: string; n: number; x: number }
+// v0.2.9.0 D4 (B.1, R-BK): the recovery rainbow (rain -> sun only).
+interface Rainbow { repo: string; n: number; x: number }
+// RV9: the pinned arc geometry — outside-in, red first (the physical
+// rainbow order); upper semicircles on the y=170 rooftop baseline.
+// Exported for the battery (the WARDROBE_TIERS readability precedent).
+export const RAINBOW_ARCS: { r: number; color: string }[] = [
+  { r: 60, color: "#ef4444" }, { r: 54, color: "#f59e0b" },
+  { r: 48, color: "#10b981" }, { r: 42, color: "#38bdf8" },
+];
 
 // v0.2.1.0 D3 (B.3): the snapshot exporter's PURE transform (exported
 // for the battery): a standalone .svg has no Tailwind, so the scene's
@@ -348,6 +357,9 @@ export function CityView ({ repos, tasks, events, mood, wardrobe, stats,
   const [churn, setChurn] = useState<Map<string, ChurnRow[]>>(new Map());
   const [drops, setDrops] = useState<Drop[]>([]);
   const [bursts, setBursts] = useState<Burst[]>([]);
+  const [rainbows, setRainbows] = useState<Rainbow[]>([]);
+  const prevWeatherRef = useRef<Map<string, Weather> | null>(null);
+  const rainbowN = useRef(0);
   const mountedRef = useRef(true);
   const timersRef = useRef<Set<number>>(new Set());
   const lastFetchRef = useRef(-Infinity);
@@ -411,6 +423,33 @@ export function CityView ({ repos, tasks, events, mood, wardrobe, stats,
     timersRef.current.add(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events]);
+
+  // v0.2.9.0 D4 (B.1, R-BK): the recovery rainbow — the fireworks
+  // recipe verbatim (values-ref diff, first-payload baseline, nonce-
+  // keyed, ~2.5s nonce-compare clear); rain -> sun ONLY (forecast->sun
+  // and null->sun stay silent — only the full rain state earns it).
+  // RV3 (documented): CityView-local liveness, the v0.2.0.0 class.
+  useEffect(() => {
+    const nowMs = Date.now();
+    const cur = new Map(repos.map((r) => [r.id, weatherOf(r, nowMs)]));
+    const prev = prevWeatherRef.current;
+    prevWeatherRef.current = cur;
+    if (prev === null) return; // first payload = baseline
+    for (const [id, w] of cur) {
+      if (prev.get(id) === "rain" && w === "sun") {
+        const x = districtX(id);
+        if (x === null) continue;
+        const n = ++rainbowN.current;
+        setRainbows((b) => [...b.filter((y) => y.repo !== id), { repo: id, n, x }]);
+        const t = window.setTimeout(() => {
+          timersRef.current.delete(t);
+          setRainbows((b) => b.filter((y) => !(y.repo === id && y.n === n)));
+        }, 2500);
+        timersRef.current.add(t);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repos]);
 
   // D2 fireworks: VALUES-ref diff, count DROP only, per-district nonces.
   useEffect(() => {
@@ -516,6 +555,22 @@ export function CityView ({ repos, tasks, events, mood, wardrobe, stats,
                   );
                 })}
               </span>
+            ))}
+            {/* v0.2.9.0 B.1 (R-BK): the recovery rainbows — transient
+                OVERLAY decorations (snapshot-excluded by construction;
+                display:none under reduced motion — the city-drop form).
+                RV9 geometry: district-center x, baseline y=170, upper
+                semicircles, radii 60/54/48/42 outside-in red-first. */}
+            {rainbows.map((rb) => (
+              <svg key={`${rb.repo}-${rb.n}`} className="rainbow-p absolute"
+                width={140} height={74}
+                style={{ left: rb.x - 70, top: 96 } as CSSProperties}>
+                {RAINBOW_ARCS.map((a) => (
+                  <path key={a.color} fill="none" stroke={a.color}
+                    strokeWidth={3}
+                    d={`M ${70 - a.r} 74 A ${a.r} ${a.r} 0 0 1 ${70 + a.r} 74`} />
+                ))}
+              </svg>
             ))}
             {/* Kat walks the street (kat-walk joins the reduced-motion
                 block; her own breathe/blink ride along) */}
