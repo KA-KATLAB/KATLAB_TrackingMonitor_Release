@@ -82,3 +82,17 @@ export function withViewTransition (update: () => void): void {
     update();
   }
 }
+
+// v0.2.7.0 D6 (C.1, R-BG): MUST match Scripts/Chronicle/scribe.py
+// RELEASE_RX (the v0.2.5.0 D10 message-END law) — a 4-part version at
+// the END of a commit subject IS a release marker, both ends one law.
+export const RELEASE_RX = /v\d+\.\d+\.\d+\.\d+\s*$/;
+
+// v0.2.7.0 D7 (C.1, RV8): the RELEASE-LINE LAW's helper lives beside
+// the law — in this workspace EVERY commit is version-ENDed (RV5,
+// live-proven 10/10 on EA+UM history), and a 4th-part bump merely
+// fast-forwards the release/vX.Y.Z branch: only a 3-PART-PREFIX change
+// is a new release, so the moment fires on prefix3 change alone.
+export function prefix3 (version: string): string {
+  return version.trim().split(".").slice(0, 3).join(".");
+}

@@ -14,17 +14,18 @@ import { Repo, TrackedEvent } from "./api";
 import { StatsData } from "./charts";
 import { Skyline } from "./skyline";
 import { GoalRings } from "./goalRings";
-import { Mood, Pet } from "./pet";
+import { Mood, Pet, Wardrobe } from "./pet";
 import { streakOf } from "./calendarHeatmap";
 import { fmtMinutes } from "./format";
 import { MODE_BADGE, MODE_COLOR } from "./theme";
 
-export function FocusMode ({ scope: scopeProp, repos, events, stats, mood, onClose }: {
+export function FocusMode ({ scope: scopeProp, repos, events, stats, mood, wardrobe, onClose }: {
   scope: string | undefined; // undefined = ALL
   repos: Repo[];
   events: TrackedEvent[];    // the uncommitted pool (RV1)
   stats: StatsData | null;
   mood: Mood;                // v0.1.13.0 D2 (B.2): App's computed pet mood
+  wardrobe: Wardrobe;        // v0.2.7.0 B.2: the same App-derived wardrobe
   onClose: () => void;       // STABLE identity (the v0.1.7.0 CFT-3 rule)
 }) {
   // RV3: scope fixed while open — init-once snapshot at mount.
@@ -148,8 +149,9 @@ export function FocusMode ({ scope: scopeProp, repos, events, stats, mood, onClo
 
         <div className="flex items-center justify-center gap-3">
           {/* v0.1.13.0 D2 (B.2): Kat on the wall — element 8, beside the
-              today-line; the SAME App-computed mood as the header chip. */}
-          <Pet mood={mood} big />
+              today-line; the SAME App-computed mood as the header chip
+              (v0.2.7.0 B.2: and the same earned wardrobe). */}
+          <Pet mood={mood} big wardrobe={wardrobe} />
           <div className="flex items-center gap-2 text-sm text-slate-400">
             {alive && <span className="pulse-dot inline-block h-2 w-2 rounded-full bg-teal-400" />}
             <span>

@@ -12,11 +12,11 @@ import { FileStory } from "./FileStory";
 import { SessionTimeline } from "./SessionTimeline";
 import { WrappedCard } from "./WrappedCard";
 import { fmtAge, fmtMinutes, fmtRel, fmtTs } from "./format";
-import { notifyPickNeeded, notifyStatusChange, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
+import { notifyPickNeeded, notifyRelease, notifyStatusChange, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
 import { StatsData } from "./charts";
 import { useReveal } from "./reveal";
-import { EFFORT_GAP_MAX_MIN, MODE_BADGE, MODE_COLOR, SWEPT_COLOR, UNCOMMITTED_AGE_H, prefersReducedMotion, sessionColor, withViewTransition } from "./theme";
-import { Pet, moodOf } from "./pet";
+import { EFFORT_GAP_MAX_MIN, MODE_BADGE, MODE_COLOR, RELEASE_RX, SWEPT_COLOR, UNCOMMITTED_AGE_H, prefersReducedMotion, prefix3, sessionColor, withViewTransition } from "./theme";
+import { Pet, moodOf, wardrobeOf } from "./pet";
 import { ComboMeter } from "./comboMeter";
 import { ChronicleView } from "./chronicleView";
 import { CityView } from "./city";
@@ -60,6 +60,16 @@ export default function App () {
   const comboN = useRef(0);
   const [comboCount, setComboCount] = useState(0);
   const [comboBurst, setComboBurst] = useState<number | null>(null);
+  // v0.2.7.0 D7/D8 (C.1, R-BG): the release moment — version baselines +
+  // the once-per-session hash belt live in REFS (the WS handler closes
+  // over mount-time state, the combo's RV7-class rule); the banner is a
+  // per-repo STACK, cap 3 (RV10 — coupled cross-repo releases are the
+  // OBSERVED house pattern).
+  const lastVersionRef = useRef(new Map<string, string>());
+  const seenReleasesRef = useRef(new Set<string>());
+  const releaseSeededRef = useRef(false);
+  const releaseN = useRef(0);
+  const [releases, setReleases] = useState<{ repo: string; version: string; n: number }[]>([]);
   // v0.1.10.0 D3 (C.1): ambient focus mode — STABLE onClose (CFT-3 rule).
   const [focusOpen, setFocusOpen] = useState(false);
   const closeFocus = useCallback(() => setFocusOpen(false), []);
@@ -94,6 +104,36 @@ export default function App () {
       .catch((e) => alive && setStatsError(String(e)));
     return () => { alive = false; };
   }, [tab, statsNonce]);
+  // v0.2.7.0 D5 (B.2, R-BF): the wardrobe basis is UNSCOPED (Kat is the
+  // WORKSPACE pet — the tab-scoped stats prop would flicker her costume
+  // per tab): ONE dedicated api.stats() on mount + real syncs, throttled
+  // to one call per 60s with a single trailing catch-up (the v0.2.0.0
+  // City-RV3 throttle recipe; get_stats is the heavy endpoint).
+  const [allCal, setAllCal] = useState<StatsData["activity_calendar"] | null>(null);
+  const allCalLastRef = useRef(-Infinity);
+  const allCalCatchUpRef = useRef<number | null>(null);
+  useEffect(() => {
+    const doFetch = async () => {
+      allCalLastRef.current = Date.now();
+      try {
+        const s = await api.stats();
+        setAllCal(s.activity_calendar);
+      } catch { /* keep the last wardrobe; the next sync retries */ }
+    };
+    const since = Date.now() - allCalLastRef.current;
+    if (since >= 60_000) {
+      void doFetch();
+    } else if (allCalCatchUpRef.current === null) {
+      allCalCatchUpRef.current = window.setTimeout(() => {
+        allCalCatchUpRef.current = null;
+        void doFetch();
+      }, 60_000 - since);
+    }
+  }, [statsNonce]);
+  useEffect(() => () => {
+    if (allCalCatchUpRef.current !== null) clearTimeout(allCalCatchUpRef.current);
+  }, []);
+
   // v0.1.6.0 D1: effort lookup for sidebar cards + task-group headers.
   const effortByTask = useMemo(() => {
     const m = new Map<string, { minutes: number; sessions: number }>();
@@ -184,6 +224,37 @@ export default function App () {
           notifyWarning(repo, d.message, () => navigateToRepo(repo, false));
         }
       }
+      if (msg.type === "commit_detected") {
+        // v0.2.7.0 C.1 (R-BG): the RELEASE-LINE LAW (RV5) — every KATLAB
+        // commit is version-ENDed, so the moment fires ONLY on a 3-part-
+        // prefix change (a 4th-part bump fast-forwards the release
+        // branch; it is not a new release). Swept variants carry no
+        // message (guarded); the hash set = once-per-session (2nd belt).
+        const d = msg.data as { repo?: string; hash?: string; message?: string; swept?: boolean };
+        if (d.swept !== true && typeof d.message === "string" && d.repo && d.hash
+            && !seenReleasesRef.current.has(d.hash)) {
+          const m = RELEASE_RX.exec(d.message);
+          if (m) {
+            seenReleasesRef.current.add(d.hash);
+            const repo = d.repo;
+            const version = m[0].trim();
+            const prev = lastVersionRef.current.get(repo);
+            lastVersionRef.current.set(repo, version);
+            // prev undefined = no baseline -> SEED silently (a mid-cycle
+            // session must never banner history); equal prefix = rider.
+            if (prev !== undefined && prefix3(prev) !== prefix3(version)) {
+              const n = ++releaseN.current;
+              // RV10 stack: newest on top, same-repo replaces, cap 3.
+              setReleases((prevR) => [{ repo, version, n },
+                ...prevR.filter((x) => x.repo !== repo)].slice(0, 3));
+              window.setTimeout(() => { // own 12s nonce-compare dismiss
+                setReleases((prevR) => prevR.filter((x) => !(x.repo === repo && x.n === n)));
+              }, 12_000);
+              notifyRelease(repo, version, () => navigateToRepo(repo, false));
+            }
+          }
+        }
+      }
     }, sync);
     return () => {
       clearTimeout(timer);
@@ -197,6 +268,25 @@ export default function App () {
     const timer = setInterval(() => setTick((n) => n + 1), 60_000);
     return () => clearInterval(timer);
   }, []);
+
+  // v0.2.7.0 C.1 (RV18): release-baseline seeding on the FIRST non-empty
+  // repos payload — never "at mount": repos is EMPTY there (it arrives
+  // via the first sync), and a mount-keyed seed would leave every
+  // baseline null, so the session's first real release would silently
+  // seed instead of fire. Once-latch; RV14: only-if-null writes (a WS
+  // commit racing the seed has already set a FRESHER baseline).
+  useEffect(() => {
+    if (releaseSeededRef.current || repos.length === 0) return;
+    releaseSeededRef.current = true;
+    for (const r of repos) {
+      void api.history(r.id, 1).then((rows) => {
+        const m = RELEASE_RX.exec(rows[0]?.commit.message ?? "");
+        if (m && !lastVersionRef.current.has(r.id)) {
+          lastVersionRef.current.set(r.id, m[0].trim());
+        }
+      }).catch(() => { /* failed seed = null = the silent-seed path */ });
+    }
+  }, [repos]);
 
   // v0.1.12.0 D2 (C.1): taskbar badge on the INSTALLED PWA — n = the
   // ALL-tab uncommitted KPI basis EXACTLY (non-offline sum, RV1: a stale
@@ -331,6 +421,9 @@ export default function App () {
   // effect, no state); the combo timestamp is ref-read exactly like the
   // ComboMeter feed. Full repos state, never the tab-filtered view.
   const petMood = moodOf(repos, comboCount, comboLastMsRef.current, Date.now());
+  // v0.2.7.0 B.2 (R-BF): derived at render, one cat everywhere; RV4 —
+  // the null feed passes [] (a briefly naked Kat, never a crash).
+  const wardrobe = wardrobeOf(allCal ?? []);
   const visibleTasks = tab === "ALL" ? tasks : tasks.filter((t) => t.repo === tab);
   const visibleEvents = tab === "ALL" ? events : events.filter((e) => e.repo_id === tab);
 
@@ -413,8 +506,9 @@ export default function App () {
             <TabButton active={showLegend} onClick={() => setShowLegend(!showLegend)} label="?"
               title="Legend - what every badge and state means" />
             {/* v0.1.13.0 D2 (B.2): Kat — immediately LEFT of the combo
-                chip (the arcade cluster, RV3) */}
-            <Pet mood={petMood} />
+                chip (the arcade cluster, RV3); v0.2.7.0 B.2: earned
+                wardrobe threaded (the unscoped basis — one cat). */}
+            <Pet mood={petMood} wardrobe={wardrobe} />
             {/* v0.1.9.0 D3 (C.2): live combo chip — left of the bell */}
             <ComboMeter count={comboCount} lastMs={comboLastMsRef.current}
               burst={comboBurst} />
@@ -451,6 +545,62 @@ export default function App () {
         <StatusBar repos={visibleRepos} violationOf={violationOf} burst={burst} />
       </header>
 
+      {releases.length > 0 && ( /* v0.2.7.0 D8 (C.1, R-BG): the release
+          moment — a TOP-LEVEL slot outside the view switch (RV6: shows
+          on EVERY view; the guard-banner precedent is deliberately NOT
+          followed — its view gate is right there, wrong here). z-40
+          above the CLEAN toasts (RV2: same-repo stacking is layered by
+          design). RV10 stack: newest on top, cap 3, own 12s dismiss. */
+        <div className="relative z-40">
+          {releases.map((r) => ( /* CFT-1: NO overflow-hidden — the hero
+              burst travels ±96px from a ~36px band; clipping it kills
+              the moment. The particles are pointer-events-none and end
+              at opacity 0 (the chip-burst precedent: they fly free).
+              CFT-2: this comment is a JS comment INSIDE the arrow's
+              parens — the {slash-star} child form at the return
+              position is TWO expressions (a syntax error). */
+            <div key={`${r.repo}-${r.n}`}
+              className="relative flex flex-wrap items-center gap-3 border-b border-teal-600/60 bg-gradient-to-r from-teal-950 via-slate-900 to-slate-900 px-4 py-2 text-sm">
+              <span className="text-lg" aria-hidden="true">🚀</span>
+              <span className="font-bold text-teal-200">{r.repo}</span>
+              <span className="text-slate-200">
+                released <b className="text-amber-300">{r.version}</b>
+              </span>
+              <button onClick={() => window.open(`/chronicle/changelog/${r.repo}.html`, "_blank")}
+                className="rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-200 hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
+                open changelog ↗
+              </button>
+              {/* honest: the STORY page lands on the Scribe's next daily
+                  tick — never a dead link to it (the changelog is live) */}
+              <span className="text-xs text-slate-500">
+                the Scribe drafts the release notes on its next daily tick
+              </span>
+              <button onClick={() => setReleases((prev) => prev.filter((x) => x.n !== r.n))}
+                aria-label={`dismiss ${r.repo} release banner`}
+                className="ml-auto text-slate-400 hover:text-white">✕</button>
+              {!prefersReducedMotion() && ( /* the hero burst — 24p, the
+                  house recipe at banner scale (records precedent gate) */
+                <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2">
+                  {Array.from({ length: 24 }, (_, i) => {
+                    const angle = (i / 24) * 2 * Math.PI;
+                    const dist = i % 2 === 0 ? 60 : 96;
+                    const colors = ["#14b8a6", "#10b981", "#f59e0b"];
+                    return (
+                      <span key={i} className="burst-p"
+                        style={{
+                          backgroundColor: colors[i % 3],
+                          "--dx": `${Math.round(Math.cos(angle) * dist)}px`,
+                          "--dy": `${Math.round(Math.sin(angle) * dist)}px`,
+                        } as CSSProperties} />
+                    );
+                  })}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {showLegend && <Legend onClose={() => setShowLegend(false)} />}
 
       <CommandPalette entries={paletteEntries} /> {/* v0.1.5.0 D6 (D.2) */}
@@ -463,7 +613,8 @@ export default function App () {
           scope snapshots inside at mount (RV3); repos passed WHOLE, the
           overlay filters by its snapshot (data-driven, offline included) */
         <FocusMode scope={tab === "ALL" ? undefined : tab} repos={repos}
-          events={events} stats={stats} mood={petMood} onClose={closeFocus} />
+          events={events} stats={stats} mood={petMood} wardrobe={wardrobe}
+          onClose={closeFocus} />
       )}
 
       {fileStory && ( /* v0.1.7.0 D2 (B.2): the life of one file */
@@ -554,7 +705,7 @@ export default function App () {
               design — full repos/tasks/events, never tab-filtered; the
               scoped stats prop serves ONLY as the freshness nonce */
             <CityView repos={repos} tasks={tasks} events={events}
-              mood={petMood} stats={stats}
+              mood={petMood} wardrobe={wardrobe} stats={stats}
               onOpenFileStory={(repo, file) => setFileStory({ repo, file })}
               onGoRepo={(repoId) => withViewTransition(() => {
                 setTab(repoId);

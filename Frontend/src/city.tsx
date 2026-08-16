@@ -18,7 +18,8 @@ import { CSSProperties, useEffect, useRef, useState } from "react";
 import { api, Repo, Task, TrackedEvent } from "./api";
 import { RAMP } from "./calendarHeatmap";
 import { StatsData } from "./charts";
-import { Mood, Pet } from "./pet";
+import { Mood, Pet, Wardrobe } from "./pet";
+import { UNCOMMITTED_AGE_H } from "./theme";
 
 type ChurnRow = StatsData["file_churn"][number];
 
@@ -55,6 +56,30 @@ export function skyBucket (hour: number): "night" | "dawn" | "day" | "dusk" {
   return "dusk";
 }
 const SKY_FILL = { night: "#020617", dawn: "#1e293b", day: "#334155", dusk: "#1e2536" };
+
+// v0.2.7.0 D2 (A.1, R-BE): weather = repo HEALTH state, never work.
+// Branch order IS the law (fog first — an offline repo's live staleness
+// is unknowable, fog is the honest face); rain reads the ONE-source
+// UNCOMMITTED_AGE_H chain (bell nudge + Kat "anxious" + this — theme.ts,
+// never a copy); fresh uncommitted = null (the plaque already counts it;
+// weather marks STATES, decorating normal flow would punish it).
+export type Weather = "sun" | "rain" | "fog" | null;
+
+export function weatherOf (repo: Repo, nowMs: number): Weather {
+  if (repo.offline) return "fog";
+  if (repo.clean) return "sun";
+  if (repo.oldest_uncommitted_ts !== null) {
+    const age = nowMs - new Date(repo.oldest_uncommitted_ts).getTime();
+    if (age > UNCOMMITTED_AGE_H * 3_600_000) return "rain";
+  }
+  return null;
+}
+
+const WEATHER_TIP: Record<Exclude<Weather, null>, string> = {
+  sun: "clear — everything committed ✓",
+  rain: `rain — uncommitted work aging ${UNCOMMITTED_AGE_H}h+`,
+  fog: "fog — repo offline",
+};
 
 // one iso building (3 faces from base point bx,by — the skyline recipe)
 function Building ({ bx, by, h, color, tip }:
@@ -124,12 +149,13 @@ export function CityScene ({ districts, churnMax, mood, nowMs, localHour,
         const ground = clean ? "#022c22" : "#1e293b"; // emerald-950 | slate-800
         const cranes = d.inProgress.slice(0, 3);
         const extra = d.inProgress.length - cranes.length;
+        const weather = weatherOf(d.repo, nowMs); // v0.2.7.0 A.1 (R-BE)
         return (
           <g key={d.repo.id} opacity={offline ? 0.5 : 1}>
             {/* platform (iso ground) */}
             <polygon points={`${dx},${GROUND_Y + 26} ${dx + 85},${GROUND_Y - 16} ${dx + 170},${GROUND_Y + 26} ${dx + 85},${GROUND_Y + 68}`}
               fill={ground} stroke="#334155" strokeWidth="1">
-              <title>{d.repo.path}</title>
+              <title>{weather ? `${d.repo.path}\n${WEATHER_TIP[weather]}` : d.repo.path}</title>
             </polygon>
             {/* buildings — back row (0..3) first, front row after (painter) */}
             {rows.map((r, i) => {
@@ -163,6 +189,56 @@ export function CityScene ({ districts, churnMax, mood, nowMs, localHour,
             {offline && (
               <text x={dx + 130} y={GROUND_Y - 40} fontSize={11}
                 className="fill-slate-500">z z</text>
+            )}
+            {/* v0.2.7.0 A.1 (R-BE): WEATHER — scene state, rides the
+                snapshot (a snapshot hiding the rain would lie about
+                health). Laws: fill/stroke ATTRS only (FILL_MAP stays
+                untouched by construction), index-math geometry (the
+                stars law), wx-* motion in the ONE reduced-motion block
+                as animation:none (RV7 — state stays visible). Pointer
+                events off: weather never blocks building clicks. */}
+            {weather === "sun" && (
+              <g pointerEvents="none">
+                {bucket === "night" ? (
+                  /* the MOON — a sun at 2am breaks the sky fiction */
+                  <circle cx={dx + 85} cy={24} r={6} fill="#94a3b8"
+                    opacity={0.9} />
+                ) : (
+                  <>
+                    <circle cx={dx + 85} cy={24} r={11} fill="#fbbf24" opacity={0.22} />
+                    <circle cx={dx + 85} cy={24} r={6} fill="#fbbf24" />
+                    {Array.from({ length: 8 }, (_, i) => {
+                      const a = (i * Math.PI) / 4;
+                      return <line key={i}
+                        x1={dx + 85 + Math.cos(a) * 9} y1={24 + Math.sin(a) * 9}
+                        x2={dx + 85 + Math.cos(a) * 13} y2={24 + Math.sin(a) * 13}
+                        stroke="#fbbf24" strokeWidth="1.4" />;
+                    })}
+                  </>
+                )}
+              </g>
+            )}
+            {weather === "rain" && (
+              <g pointerEvents="none">
+                <ellipse cx={dx + 72} cy={58} rx={17} ry={7} fill="#475569" />
+                <ellipse cx={dx + 97} cy={56} rx={14} ry={6} fill="#334155" />
+                {Array.from({ length: 8 }, (_, i) => {
+                  const x = dx + 15 + ((i * 37) % 140);
+                  const y = 70 + ((i * 23) % 18);
+                  return <line key={i} className="wx-drop"
+                    x1={x} y1={y} x2={x} y2={y + 12}
+                    stroke="#38bdf8" strokeWidth="1.2" opacity={0.7} />;
+                })}
+              </g>
+            )}
+            {weather === "fog" && (
+              <g pointerEvents="none">
+                <rect className="wx-fog" x={dx + 8} y={150} width={154}
+                  height={26} rx={10} fill="#94a3b8" opacity={0.10} />
+                <rect className="wx-fog" x={dx + 14} y={186} width={142}
+                  height={22} rx={10} fill="#94a3b8" opacity={0.14}
+                  style={{ animationDelay: "-4s" }} />
+              </g>
             )}
             {/* plaque: repo id + the StatusBar chip mirror */}
             <g className="cursor-pointer" onClick={() => onGoRepo?.(d.repo.id)}>
@@ -221,12 +297,15 @@ export function inlineSvgClasses (markup: string): string {
   return out.replace(/ class="[^"]*"/g, "");
 }
 
-export function CityView ({ repos, tasks, events, mood, stats,
+export function CityView ({ repos, tasks, events, mood, wardrobe, stats,
   onOpenFileStory, onGoRepo }: {
   repos: Repo[];
   tasks: Task[];
   events: TrackedEvent[];   // the uncommitted pool (rain rides this)
   mood: Mood;
+  wardrobe: Wardrobe;       // v0.2.7.0 B.2 (RV3/RV16): stops HERE — the
+                            // street Kat lives on the HTML overlay, the
+                            // pure scene (and its snapshot) never sees it
   stats: StatsData | null;  // freshness nonce ONLY (tab-scoped in App)
   onOpenFileStory: (repo: string, file: string) => void;
   onGoRepo: (repoId: string) => void;
@@ -406,7 +485,7 @@ export function CityView ({ repos, tasks, events, mood, stats,
             {/* Kat walks the street (kat-walk joins the reduced-motion
                 block; her own breathe/blink ride along) */}
             <span className="kat-walk absolute" style={{ bottom: 2 }}>
-              <Pet mood={mood} big />
+              <Pet mood={mood} big wardrobe={wardrobe} />
             </span>
           </div>
         </div>

@@ -123,6 +123,25 @@ body {
   animation: kat-walk 45s ease-in-out infinite alternate;
 }
 
+/* v0.2.7.0 A.1 (R-BE): City weather motion. Reduced motion uses the
+   animation:none form (RV7 — weather is repo-HEALTH truth: the state
+   must stay VISIBLE with the motion stopped; display:none is for
+   transient decorations like city-drop, never for state). */
+@keyframes wx-fall {
+  from { transform: translateY(0); opacity: 0.7; }
+  to { transform: translateY(96px); opacity: 0; }
+}
+.wx-drop {
+  animation: wx-fall 1.2s linear infinite;
+}
+@keyframes wx-drift {
+  from { transform: translateX(-7px); }
+  to { transform: translateX(7px); }
+}
+.wx-fog {
+  animation: wx-drift 8s ease-in-out infinite alternate;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pulse-dot { animation: none; }
   .burst-p { display: none; }
@@ -134,4 +153,6 @@ body {
   .pet-bounce { animation: none; }
   .city-drop { display: none; }
   .kat-walk { animation: none; }
+  .wx-drop { animation: none; }
+  .wx-fog { animation: none; }
 }

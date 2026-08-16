@@ -70,3 +70,14 @@ export function notifyStatusChange (repo: string, clean: boolean, navigate: () =
 export function notifyWarning (repo: string, message: string, navigate: () => void): void {
   fire(`warn|${repo}`, `${repo}: ${message.slice(0, 80)}`, navigate);
 }
+
+/** Trigger (4), v0.2.7.0 C.1 (R-BG): a NEW release line landed (the
+ *  3-part-prefix law — App decides, this just delivers). Rides the
+ *  private fire(), hidden-only by the D5 background-only law: the
+ *  visible tab shows the z-40 banner instead — the two channels never
+ *  double on one screen. A same-moment CLEAN card (clean|repo) may
+ *  accompany it on a hidden tab: different tag, different information
+ *  (the v0.2.7.0 RV9 documented acceptance). */
+export function notifyRelease (repo: string, version: string, navigate: () => void): void {
+  fire(`release|${repo}`, `🚀 ${repo} ${version} released`, navigate);
+}
