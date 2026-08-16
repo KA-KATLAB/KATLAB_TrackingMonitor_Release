@@ -63,7 +63,15 @@ const SKY_FILL = { night: "#020617", dawn: "#1e293b", day: "#334155", dusk: "#1e
 // UNCOMMITTED_AGE_H chain (bell nudge + Kat "anxious" + this — theme.ts,
 // never a copy); fresh uncommitted = null (the plaque already counts it;
 // weather marks STATES, decorating normal flow would punish it).
-export type Weather = "sun" | "rain" | "fog" | null;
+// v0.2.8.0 D6 (B.1, R-BJ): the 5th state — "forecast", the gathering
+// storm in the (rain − lead, rain] window; scene-only, NEVER a
+// bell/sound/OS ping (D7 — weather forecasts, it does not demand).
+export type Weather = "sun" | "rain" | "fog" | "forecast" | null;
+
+// The forecast lead — weather-internal (not a cross-surface mirror);
+// RV9: both window bounds stay SYMBOLIC against the ONE source, so
+// the window self-adjusts if the 48h threshold ever moves.
+const WX_FORECAST_LEAD_H = 12;
 
 export function weatherOf (repo: Repo, nowMs: number): Weather {
   if (repo.offline) return "fog";
@@ -71,11 +79,17 @@ export function weatherOf (repo: Repo, nowMs: number): Weather {
   if (repo.oldest_uncommitted_ts !== null) {
     const age = nowMs - new Date(repo.oldest_uncommitted_ts).getTime();
     if (age > UNCOMMITTED_AGE_H * 3_600_000) return "rain";
+    if (age > (UNCOMMITTED_AGE_H - WX_FORECAST_LEAD_H) * 3_600_000) {
+      return "forecast";
+    }
   }
   return null;
 }
 
-const WEATHER_TIP: Record<Exclude<Weather, null>, string> = {
+// RV3 (v0.2.8.0): the static map stays THREE-keyed — the forecast tip
+// is the ONE computed weather tip (built in the scene; the title
+// builder branches three ways).
+const WEATHER_TIP: Record<Exclude<Weather, null | "forecast">, string> = {
   sun: "clear — everything committed ✓",
   rain: `rain — uncommitted work aging ${UNCOMMITTED_AGE_H}h+`,
   fog: "fog — repo offline",
@@ -150,12 +164,21 @@ export function CityScene ({ districts, churnMax, mood, nowMs, localHour,
         const cranes = d.inProgress.slice(0, 3);
         const extra = d.inProgress.length - cranes.length;
         const weather = weatherOf(d.repo, nowMs); // v0.2.7.0 A.1 (R-BE)
+        // v0.2.8.0 B.1 (RV3/RV7): the three-way tip — forecast gets
+        // the ONE computed line; max(1, ceil) never renders "~0h" at
+        // the exact-threshold edge (rain needs strict >, so the
+        // boundary itself is still forecast).
+        const wxTip = weather === "forecast"
+          ? `rain in ~${Math.max(1, Math.ceil(UNCOMMITTED_AGE_H
+              - (nowMs - new Date(d.repo.oldest_uncommitted_ts!).getTime())
+                / 3_600_000))}h — commit to clear`
+          : weather !== null ? WEATHER_TIP[weather] : null;
         return (
           <g key={d.repo.id} opacity={offline ? 0.5 : 1}>
             {/* platform (iso ground) */}
             <polygon points={`${dx},${GROUND_Y + 26} ${dx + 85},${GROUND_Y - 16} ${dx + 170},${GROUND_Y + 26} ${dx + 85},${GROUND_Y + 68}`}
               fill={ground} stroke="#334155" strokeWidth="1">
-              <title>{weather ? `${d.repo.path}\n${WEATHER_TIP[weather]}` : d.repo.path}</title>
+              <title>{wxTip ? `${d.repo.path}\n${wxTip}` : d.repo.path}</title>
             </polygon>
             {/* buildings — back row (0..3) first, front row after (painter) */}
             {rows.map((r, i) => {
@@ -238,6 +261,18 @@ export function CityScene ({ districts, churnMax, mood, nowMs, localHour,
                 <rect className="wx-fog" x={dx + 14} y={186} width={142}
                   height={22} rx={10} fill="#94a3b8" opacity={0.14}
                   style={{ animationDelay: "-4s" }} />
+              </g>
+            )}
+            {weather === "forecast" && ( /* v0.2.8.0 B.1 (R-BJ): the
+                gathering storm — ONE still lighter cloud, no drops,
+                no motion (reduced-motion-immune by construction);
+                scene svg, attrs only, rides the snapshot; silent by
+                D7 (weather forecasts, it does not demand). */
+              <g pointerEvents="none">
+                <ellipse cx={dx + 72} cy={58} rx={17} ry={7}
+                  fill="#64748b" opacity={0.8} />
+                <ellipse cx={dx + 97} cy={56} rx={14} ry={6}
+                  fill="#475569" opacity={0.8} />
               </g>
             )}
             {/* plaque: repo id + the StatusBar chip mirror */}

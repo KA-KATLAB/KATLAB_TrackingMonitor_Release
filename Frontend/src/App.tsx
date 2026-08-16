@@ -13,6 +13,7 @@ import { SessionTimeline } from "./SessionTimeline";
 import { WrappedCard } from "./WrappedCard";
 import { fmtAge, fmtMinutes, fmtRel, fmtTs } from "./format";
 import { notifyPickNeeded, notifyRelease, notifyStatusChange, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
+import { playChime, playFanfare, playTick, setSoundEnabled, soundWanted } from "./sound";
 import { StatsData } from "./charts";
 import { useReveal } from "./reveal";
 import { EFFORT_GAP_MAX_MIN, MODE_BADGE, MODE_COLOR, RELEASE_RX, SWEPT_COLOR, UNCOMMITTED_AGE_H, prefersReducedMotion, prefix3, sessionColor, withViewTransition } from "./theme";
@@ -173,6 +174,12 @@ export default function App () {
       if (msg.type === "event_resolved" || msg.type === "commit_detected") debouncedSync();
       if (msg.type === "task_updated" || msg.type === "warning") debouncedSync();
       if (msg.type === "event_resolved") {
+        // v0.2.8.0 A.2 (R-BH): the capture tick — the WS payload is
+        // the FULL DB row (id incl., watcher.py:303 — RV1); the pitch
+        // hash + 80ms drop-limiter live in sound.ts; no-op unless
+        // the user opted in (beside the combo, never instead).
+        const evId = (msg.data as { id?: unknown }).id;
+        playTick(typeof evId === "number" ? evId : 0);
         // v0.1.9.0 D3 (C.2): combo — ONE increment per live message, all in
         // the handler body (RV7: refs for fresh math, state mirror by value;
         // no updater-function side effects). Burst fires only on an exact
@@ -205,6 +212,10 @@ export default function App () {
         // (RV9: never notify from inside the setRepos updater below).
         const transitioned = notifyStatusChange(d.repo, d.clean, () => navigateToRepo(d.repo, false));
         if (transitioned) {
+          // v0.2.8.0 A.2 (R-BH): the CLEAN chime — the 4th channel
+          // column (opt-in, visibility-independent), beside the
+          // toast/burst/OS-card, each channel its own law (D2).
+          playChime();
           // v0.1.7.0 D6 (C.3), the RV1 channel matrix: TOAST always (the
           // durable record); BURST only while the tab is visible.
           const n = ++celebrationN.current;
@@ -251,6 +262,10 @@ export default function App () {
                 setReleases((prevR) => prevR.filter((x) => !(x.repo === repo && x.n === n)));
               }, 12_000);
               notifyRelease(repo, version, () => navigateToRepo(repo, false));
+              // v0.2.8.0 A.2 (R-BH): the release fanfare — consonant
+              // beside the same-moment CLEAN chime by the RV4 one-key
+              // law (a release also cleans its repo).
+              playFanfare();
             }
           }
         }
@@ -398,6 +413,13 @@ export default function App () {
     setNotifyOn(granted);
     setNotifyNote(next && !granted ? "permission denied/dismissed — alerts stay off" : "");
   }, [notifyOn]);
+  // v0.2.8.0 D5 (A.2, R-BH): the sound toggle — notifyOn's twin (the
+  // click IS the AudioContext gesture; sound.ts owns the RV15 order).
+  const [soundOn, setSoundOn] = useState(soundWanted());
+  const toggleSound = useCallback(async () => {
+    const effective = await setSoundEnabled(!soundOn);
+    setSoundOn(effective);
+  }, [soundOn]);
 
   // v0.1.5.0 D7 (D.3): digest export — a fetch failure ABORTS with an
   // inline note next to the button; nothing downloads (RV20).
@@ -463,6 +485,10 @@ export default function App () {
       run: () => { setGroupMode(groupMode === "task" ? "folder" : "task"); setView("changes"); } },
     { section: "Actions", label: `OS alerts: turn ${notifyOn ? "off" : "on"}`,
       run: () => { setPanelOpen(true); void toggleNotify(); } },
+    // v0.2.8.0 A.2 (R-BH): the sound twin — the same panel-open +
+    // toggle shape (the visible-effect rule).
+    { section: "Actions", label: `Sounds: turn ${soundOn ? "off" : "on"}`,
+      run: () => { setPanelOpen(true); void toggleSound(); } },
     ...(sessionFilter ? [{ section: "Actions", label: "View session timeline",
       run: () => setTimelineSession(sessionFilter) } as PaletteEntry] : []), // v0.1.6.0 D3
     { section: "Actions", label: "View weekly wrapped", // v0.1.8.0 D3 (C.1)
@@ -534,6 +560,15 @@ export default function App () {
                     {notifyOn ? "on" : "off"}
                   </button>
                   {notifyNote && <span className="text-amber-300">{notifyNote}</span>}
+                  {/* v0.2.8.0 A.2 (R-BH): the sound switch — the
+                      OS-alerts twin; cues play even on hidden tabs
+                      (the background-awareness channel, D2). */}
+                  <span className="text-slate-400">Sounds:</span>
+                  <button onClick={() => void toggleSound()}
+                    className={`rounded px-2 py-0.5 text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+                      soundOn ? "bg-emerald-700 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+                    {soundOn ? "on" : "off"}
+                  </button>
                 </div>
               } />
             {/* v0.1.5.0 D7 (D.3): daily digest export (RV20 inline note) */}
@@ -1033,6 +1068,14 @@ function Legend ({ onClose }: { onClose: () => void }) {
         in-app (devlog, plans, changelog, AI diary). While the embedded site holds
         keyboard focus, app shortcuts (<b>Ctrl+K</b>) pause — click any header
         element to restore them.
+      </p>
+      <p className="mt-1.5 text-slate-400">
+        {/* v0.2.8.0 A.2 (R-BH): the sound channel line */}
+        Sounds (opt-in, off by default — toggle in the bell panel): a soft{" "}
+        <b className="text-slate-300">tick</b> per live capture, a warm{" "}
+        <b className="text-slate-300">chime</b> on CLEAN ✓, a short{" "}
+        <b className="text-slate-300">fanfare</b> on a release — synthesized, quiet,
+        and playing even while the tab is hidden (the background-awareness channel).
       </p>
     </div>
   );
