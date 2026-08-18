@@ -48,6 +48,18 @@ export interface StatsData {
   };
   // v0.1.10.0 D2 (A.1): top-20 file churn (plan files excluded, A1).
   file_churn: { repo: string; file: string; events: number; last_ts: string }[];
+  // v0.2.11.0 D1 (A.1): AI-touch provenance — commits are gated by each
+  // repo's FIRST capture (D2) and a slot counts as AI-touched only where
+  // the commit's file list intersects that commit's own linked events
+  // (D3); plan files excluded (A1). Fixed shape in BOTH backend return
+  // paths (the v0.1.5.0 RV28 rule).
+  provenance: {
+    commits_observed: number;   // commits inside the observation gate
+    commits_pre: number;        // honesty counter — commits before it
+    slots_total: number;        // file-slots over observed commits
+    slots_ai: number;           // slots whose file has a linked event
+    top_files: { repo: string; file: string; commits: number; ai_commits: number }[];
+  };
 }
 
 const GRID = "#334155"; // slate-700

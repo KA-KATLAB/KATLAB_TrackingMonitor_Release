@@ -657,10 +657,6 @@ export default function App () {
                 P8 tick grows/expires it */}
             <FlowChip count={comboCount} startMs={comboStartMsRef.current}
               lastMs={comboLastMsRef.current} />
-            {/* v0.2.6.0 C.1: the 📖 chip — the Chronicle IS a view now */}
-            <TabButton active={view === "chronicle"}
-              onClick={() => withViewTransition(() => setView("chronicle"))}
-              label="📖" title="Open the Chronicle — the living docs site" />
             {/* v0.2.3.0 D2 (B.2): the health chip — neutral, no polling */}
             <HealthButton onClick={() => setHealthOpen(true)} />
             {/* v0.1.5.0 D4 (C.4): the ONE bell — cross-repo triage panel */}
@@ -1220,8 +1216,8 @@ function Legend ({ onClose }: { onClose: () => void }) {
       </p>
       <p className="mt-1.5 text-slate-400">
         {/* v0.2.6.0 C.1: the in-app Chronicle + the RV31 focus boundary */}
-        Chronicle: the <b className="text-slate-300">📖</b> chip or the{" "}
-        <b className="text-slate-300">Chronicle</b> tab opens the living docs site
+        Chronicle: the <b className="text-slate-300">Chronicle</b> tab opens the
+        living docs site
         in-app (devlog, plans, changelog, AI diary). While the embedded site holds
         keyboard focus, app shortcuts (<b>Ctrl+K</b>) pause — click any header
         element to restore them.
@@ -1251,6 +1247,18 @@ function Legend ({ onClose }: { onClose: () => void }) {
         when the chain breaks. Capture <b className="text-slate-300">milestones</b>{" "}
         (the 5,000th, 10,000th, …) roll by as a brief amber card — with a chime
         when sounds are on.
+      </p>
+      <p className="mt-1.5 text-slate-400">
+        {/* v0.2.11.0 A.5: the provenance ledger */}
+        <b className="text-slate-300">Provenance</b> (Overview) is the share of
+        committed <b>file changes</b> that carry captured Claude events — composed
+        from what the tracker already knows, never estimated. Only commits made{" "}
+        <b>since tracking began</b> in that repo count; earlier ones are excluded
+        and shown separately, so the backfilled history can never dilute the
+        number. It is not a lines-of-code measure, and a file reading 0/N usually
+        means Claude never touched it (compiled artifacts, for instance) — though
+        it can also mean the capture was linked to a different commit, so the
+        number leans conservative rather than flattering.
       </p>
     </div>
   );

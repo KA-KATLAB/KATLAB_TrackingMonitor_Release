@@ -341,7 +341,11 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
                 # v0.1.10.0 A.1: fixed shapes (RV28 rule)
                 "identity": {"extensions": [], "ext_total": 0, "sessions": 0,
                              "first_event_ts": None, "commits": 0},
-                "file_churn": []}
+                "file_churn": [],
+                # v0.2.11.0 A.1: fixed shape (RV28 rule)
+                "provenance": {"commits_observed": 0, "commits_pre": 0,
+                               "slots_total": 0, "slots_ai": 0,
+                               "top_files": []}}
     placeholders = ",".join("?" * len(repo_ids))
 
     # mode_counts: zero-filled to all 6 (R1)
@@ -487,6 +491,62 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
         for r in sorted(file_rows, key=lambda r: (-r["c"], r["repo_id"], r["file"]))[:20]
     ]
 
+    # v0.2.11.0 A.1 (D1-D5): AI-touch provenance. A commit is OBSERVED only
+    # from its OWN repo's first capture onward (D2) - the startup backfill
+    # seeds ~20 pre-tracking commits per repo, which would otherwise read
+    # "0% AI" and be counted as a real measurement. A file-slot inside an
+    # observed commit is AI-touched when that commit's OWN linked events
+    # name it (D3): the map is keyed by the PAIR (repo_id, commit_hash),
+    # never the hash alone - that pair is the commits PRIMARY KEY, and two
+    # repos really can share a hash through common upstream history (the
+    # DB holds 16 such, all EA_Dev<->EA_Exec; EA_Exec is de-configured, so
+    # zero are shared among CONFIGURED repos today - this is a guard
+    # against a proven-possible topology, not a fix for a live number).
+    # Plan files are excluded on both sides via the A1 double exclusion
+    # (a guard too: the configured repos gitignore their temp/ plan trees,
+    # so it currently filters nothing - but a repo that COMMITS its plans
+    # would otherwise inflate its own share with meta-edits).
+    prov_first = {
+        r["repo_id"]: r["m"]
+        for r in conn.execute(
+            f"SELECT repo_id, MIN(ts) m FROM events "
+            f"WHERE repo_id IN ({placeholders}) GROUP BY repo_id", repo_ids)
+    }
+    prov_linked: dict = {}
+    for r in conn.execute(
+            f"SELECT repo_id, commit_hash, file FROM events "
+            f"WHERE commit_hash IS NOT NULL AND repo_id IN ({placeholders})",
+            repo_ids):
+        prov_linked.setdefault((r["repo_id"], r["commit_hash"]), set()).add(r["file"])
+    observed = pre = slots_total = slots_ai = 0
+    per_file: dict = {}
+    for c in conn.execute(
+            f"SELECT repo_id, hash, ts, files_json FROM commits "
+            f"WHERE repo_id IN ({placeholders})", repo_ids):
+        first_ts = prov_first.get(c["repo_id"])
+        if first_ts is None or c["ts"] < first_ts:   # D2 gate (ISO-Z text compare)
+            pre += 1
+            continue
+        observed += 1
+        touched = prov_linked.get((c["repo_id"], c["hash"]), set())  # D3 pair key
+        for f in json.loads(c["files_json"]):
+            if _is_plan_file(plan_files, c["repo_id"], f):           # D4 (A1)
+                continue
+            slots_total += 1
+            hit = 1 if f in touched else 0
+            slots_ai += hit
+            t, a = per_file.get((c["repo_id"], f), (0, 0))
+            per_file[(c["repo_id"], f)] = (t + 1, a + hit)
+    provenance = {
+        "commits_observed": observed, "commits_pre": pre,
+        "slots_total": slots_total, "slots_ai": slots_ai,
+        "top_files": [
+            {"repo": repo, "file": file, "commits": t, "ai_commits": a}
+            for (repo, file), (t, a) in sorted(
+                per_file.items(),
+                key=lambda kv: (-kv[1][0], kv[0][0], kv[0][1]))[:8]],
+    }
+
     # v0.1.5.0 D2 (B.1): 365-day calendar - events reuse raw_days (already a
     # full-table day GROUP BY); commits bucketed identically. Zero-filled,
     # oldest->newest, UTC days. Present in BOTH return paths (RV28).
@@ -595,7 +655,8 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
             "file_coupling": file_coupling,
             "wrapped": wrapped,
             "identity": identity,      # v0.1.10.0 A.1 (D1)
-            "file_churn": file_churn}  # v0.1.10.0 A.1 (D2)
+            "file_churn": file_churn,  # v0.1.10.0 A.1 (D2)
+            "provenance": provenance}  # v0.2.11.0 A.1 (D1-D5)
 
 
 def _empty_wrapped (now_iso: str) -> dict:

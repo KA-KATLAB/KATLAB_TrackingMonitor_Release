@@ -21,6 +21,7 @@ import { SnakeCalendar } from "./snakeGame";
 import { TrophyCase } from "./trophies";
 import { DayLanes } from "./dayLanes";
 import { PunchCard } from "./punchCard";
+import { ProvenanceCard } from "./provenance";
 import { StatsData, activityLine, eventsPerTaskBar, modeDoughnut } from "./charts";
 import { renderBackbone } from "./mermaidGraph";
 import { useReveal } from "./reveal";
@@ -265,6 +266,11 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
               <TrophyCase stats={stats} tasks={tasks} scope={scope} />
               <Records key={scope ?? "ALL"} calendar={stats.activity_calendar} />
             </div>
+            {/* v0.2.11.0 D9 (A.4): the provenance ledger — FULL WIDTH below
+                the arcade shelf (its rows are file paths), inside this
+                totalEvents branch; the card hides itself at zero slots. */}
+            <ProvenanceCard provenance={stats.provenance} scope={scope}
+              onOpenFileStory={onOpenFileStory} />
           </>
         )}
       </section>
