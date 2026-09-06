@@ -5,7 +5,7 @@
 // is derived AT RENDER (the pulse recipe): WS setState turns it on
 // promptly, the P8 60s tick re-render expires it.
 
-import { CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { EFFORT_GAP_MAX_MIN } from "./theme";
 
 export function ComboMeter ({ count, lastMs, burst }: {

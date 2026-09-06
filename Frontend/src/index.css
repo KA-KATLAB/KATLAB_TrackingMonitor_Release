@@ -2,6 +2,230 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: dark;
+  --ui-canvas: 2 6 23;
+  --ui-surface: 15 23 42;
+  --ui-surface-raised: 30 41 59;
+  --ui-border: 51 65 85;
+  --ui-control-border: 100 116 139;
+  --ui-text: 248 250 252;
+  --ui-text-muted: 148 163 184;
+  --ui-primary: 3 105 161;
+  --ui-primary-hover: 2 132 199;
+  --ui-focus: 56 189 248;
+  --ui-live: 20 184 166;
+  --ui-success: 5 150 105;
+  --ui-warning: 245 158 11;
+  --ui-danger: 225 29 72;
+  --ui-safe-top: env(safe-area-inset-top, 0px);
+  --ui-safe-right: env(safe-area-inset-right, 0px);
+  --ui-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ui-safe-left: env(safe-area-inset-left, 0px);
+}
+
+html,
+body,
+#root {
+  min-width: 0;
+  min-height: 100%;
+}
+
+#root {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+}
+
+html {
+  scroll-padding-top: calc(3.5rem + var(--ui-safe-top));
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  color: rgb(var(--ui-text));
+  background-color: rgb(var(--ui-canvas));
+  line-height: 1.5;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+button:not([aria-hidden="true"]),
+[role="button"],
+[role="option"] {
+  min-width: 24px;
+  min-height: 24px;
+}
+
+@media (pointer: fine) {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  a[href] {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  :where(
+    button:not(:disabled):not([aria-disabled="true"]),
+    a[href],
+    [role="option"]:not([aria-disabled="true"]),
+    .ui-svg-action
+  ) {
+    touch-action: manipulation;
+    transition-property: opacity;
+    transition-duration: 120ms;
+    transition-timing-function: ease-out;
+  }
+
+  :where(
+    button:not(:disabled):not([aria-disabled="true"]),
+    a[href],
+    [role="option"]:not([aria-disabled="true"]),
+    .ui-svg-action
+  ):active {
+    opacity: 0.72;
+  }
+
+  .ui-surface {
+    @apply min-w-0 rounded-panel border border-ui-border bg-ui-surface p-3 text-ui-text;
+  }
+
+  .ui-control {
+    @apply inline-flex min-h-6 min-w-6 shrink-0 touch-manipulation items-center justify-center gap-1.5 rounded-control border border-ui-control-border px-2 py-1 text-xs font-semibold text-ui-text outline-none transition-[background-color,border-color,color,opacity,transform] duration-press;
+  }
+
+  .ui-control:hover:not(:disabled):not([aria-disabled="true"]) {
+    @apply bg-ui-raised;
+  }
+
+  .ui-control:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: scale(0.98);
+  }
+
+  .ui-control:focus-visible,
+  .ui-focus-ring:focus-visible {
+    @apply ring-2 ring-ui-focus ring-offset-2 ring-offset-ui-canvas;
+  }
+
+  .ui-svg-action:focus-visible {
+    outline: none;
+    filter: drop-shadow(0 0 3px #38bdf8);
+  }
+
+  .ui-control:disabled,
+  .ui-control[aria-disabled="true"] {
+    opacity: 0.45;
+  }
+
+  .ui-field {
+    @apply min-w-0 rounded-control border border-ui-control-border bg-ui-canvas px-2 py-1.5 text-ui-text outline-none placeholder:text-ui-muted;
+  }
+
+  .ui-field:focus-visible {
+    @apply border-ui-focus ring-2 ring-ui-focus/40;
+  }
+
+  .ui-local-scroller {
+    @apply min-w-0 overflow-auto overscroll-contain;
+  }
+
+  .ui-flex-boundary,
+  .ui-grid-boundary {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .ui-safe-header {
+    padding-top: max(0.5rem, var(--ui-safe-top));
+    padding-right: max(1rem, var(--ui-safe-right));
+    padding-left: max(1rem, var(--ui-safe-left));
+  }
+
+  .ui-safe-dialog {
+    padding-top: max(1rem, var(--ui-safe-top));
+    padding-right: max(1rem, var(--ui-safe-right));
+    padding-bottom: max(1rem, var(--ui-safe-bottom));
+    padding-left: max(1rem, var(--ui-safe-left));
+  }
+
+  .ui-safe-toast {
+    right: max(1rem, var(--ui-safe-right));
+    bottom: max(1rem, var(--ui-safe-bottom));
+  }
+
+  .ui-horizontal-rail {
+    scrollbar-width: thin;
+    background:
+      linear-gradient(to right, rgb(var(--ui-surface)) 30%, transparent) left center,
+      linear-gradient(to left, rgb(var(--ui-surface)) 30%, transparent) right center,
+      linear-gradient(to right, rgb(2 6 23 / 0.7), transparent) left center,
+      linear-gradient(to left, rgb(2 6 23 / 0.7), transparent) right center;
+    background-attachment: local, local, scroll, scroll;
+    background-repeat: no-repeat;
+    background-size: 2rem 100%, 2rem 100%, 0.75rem 100%, 0.75rem 100%;
+  }
+}
+
+@keyframes ui-disclosure-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ui-disclosure-enter {
+  animation: ui-disclosure-in 180ms ease-out;
+}
+
+@keyframes ui-skeleton-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+.ui-skeleton {
+  background-image: linear-gradient(
+    90deg,
+    rgb(var(--ui-surface-raised) / 0.7) 25%,
+    rgb(var(--ui-border) / 0.8) 50%,
+    rgb(var(--ui-surface-raised) / 0.7) 75%
+  );
+  background-size: 200% 100%;
+  animation: ui-skeleton-shimmer 1.4s linear infinite;
+}
+
+@media (pointer: coarse) {
+  .ui-control,
+  button:not([aria-hidden="true"]),
+  [role="button"],
+  [role="option"],
+  input:not([type="hidden"]),
+  select,
+  textarea {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .ui-field,
+  input,
+  select,
+  textarea {
+    font-size: max(1rem, 16px);
+  }
+}
+
 /* D8 (v0.1.4.0): background atmosphere — faint radial glow + dot grid,
    both derived from the border color (slate-700). fixed => painted once,
    no scroll cost. Dark-only by design. */
@@ -159,9 +383,24 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+  .ui-control,
+  .ui-transition,
+  :where(
+    button:not(:disabled):not([aria-disabled="true"]),
+    a[href],
+    [role="option"]:not([aria-disabled="true"]),
+    .ui-svg-action
+  ) {
+    transition-duration: 0.01ms;
+  }
   .pulse-dot { animation: none; }
   .burst-p { display: none; }
   .toast-enter { animation: none; }
+  .ui-disclosure-enter { animation: none; }
+  .ui-skeleton { animation: none; }
   .chip-pop { animation: none; }
   .combo-pop { animation: none; }
   .pet-breathe { animation: none; }

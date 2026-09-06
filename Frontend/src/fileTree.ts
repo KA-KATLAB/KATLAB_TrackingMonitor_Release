@@ -4,7 +4,7 @@
 // no DOM, no fetch. Leaves are NEUTRAL this release (per-file git intent
 // needs an endpoint that does not exist — plan D6).
 
-import { TrackedEvent } from "./api";
+import type { TrackedEvent } from "./api";
 
 interface Dir {
   dirs: Map<string, Dir>;

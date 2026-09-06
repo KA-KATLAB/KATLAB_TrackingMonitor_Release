@@ -1,5 +1,20 @@
 # Version Notes
 
+## v0.2.12.0 — Clarity at Every Size (2026-09-06)
+
+**Key Highlights**
+
+- Established [UI_Design_System.md](../Docs/UI_Design_System.md) as the normative interface contract, backed by semantic tokens, shared controls/surfaces, structural icons, bounded paging, and one reactive reduced-motion source.
+- Rebuilt the application shell for eight verified phone, landscape-phone, tablet, and desktop sizes. Tasks is a modal drawer below 1024px and a persistent sidebar from 1024px; all five views, repo scopes, status, Attention, and utilities remain reachable.
+- Made `{scope, view}` canonical navigation state with deterministic query ordering and Back/Forward restoration. Sensitive paths, filters, drafts, results, and Blob data never enter the URL or browser history state.
+- Consolidated every modal and drawer onto `DialogShell`: portal rendering, one overlay lease, inert/scroll-frozen background, dynamic Tab containment, Escape/backdrop policy, and safe focus restoration including More-to-dialog handoff.
+- Reorganized Overview into Now → Trends → Explore → Relationships; replaced the attribution doughnut with an exact horizontal bar; added semantic, keyboard-accessible exact-data alternatives without removing the established charts, City, Chronicle, rewards, or product personality.
+- Bounded large rendered collections to 50 rows and City to six districts while calculations, filtering, actions, graph inputs, and exports continue to use the complete model. History fetch depth remains independent of its visible page.
+- Added one 10-second foreground-action deadline, abort/stale-generation protection, exclusive heavy-work coordinators, truthful retry states, a two-stage prepared digest, and safe delayed Blob URL cleanup for all generated downloads.
+- Production verification passed: 40/40 view/viewport geometry, 16/16 interaction, 10/10 semantics, 37/37 action inventory, 4/4 dialogs, 8/8 navigation, 3/3 reduced motion, 12/12 performance, 7/7 generated-document checks, 4/4 downloads, 3/3 forms, 2/2 City target checks, and 27/27 focused source/unit checks. Measured CLS stayed below 0.014.
+- Initial JavaScript fell from 519,299 raw / 169,031 gzip bytes to 339,958 / 108,076; Overview, City, and Mermaid remain lazy. No product dependency, schema, endpoint, Git behavior, storage-key, service-worker, or Chronicle-runtime change was introduced.
+- Full as-built evidence and scope are recorded in [TrackingMonitor_v0.2.12.0_Release_Notes.md](../TrackingMonitor_v0.2.12.0_Release_Notes.md). The local release record is complete; the live tracker was not restarted and publication remains a separate user action.
+
 ## v0.2.11.0 — The Provenance Ledger (2026-08-18)
 
 **Key Highlights**

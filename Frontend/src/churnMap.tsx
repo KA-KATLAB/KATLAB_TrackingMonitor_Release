@@ -9,8 +9,10 @@
 // (size already encodes churn); RAMP[0] never applies — every tile has
 // events. Tiles open the EXISTING FileStory (the v0.1.7.0 opener zone).
 
-import { StatsData } from "./charts";
+import type { StatsData } from "./charts";
 import { RAMP } from "./calendarHeatmap";
+import { DisclosureTable } from "./accessibleData";
+import { SectionHeading } from "./ui";
 
 type ChurnRow = StatsData["file_churn"][number];
 interface Tile { x: number; y: number; w: number; h: number; row: ChurnRow; }
@@ -79,17 +81,14 @@ export function ChurnMap ({ churn, onOpenFileStory }: {
   squarify(churn, areas, 0, 0, VW, VH, tiles);
   return (
     <div>
-      <div className="mb-2 text-xs font-semibold text-slate-300">
-        Codebase heat — where the work lives
-      </div>
-      <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" role="img"
-        aria-label="file churn treemap">
+      <SectionHeading level={4} title="Codebase heat"
+        description="Where the work lives." />
+      <svg viewBox={`0 0 ${VW} ${VH}`} width="100%"
+        aria-hidden="true" focusable="false">
         {tiles.map(({ x, y, w, h, row }) => {
           const base = row.file.split("/").pop() ?? row.file;
           return (
-            <g key={`${row.repo}|${row.file}`}
-              onClick={() => onOpenFileStory?.(row.repo, row.file)}
-              className={onOpenFileStory ? "cursor-pointer" : undefined}>
+            <g key={JSON.stringify([row.repo, row.file])}>
               <title>{`${row.repo}/${row.file} · ${row.events} event${row.events === 1 ? "" : "s"} · last ${row.last_ts}`}</title>
               <rect x={x + 0.5} y={y + 0.5} width={Math.max(0, w - 1)}
                 height={Math.max(0, h - 1)} rx={2}
@@ -108,6 +107,32 @@ export function ChurnMap ({ churn, onOpenFileStory }: {
       <div className="mt-1 text-[11px] text-slate-400">
         size = captures · color = recency · (top 20)
       </div>
+      <DisclosureTable
+        label="Codebase heat"
+        summary={`${churn.length} high-churn file${churn.length === 1 ? "" : "s"} account for `
+          + `${total.toLocaleString("en-US")} captured event${total === 1 ? "" : "s"}.`}
+        rows={churn}
+        rowKey={(row) => JSON.stringify([row.repo, row.file])}
+        identity={["file-churn", ...churn.map((row) =>
+          JSON.stringify([row.repo, row.file, row.events, row.last_ts]))]}
+        columns={[
+          { key: "repo", label: "Repository", render: (row) => row.repo,
+            sortValue: (row) => row.repo },
+          { key: "file", label: "File", render: (row) => onOpenFileStory ? (
+            <button type="button" onClick={() => onOpenFileStory(row.repo, row.file)}
+              className="ui-focus-ring inline-flex min-h-6 min-w-6 items-center break-all rounded text-left font-mono text-sky-300 hover:underline">
+              {row.file}
+            </button>
+          ) : <span className="break-all font-mono">{row.file}</span>,
+          sortValue: (row) => row.file },
+          { key: "events", label: "Captures", render: (row) => row.events.toLocaleString("en-US"),
+            sortValue: (row) => row.events, cellClassName: "text-right tabular-nums",
+            headerClassName: "text-right" },
+          { key: "last", label: "Last observed", render: (row) => row.last_ts,
+            sortValue: (row) => row.last_ts },
+        ]}
+        className="mt-2"
+      />
     </div>
   );
 }

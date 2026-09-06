@@ -1,126 +1,192 @@
-// v0.2.3.0 D2 (B.2): the health panel — the tracker audits itself
-// (watcher liveness, hook line presence, capture freshness, DB and
-// event-log stats). Observational only: no polling, no action buttons;
-// STATIC fetch-at-open (the v0.1.6.0 RV17 rule — close/reopen refreshes).
-// HealthBody is EXPORTED presentational (RV8 — the planBoard battery
-// shape: renderToStaticMarkup runs no effects, batteries feed fixtures).
-
 import { useEffect, useRef, useState } from "react";
-import { api, HealthPayload } from "./api";
+import type { ReactNode } from "react";
+import { api, createActionDeadline, isAbortError } from "./api";
+import type { HealthPayload } from "./api";
+import { DialogShell } from "./dialog";
 import { fmtMinutes, fmtRel, fmtTs } from "./format";
+import { CollectionPager, useBoundedPage } from "./ui";
 
-function fmtBytes (n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+function fmtBytes (bytes: number): string {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
-function Row ({ label, children }: { label: string; children: React.ReactNode }) {
+function Row ({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}): JSX.Element {
   return (
-    <div className="flex items-baseline gap-2 py-0.5">
-      <span className="w-40 shrink-0 text-slate-500">{label}</span>
-      <span className="text-slate-200">{children}</span>
+    <div className="grid min-w-0 grid-cols-[minmax(7rem,10rem)_minmax(0,1fr)] gap-2 py-1">
+      <span className="text-ui-muted">{label}</span>
+      <span className="min-w-0 break-words text-ui-text">{children}</span>
     </div>
   );
 }
 
-export function HealthBody ({ data }: { data: HealthPayload }) {
+export function HealthBody ({ data }: { data: HealthPayload }): JSX.Element {
   const { server, repos } = data;
   const watchersOk = server.watchers_alive === server.watchers_total;
   const uptimeMin = Math.max(0, Math.round(
-    (Date.now() - new Date(server.started_ts).getTime()) / 60_000));
+    (Date.now() - new Date(server.started_ts).getTime()) / 60_000,
+  ));
+  const pager = useBoundedPage({
+    identity: ["health-repos"],
+    totalItems: repos.length,
+    pageSize: 50,
+  });
+  const visibleRepos = repos.slice(pager.start, pager.end);
+
   return (
-    <div className="text-xs">
-      <div className="mb-1 font-semibold text-slate-300">Server</div>
+    <div className="min-w-0 text-xs">
+      <h3 className="mb-1 font-semibold text-slate-300">Server</h3>
       <Row label="version">{server.version}</Row>
       <Row label="uptime">{fmtMinutes(uptimeMin)}</Row>
-      {/* RV12: "—" on the modeled null (the jsonl convention) */}
-      <Row label="database">{server.db_bytes === null ? "—" : fmtBytes(server.db_bytes)}</Row>
+      <Row label="database">
+        {server.db_bytes === null ? "—" : fmtBytes(server.db_bytes)}
+      </Row>
       <Row label="watchers">
         <span className={watchersOk ? "text-teal-300" : "text-rose-300"}>
           {server.watchers_alive}/{server.watchers_total} alive
         </span>
       </Row>
-      {/* RV10: the HONEST wording — the text scan proves PRESENCE only */}
       <Row label="hook">
-        <span title={server.hook_settings_path}
-          className={server.hook_registered ? "text-teal-300" : "text-rose-300"}>
-          {server.hook_registered ? "line present ✓" : "line missing ✗"}
+        <span
+          title={server.hook_settings_path}
+          className={server.hook_registered ? "text-teal-300" : "text-rose-300"}
+        >
+          {server.hook_registered ? "line present ✓" : "line missing ✕"}
         </span>
       </Row>
-      <div className="mb-1 mt-3 font-semibold text-slate-300">Repos</div>
-      {repos.map((r) => (
-        <div key={r.id} className="flex items-baseline gap-2 py-0.5">
-          <span className="w-40 shrink-0 truncate text-slate-500">
-            {r.id}
-            {r.offline && (
-              <span className="ml-1 rounded bg-slate-800 px-1 text-[10px] text-amber-300">offline</span>
-            )}
-          </span>
-          <span className="text-slate-200">
-            {r.last_event_ts ? fmtRel(r.last_event_ts) : "never"}
-          </span>
-          {/* RV5: the mtime title = the ingest-lag hover; RV12: no title
-              when mtime is null (never "last log write: null") */}
-          <span className="text-slate-400"
-            {...(r.events_jsonl_mtime
-              ? { title: `last log write: ${fmtTs(r.events_jsonl_mtime)}` } : {})}>
-            {r.events_jsonl_bytes === null ? "—" : fmtBytes(r.events_jsonl_bytes)}
-          </span>
-          <span className={r.warning_count > 0 ? "text-amber-300" : "text-slate-600"}>
-            {r.warning_count} warning{r.warning_count === 1 ? "" : "s"}
-          </span>
-        </div>
-      ))}
+
+      <h3 className="mb-1 mt-3 font-semibold text-slate-300">Repositories</h3>
+      <div id="health-repos">
+        {visibleRepos.map((repo) => (
+          <div
+            key={repo.id}
+            className="grid min-w-0 grid-cols-[minmax(7rem,1fr)_auto] gap-x-2 border-b border-ui-border/50 py-1.5 last:border-0"
+          >
+            <span className="min-w-0 break-all text-ui-muted">
+              {repo.id}
+              {repo.offline && (
+                <span className="ml-1 rounded bg-ui-raised px-1 text-xs text-amber-300">
+                  offline
+                </span>
+              )}
+            </span>
+            <span className="text-ui-text">
+              {repo.last_event_ts ? fmtRel(repo.last_event_ts) : "never"}
+            </span>
+            <span
+              className="text-ui-muted"
+              {...(repo.events_jsonl_mtime
+                ? { title: "last log write: " + fmtTs(repo.events_jsonl_mtime) }
+                : {})}
+            >
+              {repo.events_jsonl_bytes === null ? "—" : fmtBytes(repo.events_jsonl_bytes)}
+            </span>
+            <span className={repo.warning_count > 0 ? "text-amber-300" : "text-slate-500"}>
+              {repo.warning_count} warning{repo.warning_count === 1 ? "" : "s"}
+            </span>
+          </div>
+        ))}
+      </div>
+      {repos.length > 50 && (
+        <CollectionPager
+          collectionLabel="Health repositories"
+          controlsId="health-repos"
+          page={pager}
+          onPageChange={pager.setPage}
+          className="mt-3 border-t border-ui-border pt-3"
+        />
+      )}
     </div>
   );
 }
 
-export function HealthButton ({ onClick }: { onClick: () => void }) {
+export function HealthButton ({ onClick }: { onClick: () => void }): JSX.Element {
   return (
-    <button onClick={onClick} title="System health"
-      className="rounded px-2 py-0.5 text-[11px] font-semibold text-slate-400 hover:bg-slate-800 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="System health"
+      title="System health"
+      className="ui-control border-0 bg-transparent text-ui-muted hover:bg-ui-raised hover:text-ui-text"
+    >
       sys
     </button>
   );
 }
 
-export function HealthModal ({ onClose }: { onClose: () => void }) {
+export function HealthModal ({ onClose, onStatus }: {
+  onClose: () => void;
+  onStatus: (message: string) => void;
+}): JSX.Element {
   const [data, setData] = useState<HealthPayload | null>(null);
   const [error, setError] = useState("");
-  const prevFocus = useRef<HTMLElement | null>(null);
+  const [busy, setBusy] = useState(true);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const retryPendingRef = useRef(false);
 
   useEffect(() => {
     let alive = true;
-    api.health().then((d) => { if (alive) setData(d); },
-      (exc) => { if (alive) setError(String(exc)); });
-    return () => { alive = false; };
-  }, []);
-
-  useEffect(() => {
-    prevFocus.current = document.activeElement as HTMLElement | null;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
+    const action = createActionDeadline();
+    retryPendingRef.current = false;
+    setBusy(true);
+    setError("");
+    void api.health(action.signal).then((payload) => {
+      if (!alive || action.signal.aborted) return;
+      setData(payload);
+      if (retryNonce > 0) onStatus("System health recovered.");
+    }, (errorValue) => {
+      if (!alive || (isAbortError(errorValue) && !action.didTimeout())) return;
+      const message = action.didTimeout()
+        ? "System health timed out after 10 seconds."
+        : `System health failed: ${String(errorValue).slice(0, 120)}`;
+      setError(message);
+      onStatus(`${message} Retry is available.`);
+    }).finally(() => {
+      action.clear();
+      if (alive) setBusy(false);
+    });
     return () => {
-      window.removeEventListener("keydown", onKey);
-      prevFocus.current?.focus?.();
+      alive = false;
+      action.controller.abort();
+      action.clear();
     };
-  }, [onClose]);
+  }, [onStatus, retryNonce]);
+
+  const retry = (): void => {
+    if (busy || retryPendingRef.current) return;
+    retryPendingRef.current = true;
+    setBusy(true);
+    setRetryNonce((value) => value + 1);
+  };
 
   return (
-    <div className="fixed inset-0 z-40 bg-slate-950/70 p-4 pt-[12vh]" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()}
-        className="mx-auto flex max-h-[70vh] w-full max-w-md flex-col rounded border border-slate-700 bg-slate-900 shadow-xl">
-        <div className="flex items-center gap-2 border-b border-slate-700 px-4 py-2 text-sm">
-          <span className="font-semibold text-slate-100">System health</span>
-          <button className="ml-auto text-slate-400 hover:text-white" onClick={onClose}>✕</button>
+    <DialogShell
+      title="System health"
+      description="Watcher, capture, and repository status at open time."
+      onClose={onClose}
+      backdropClose
+      closeLabel="Close system health"
+      panelClassName="max-w-md"
+    >
+      {error && (
+        <div className="rounded-control border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">
+          <p>{error}</p>
+          <button type="button" className="ui-control mt-2 bg-ui-raised"
+            disabled={busy} aria-busy={busy}
+            onClick={retry}>
+            Retry
+          </button>
         </div>
-        <div className="overflow-y-auto p-4">
-          {error && <p className="text-xs text-rose-300">{error}</p>}
-          {!data && !error && <p className="text-xs text-slate-400">Loading…</p>}
-          {data && <HealthBody data={data} />}
-        </div>
-      </div>
-    </div>
+      )}
+      {busy && !data && <p className="text-xs text-ui-muted">Loading system health…</p>}
+      {data && <HealthBody data={data} />}
+    </DialogShell>
   );
 }

@@ -1,132 +1,284 @@
-// v0.1.5.0 D6 (D.2): Ctrl/Cmd+K command palette — hand-rolled subsequence
-// fuzzy match (word-start + consecutive-run bonus), combobox/listbox ARIA,
-// focus trap + restore, no dependency, no router. Suppressed while the
-// Mermaid fullscreen overlay is open (RV3: body data-overlay-open marker).
-// The palette is the ACTION INTEGRATOR — implemented after D.1/D.3 so its
-// digest + notification actions call features that exist (ORDER RV25).
-
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  DialogShell,
+  hasOverlayLease,
+  suppressOverlayFocusRestore,
+} from "./dialog";
+import {
+  CollectionPager,
+  getBoundedPageWindow,
+  useBoundedPage,
+} from "./ui";
 
 export interface PaletteEntry {
-  section: string;   // Views | Repos | Tasks | Actions
+  id: string;
+  section: string;
   label: string;
   hint?: string;
+  disabledReason?: string;
+  opensDialog?: boolean;
   run: () => void;
 }
 
-// Subsequence fuzzy: every query char must appear in order; word-start hits
-// and consecutive runs score higher. null = no match.
-function fuzzyScore (query: string, label: string): number | null {
-  const q = query.toLowerCase();
-  const l = label.toLowerCase();
-  if (!q) return 0;
-  let qi = 0, score = 0, run = 0;
-  for (let i = 0; i < l.length && qi < q.length; i++) {
-    if (l[i] === q[qi]) {
+export function paletteEntryId (...parts: string[]): string {
+  return JSON.stringify(parts);
+}
+
+export function paletteOptionDomId (id: string): string {
+  let encoded = "";
+  for (let index = 0; index < id.length; index++) {
+    encoded += id.charCodeAt(index).toString(16).padStart(4, "0");
+  }
+  return "palette-opt-" + encoded;
+}
+
+export function assertUniquePaletteEntries (
+  entries: readonly PaletteEntry[],
+): Map<string, PaletteEntry> {
+  const byId = new Map<string, PaletteEntry>();
+  for (const entry of entries) {
+    if (byId.has(entry.id)) throw new Error("Duplicate palette entry id: " + entry.id);
+    byId.set(entry.id, entry);
+  }
+  return byId;
+}
+
+function normalizeQuery (value: string): string {
+  return value.normalize("NFKC").toLocaleLowerCase("en-US").trim();
+}
+
+// Subsequence fuzzy: every query character must occur in order. Word-start
+// hits and consecutive runs score higher; null means no match.
+function fuzzyScore (normalizedQuery: string, label: string): number | null {
+  const normalizedLabel = label.normalize("NFKC").toLocaleLowerCase("en-US");
+  if (!normalizedQuery) return 0;
+  let queryIndex = 0;
+  let score = 0;
+  let run = 0;
+  for (
+    let labelIndex = 0;
+    labelIndex < normalizedLabel.length && queryIndex < normalizedQuery.length;
+    labelIndex++
+  ) {
+    if (normalizedLabel[labelIndex] === normalizedQuery[queryIndex]) {
       run += 1;
-      const wordStart = i === 0 || " /-_.".includes(l[i - 1]);
+      const wordStart = labelIndex === 0
+        || " /-_.".includes(normalizedLabel[labelIndex - 1]);
       score += 1 + run + (wordStart ? 3 : 0);
-      qi += 1;
+      queryIndex += 1;
     } else {
       run = 0;
     }
   }
-  return qi === q.length ? score : null;
+  return queryIndex === normalizedQuery.length ? score : null;
 }
 
-export function CommandPalette ({ entries }: { entries: PaletteEntry[] }) {
+interface CommandPaletteProps {
+  entries: PaletteEntry[];
+  onStatus?: (message: string) => void;
+}
+
+export function CommandPalette ({
+  entries,
+  onStatus,
+}: CommandPaletteProps): JSX.Element | null {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [active, setActive] = useState(0);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const listRef = useRef<HTMLUListElement | null>(null);
-  const prevFocus = useRef<HTMLElement | null>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
+
+  const entriesById = useMemo(() => assertUniquePaletteEntries(entries), [entries]);
+  const normalizedQuery = normalizeQuery(query);
+  const matches = useMemo(() => entries
+    .map((entry, ordinal) => ({
+      entry,
+      ordinal,
+      score: fuzzyScore(normalizedQuery, entry.label),
+    }))
+    .filter((match): match is {
+      entry: PaletteEntry;
+      ordinal: number;
+      score: number;
+    } => match.score !== null)
+    .sort((a, b) => b.score - a.score || a.ordinal - b.ordinal),
+  [entries, normalizedQuery]);
+  const resultIdentity = JSON.stringify([
+    normalizedQuery,
+    matches.map((match) => match.entry.id),
+  ]);
+  const pager = useBoundedPage({
+    identity: ["command-palette", resultIdentity],
+    totalItems: matches.length,
+    pageSize: 50,
+  });
+  const visibleMatches = matches.slice(pager.start, pager.end);
+  const effectiveActiveId = visibleMatches.some(
+    (match) => match.entry.id === activeId,
+  )
+    ? activeId
+    : visibleMatches[0]?.entry.id ?? null;
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        if (document.body.dataset.overlayOpen) return; // single-overlay rule
-        e.preventDefault();
-        setOpen((o) => !o);
+    setActiveId(matches[0]?.entry.id ?? null);
+  }, [resultIdentity]);
+
+  const closePalette = useCallback(() => setOpen(false), []);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "k") return;
+      if (openRef.current) {
+        event.preventDefault();
+        setOpen(false);
+        return;
       }
+      if (hasOverlayLease()) return;
+      event.preventDefault();
+      setQuery("");
+      setActiveId(null);
+      setOpen(true);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  useEffect(() => {
-    if (open) {
-      prevFocus.current = document.activeElement as HTMLElement | null;
-      setQuery("");
-      setActive(0);
-      requestAnimationFrame(() => inputRef.current?.focus());
-    } else {
-      prevFocus.current?.focus?.(); // Esc/run restores focus (V9)
+  const activate = (id: string | null): void => {
+    if (!id) return;
+    const entry = entriesById.get(id);
+    if (!entry) return;
+    if (entry.disabledReason) {
+      onStatus?.(entry.disabledReason);
+      return;
     }
-  }, [open]);
-
-  if (!open) return null;
-
-  const matches = entries
-    .map((entry) => ({ entry, score: fuzzyScore(query, entry.label) }))
-    .filter((m): m is { entry: PaletteEntry; score: number } => m.score !== null)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 30);
-  const clampedActive = Math.min(active, Math.max(0, matches.length - 1));
-
-  const runEntry = (index: number) => {
-    matches[index]?.entry.run();
+    if (entry.opensDialog) suppressOverlayFocusRestore();
+    entry.run();
     setOpen(false);
   };
 
+  const changePage = (nextPage: number): void => {
+    const page = getBoundedPageWindow(matches.length, nextPage, 50);
+    pager.setPage(page.page);
+    setActiveId(matches[page.start]?.entry.id ?? null);
+  };
+
+  if (!open) return null;
+
   return (
-    <div className="fixed inset-0 z-40 bg-slate-950/70 p-4 pt-[10vh]"
-      onClick={() => setOpen(false)}>
-      <div className="mx-auto w-full max-w-lg rounded border border-slate-700 bg-slate-900 shadow-xl"
-        onClick={(e) => e.stopPropagation()}>
-        <input ref={inputRef} value={query}
-          role="combobox" aria-expanded="true" aria-controls="palette-list"
-          aria-activedescendant={matches[clampedActive] ? `palette-opt-${clampedActive}` : undefined}
-          placeholder="Type to search views, repos, tasks, actions…"
-          className="w-full rounded-t border-b border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none"
-          onChange={(e) => { setQuery(e.target.value); setActive(0); }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") { e.preventDefault(); setOpen(false); }
-            else if (e.key === "ArrowDown") {
-              e.preventDefault();
-              setActive((a) => (matches.length ? (a + 1) % matches.length : 0));
-            } else if (e.key === "ArrowUp") {
-              e.preventDefault();
-              setActive((a) => (matches.length ? (a - 1 + matches.length) % matches.length : 0));
-            } else if (e.key === "Enter") { e.preventDefault(); runEntry(clampedActive); }
-            else if (e.key === "Tab") e.preventDefault(); // focus trap while open
-          }} />
-        <ul ref={listRef} id="palette-list" role="listbox"
-          className="max-h-72 overflow-y-auto p-1">
-          {matches.length === 0 && (
-            <li className="px-2 py-1.5 text-xs text-slate-400">No matches.</li>
-          )}
-          {matches.map(({ entry }, i) => (
-            <li key={`${entry.section}|${entry.label}`} id={`palette-opt-${i}`}
-              role="option" aria-selected={i === clampedActive}
-              onClick={() => runEntry(i)}
-              onMouseEnter={() => setActive(i)}
-              className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm ${
-                i === clampedActive ? "bg-sky-700 text-white" : "text-slate-200"}`}>
-              <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+    <DialogShell
+      title="Command palette"
+      description="Search views, repositories, tasks, and actions."
+      onClose={closePalette}
+      initialFocusRef={inputRef}
+      backdropClose
+      closeLabel="Close command palette"
+      panelClassName="max-w-lg"
+      bodyClassName="p-0"
+    >
+      <label htmlFor="command-palette-query"
+        className="block px-3 pt-3 text-xs font-medium text-ui-muted">
+        Search commands
+      </label>
+      <input
+        ref={inputRef}
+        id="command-palette-query"
+        value={query}
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="palette-list"
+        aria-autocomplete="list"
+        aria-activedescendant={
+          effectiveActiveId ? paletteOptionDomId(effectiveActiveId) : undefined
+        }
+        placeholder="Type to search views, repos, tasks, actions…"
+        className="ui-field w-full rounded-none border-x-0 border-t-0 px-3 py-2 text-sm"
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setActiveId(null);
+        }}
+        onKeyDown={(event) => {
+          const currentIndex = visibleMatches.findIndex(
+            (match) => match.entry.id === effectiveActiveId,
+          );
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            if (visibleMatches.length > 0) {
+              const next = (currentIndex + 1) % visibleMatches.length;
+              setActiveId(visibleMatches[next].entry.id);
+            }
+          } else if (event.key === "ArrowUp") {
+            event.preventDefault();
+            if (visibleMatches.length > 0) {
+              const next = (currentIndex - 1 + visibleMatches.length)
+                % visibleMatches.length;
+              setActiveId(visibleMatches[next].entry.id);
+            }
+          } else if (event.key === "Enter") {
+            event.preventDefault();
+            activate(effectiveActiveId);
+          }
+        }}
+      />
+      <ul
+        id="palette-list"
+        role="listbox"
+        aria-label="Command results"
+        className="max-h-72 overflow-y-auto p-1"
+      >
+        {visibleMatches.length === 0 && (
+          <li className="px-2 py-2 text-xs text-ui-muted">No matches.</li>
+        )}
+        {visibleMatches.map(({ entry }) => {
+          const selected = entry.id === effectiveActiveId;
+          return (
+            <li
+              key={entry.id}
+              id={paletteOptionDomId(entry.id)}
+              role="option"
+              aria-selected={selected}
+              aria-disabled={entry.disabledReason ? "true" : undefined}
+              onClick={() => activate(entry.id)}
+              onMouseEnter={() => setActiveId(entry.id)}
+              className={
+                "flex min-w-0 items-center gap-2 rounded-control px-2 py-2 text-sm "
+                + (selected
+                  ? "bg-ui-primary text-white"
+                  : "text-ui-text hover:bg-ui-raised")
+                + (entry.disabledReason ? " cursor-not-allowed opacity-70" : "")
+              }
+            >
+              <span className="w-14 shrink-0 text-xs font-semibold uppercase tracking-wide text-ui-muted">
                 {entry.section}
               </span>
-              <span className="truncate">{entry.label}</span>
-              {entry.hint && (
-                <span className="ml-auto shrink-0 text-[11px] text-slate-400">{entry.hint}</span>
+              <span className="min-w-0 flex-1 break-words">{entry.label}</span>
+              {(entry.disabledReason ?? entry.hint) && (
+                <span className="max-w-44 shrink-0 text-right text-xs text-ui-muted">
+                  {entry.disabledReason ?? entry.hint}
+                </span>
               )}
             </li>
-          ))}
-        </ul>
-        <div className="border-t border-slate-800 px-3 py-1 text-[10px] text-slate-500">
-          ↑↓ navigate · Enter run · Esc close
-        </div>
+          );
+        })}
+      </ul>
+      {matches.length > 50 && (
+        <CollectionPager
+          collectionLabel="Command results"
+          controlsId="palette-list"
+          page={pager}
+          onPageChange={changePage}
+          className="border-t border-ui-border px-3 py-2"
+        />
+      )}
+      <div className="border-t border-ui-border px-3 py-1.5 text-xs text-ui-muted">
+        ↑↓ navigate · Enter run · Tab move · Esc close
       </div>
-    </div>
+    </DialogShell>
   );
 }

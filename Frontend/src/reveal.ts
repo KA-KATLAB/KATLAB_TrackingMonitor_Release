@@ -5,14 +5,31 @@
 // switches remount Overview/Changes and must NOT re-stagger, review R9).
 
 import { useEffect } from "react";
-import { prefersReducedMotion } from "./theme";
+import {
+  prefersReducedMotion,
+  subscribeReducedMotion,
+  usePrefersReducedMotion,
+} from "./theme";
 
 const seenViews = new Set<string>();
 
 export function useReveal (view: string, deps: unknown[]): void {
+  const reducedMotion = usePrefersReducedMotion();
   useEffect(() => {
-    if (prefersReducedMotion() || seenViews.has(view)) return;
     const els = [...document.querySelectorAll<HTMLElement>("[data-reveal]")];
+    const show = (cancelMotion = false): void => {
+      els.forEach((el) => {
+        if (cancelMotion) el.style.transition = "none";
+        el.style.opacity = "1";
+        el.style.transform = "none";
+      });
+    };
+    if (reducedMotion) {
+      seenViews.add(view);
+      show(true);
+      return;
+    }
+    if (seenViews.has(view)) return;
     if (els.length === 0) return; // data not rendered yet — retry on next dep change
     seenViews.add(view);
     els.forEach((el, i) => {
@@ -20,7 +37,7 @@ export function useReveal (view: string, deps: unknown[]): void {
       el.style.opacity = "0";
       el.style.transform = "translateY(10px)";
       el.style.transition =
-        `opacity 0.4s ease ${delay}s, transform 0.4s ease ${delay}s`;
+        "opacity 0.2s ease " + delay + "s, transform 0.2s ease " + delay + "s";
     });
     const io = new IntersectionObserver((entries) => {
       for (const e of entries) {
@@ -33,17 +50,22 @@ export function useReveal (view: string, deps: unknown[]): void {
     }, { threshold: 0.05 });
     els.forEach((el) => io.observe(el));
     // Safety net: whatever never intersects still becomes visible.
-    const show = () =>
-      els.forEach((el) => { el.style.opacity = "1"; el.style.transform = "none"; });
-    const timer = window.setTimeout(show, 4000);
+    const timer = window.setTimeout(() => show(), 4000);
+    const unsubscribe = subscribeReducedMotion(() => {
+      if (!prefersReducedMotion()) return;
+      io.disconnect();
+      window.clearTimeout(timer);
+      show(true);
+    });
     return () => {
+      unsubscribe();
       io.disconnect();
       window.clearTimeout(timer);
       // T4: cleanup may run BEFORE the observer ever fired (StrictMode
       // double-mount; fast unmount) — the seen-flag then blocks a re-run,
       // so anything still hidden must be revealed here (HARD rule).
-      show();
+      show(reducedMotion);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, [reducedMotion, view, ...deps]);
 }

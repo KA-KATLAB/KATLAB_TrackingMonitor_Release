@@ -24,11 +24,19 @@ export function ChronicleView () {
   }, []);
 
   if (ok === null) {
-    return <div className="p-8 text-sm text-slate-500">checking the Chronicle…</div>;
+    return (
+      <section className="flex min-h-96 flex-col" aria-labelledby="chronicle-heading">
+        <h2 id="chronicle-heading" data-view-heading tabIndex={-1} className="sr-only">
+          Chronicle
+        </h2>
+        <div className="p-8 text-sm text-slate-500">checking the Chronicle…</div>
+      </section>
+    );
   }
   if (!ok) {
     return (
-      <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-8 text-sm text-slate-400">
+      <section className="rounded-lg border border-slate-800 bg-slate-900/40 p-8 text-sm text-slate-400">
+        <h2 data-view-heading tabIndex={-1} className="sr-only">Chronicle</h2>
         <div className="mb-2 text-base text-slate-200">📖 Chronicle not built yet</div>
         <p>
           Keep the tracker running — its loop builds the site within a minute
@@ -36,11 +44,16 @@ export function ChronicleView () {
           MkDocs comes from <code className="text-slate-300">Scripts/Chronicle/install.bat</code>).
         </p>
         <p className="mt-1 text-slate-500">This card checks again every 10 seconds.</p>
-      </div>
+      </section>
     );
   }
   return (
-    <iframe src="/chronicle/" title="KATLAB Chronicle"
-      className="h-[calc(100vh-140px)] w-full rounded-lg border border-slate-800 bg-slate-950" />
+    <section className="flex h-full min-h-0 flex-col" aria-labelledby="chronicle-heading">
+      <h2 id="chronicle-heading" data-view-heading tabIndex={-1} className="sr-only">
+        Chronicle
+      </h2>
+      <iframe src="/chronicle/" title="KATLAB Chronicle"
+        className="min-h-0 w-full flex-1 rounded-lg border border-slate-800 bg-slate-950" />
+    </section>
   );
 }

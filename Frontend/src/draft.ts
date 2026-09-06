@@ -7,7 +7,7 @@
 // forever. RV2: the input is the pool App already holds (F38-capped
 // at one page — the draft reads what the UI reads, one truth one cap).
 
-import { Task, TrackedEvent } from "./api";
+import type { Task, TrackedEvent } from "./api";
 
 // The frame's version slots — the literal placeholder can never match
 // the Scribe/fireworks RELEASE_RX (X is not a digit); versioning is

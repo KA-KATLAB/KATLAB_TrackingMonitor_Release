@@ -73,6 +73,75 @@ export interface HistoryEntry {
   events: TrackedEvent[];
 }
 
+export const USER_ACTION_TIMEOUT_MS = 10_000;
+
+export interface ActionDeadline {
+  controller: AbortController;
+  signal: AbortSignal;
+  deadlineAt: number;
+  didTimeout: () => boolean;
+  clear: () => void;
+}
+
+export function createActionDeadline (
+  timeoutMs = USER_ACTION_TIMEOUT_MS,
+): ActionDeadline {
+  const controller = new AbortController();
+  const deadlineAt = Date.now() + timeoutMs;
+  let timedOut = false;
+  let cleared = false;
+  const timer = window.setTimeout(() => {
+    if (cleared) return;
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  return {
+    controller,
+    signal: controller.signal,
+    deadlineAt,
+    didTimeout: () => timedOut,
+    clear: () => {
+      if (cleared) return;
+      cleared = true;
+      window.clearTimeout(timer);
+    },
+  };
+}
+
+export function abortError (): DOMException {
+  return new DOMException("The operation was aborted.", "AbortError");
+}
+
+export function isAbortError (error: unknown): boolean {
+  return error instanceof DOMException
+    ? error.name === "AbortError"
+    : error instanceof Error && error.name === "AbortError";
+}
+
+export function remainingDeadlineMs (deadlineAt: number): number {
+  return Math.max(0, deadlineAt - Date.now());
+}
+
+/** Race an unabortable stage (for example dynamic import/render) against a signal. */
+export function raceWithSignal<T> (promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(abortError());
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(abortError());
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
+
 async function call<T> (url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
   const body = await response.json();
@@ -83,11 +152,15 @@ async function call<T> (url: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  repos: () => call<Repo[]>("/api/repos"),
-  health: () => call<HealthPayload>("/api/health"), // v0.2.3.0 D2 (B.2)
-  tasks: (repo?: string) => call<Task[]>(`/api/tasks${repo ? `?repo=${repo}` : ""}`),
+  repos: (signal?: AbortSignal) => call<Repo[]>("/api/repos", { signal }),
+  health: (signal?: AbortSignal) => call<HealthPayload>("/api/health", { signal }), // v0.2.3.0 D2 (B.2)
+  tasks: (repo?: string, signal?: AbortSignal) => {
+    const q = new URLSearchParams();
+    if (repo) q.set("repo", repo);
+    return call<Task[]>(`/api/tasks${q.size > 0 ? `?${q}` : ""}`, { signal });
+  },
   events: (params: { repo?: string; uncommitted?: boolean; limit?: number; offset?: number;
-    session?: string; file?: string; since?: string; until?: string }) => {
+    session?: string; file?: string; since?: string; until?: string }, signal?: AbortSignal) => {
     const q = new URLSearchParams();
     if (params.repo) q.set("repo", params.repo);
     if (params.session) q.set("session", params.session); // v0.1.6.0 D3 (C.3)
@@ -97,21 +170,28 @@ export const api = {
     if (params.uncommitted) q.set("uncommitted", "true");
     q.set("limit", String(params.limit ?? 500));
     q.set("offset", String(params.offset ?? 0));
-    return call<TrackedEvent[]>(`/api/events?${q}`);
+    return call<TrackedEvent[]>(`/api/events?${q}`, { signal });
   },
-  history: (repo: string, limit = 500, offset = 0) =>
-    call<HistoryEntry[]>(`/api/history?repo=${repo}&limit=${limit}&offset=${offset}`),
-  stats: (repo?: string) =>
-    call<import("./charts").StatsData>(`/api/stats${repo ? `?repo=${encodeURIComponent(repo)}` : ""}`),
-  diff: (repo: string, file: string, commit?: string | null) =>
+  history: (repo: string, limit = 500, offset = 0, signal?: AbortSignal) => {
+    const q = new URLSearchParams({ repo, limit: String(limit), offset: String(offset) });
+    return call<HistoryEntry[]>(`/api/history?${q}`, { signal });
+  },
+  stats: (repo?: string, signal?: AbortSignal) => {
+    const q = new URLSearchParams();
+    if (repo) q.set("repo", repo);
+    return call<import("./charts").StatsData>(`/api/stats${q.size > 0 ? `?${q}` : ""}`, { signal });
+  },
+  diff: (repo: string, file: string, commit?: string | null, signal?: AbortSignal) =>
     call<{ file: string; diff: string }>(
       `/api/diff?repo=${encodeURIComponent(repo)}&file=${encodeURIComponent(file)}` +
       (commit ? `&commit=${encodeURIComponent(commit)}` : ""),
+      { signal },
     ),
-  pickTask: (eventId: number, taskRef: string) =>
+  pickTask: (eventId: number, taskRef: string, signal?: AbortSignal) =>
     call<TrackedEvent>(`/api/events/${eventId}/task`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ task_ref: taskRef }),
+      signal,
     }),
 };

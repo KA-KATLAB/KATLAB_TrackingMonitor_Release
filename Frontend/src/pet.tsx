@@ -12,8 +12,8 @@
 // unscoped 365d calendar (delete the DB, lose the wardrobe: honest by
 // construction; zero persistence, zero interaction, zero localStorage).
 
-import { Repo } from "./api";
-import { StatsData } from "./charts";
+import type { Repo } from "./api";
+import type { StatsData } from "./charts";
 import { bestRolling7, maxStreakOf } from "./records";
 import { EFFORT_GAP_MAX_MIN, UNCOMMITTED_AGE_H } from "./theme";
 

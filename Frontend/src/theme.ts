@@ -1,9 +1,10 @@
 // v0.1.3.0 D6: single source of truth for mode colors + theming helpers.
 // MODE_COLOR is HEX (charts need real hex; R26) — the badge swatches AND the
-// Chart.js doughnut both read it, so a mode looks identical everywhere.
+// Chart.js mode bars both read it, so a mode looks identical everywhere.
 
+import { useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
-import { TrackedEvent } from "./api";
+import type { TrackedEvent } from "./api";
 
 export const MODE_COLOR: Record<TrackedEvent["mode"], string> = {
   B: "#059669", // emerald-600
@@ -12,6 +13,19 @@ export const MODE_COLOR: Record<TrackedEvent["mode"], string> = {
   AMBIGUOUS: "#f59e0b", // amber-500
   UNKNOWN: "#e11d48", // rose-600
   MANUAL: "#9333ea", // purple-600
+};
+
+export const MODE_ORDER: readonly TrackedEvent["mode"][] = [
+  "B", "A_SCOPED", "A_GLOBAL", "AMBIGUOUS", "UNKNOWN", "MANUAL",
+];
+
+export const MODE_CHART_LABEL: Record<TrackedEvent["mode"], string> = {
+  B: "Declared",
+  A_SCOPED: "Active",
+  A_GLOBAL: "Active *",
+  AMBIGUOUS: "Pick: multi",
+  UNKNOWN: "Pick: none",
+  MANUAL: "Your pick",
 };
 
 export const SWEPT_COLOR = "#71717a"; // zinc-500
@@ -63,8 +77,8 @@ export function sessionColor (id: string): string {
 
 // v0.1.5.0 C.1 (RV19): human badge labels, LIFTED from App.tsx - the single
 // label source for App AND digest.ts (importing App.tsx from digest would
-// create an App<->digest module cycle). charts.ts keeps its own abbreviated
-// MODE_LABEL variants (chart legends are width-constrained).
+// create an App<->digest module cycle). MODE_CHART_LABEL above owns the
+// abbreviated chart variants used by width-constrained visualizations.
 export const MODE_BADGE: Record<TrackedEvent["mode"], { label: string; tip: string }> = {
   B: { label: "Declared", tip: "B — the file is declared by exactly this task's <files>" },
   A_SCOPED: { label: "Active task", tip: "A_SCOPED — shared file; attributed to the one in-progress match" },
@@ -85,9 +99,68 @@ export const DIAGRAM = {
   accent: "#14b8a6", // teal-500
 };
 
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+const reducedMotionListeners = new Set<() => void>();
+
+interface ViewTransitionHandle {
+  finished: Promise<unknown>;
+  skipTransition: () => void;
+}
+
+const activeViewTransitions = new Set<ViewTransitionHandle>();
+let reducedMotionMedia: MediaQueryList | null = null;
+let reducedMotionSnapshot = false;
+
+function skipActiveViewTransitionsInternal (): void {
+  for (const transition of activeViewTransitions) {
+    try {
+      transition.skipTransition();
+    } catch {
+      // A transition may settle between iteration and skip; finished owns cleanup.
+    }
+  }
+}
+
+function ensureReducedMotionSource (): void {
+  if (reducedMotionMedia || typeof window === "undefined") return;
+  reducedMotionMedia = window.matchMedia(REDUCED_MOTION_QUERY);
+  reducedMotionSnapshot = reducedMotionMedia.matches;
+  const onChange = (event: MediaQueryListEvent): void => {
+    if (reducedMotionSnapshot === event.matches) return;
+    reducedMotionSnapshot = event.matches;
+    // Publish synchronously first. App subscribers invalidate guarded route/dream
+    // work before skipTransition can release an older callback.
+    for (const listener of [...reducedMotionListeners]) listener();
+    if (reducedMotionSnapshot) skipActiveViewTransitionsInternal();
+  };
+  reducedMotionMedia.addEventListener("change", onChange);
+}
+
+function getReducedMotionSnapshot (): boolean {
+  ensureReducedMotionSource();
+  return reducedMotionSnapshot;
+}
+
+export function subscribeReducedMotion (listener: () => void): () => void {
+  ensureReducedMotionSource();
+  reducedMotionListeners.add(listener);
+  return () => reducedMotionListeners.delete(listener);
+}
+
+export function usePrefersReducedMotion (): boolean {
+  return useSyncExternalStore(
+    subscribeReducedMotion,
+    getReducedMotionSnapshot,
+    () => false,
+  );
+}
+
 export function prefersReducedMotion (): boolean {
-  return typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return getReducedMotionSnapshot();
+}
+
+export function skipActiveViewTransitions (): void {
+  skipActiveViewTransitionsInternal();
 }
 
 // v0.1.7.0 D7 (C.4): View Transitions on view/tab switches — the documented
@@ -98,11 +171,31 @@ export function prefersReducedMotion (): boolean {
 // and palette actions stay instant (deliberate: a crossfade on every filter
 // click would be noise).
 export function withViewTransition (update: () => void): void {
-  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
-  if (doc.startViewTransition && !prefersReducedMotion()) {
-    doc.startViewTransition(() => flushSync(update));
-  } else {
+  const doc = document as Document & {
+    startViewTransition?: (callback: () => void) => ViewTransitionHandle;
+  };
+  if (!doc.startViewTransition || prefersReducedMotion()) {
     update();
+    return;
+  }
+
+  let callbackStarted = false;
+  try {
+    const transition = doc.startViewTransition(() => {
+      callbackStarted = true;
+      flushSync(update);
+    });
+    activeViewTransitions.add(transition);
+    const settle = (): void => {
+      activeViewTransitions.delete(transition);
+    };
+    void transition.finished.then(settle, settle);
+  } catch (error) {
+    if (!callbackStarted) {
+      update();
+      return;
+    }
+    throw error;
   }
 }
 

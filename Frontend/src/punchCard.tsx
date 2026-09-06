@@ -23,8 +23,7 @@ export function PunchCard ({ matrix }: { matrix: number[][] }) {
   const height = TOP + 7 * STEP;
   return (
     <div>
-      <svg width={width} height={height} role="img"
-        aria-label="activity by day of week and hour of day (local time)">
+      <svg width={width} height={height} aria-hidden="true" focusable="false">
         {HOUR_LABELS.map((h) => (
           <text key={h} x={LEFT + h * STEP} y={10} className="fill-slate-400" fontSize={9}>
             {String(h).padStart(2, "0")}

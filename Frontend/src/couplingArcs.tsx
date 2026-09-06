@@ -3,10 +3,11 @@
 // Nodes on a baseline ordered by total shared-weight; semicircle arcs whose
 // stroke uses EXACTLY the list badge's bucket expression (the one strength
 // rule) with couplingMax arriving as a PROP from OverviewView's single
-// computation (RV1 — never recomputed here). Every node opens the existing
-// FileStory. Fixed 400x150 viewBox, width 100% (the RV7-v0.1.10.0 class).
+// computation (RV1 — never recomputed here). The SVG is decorative because the
+// adjacent exact-data table owns the native FileStory actions. Fixed 400x150
+// viewBox, width 100% (the RV7-v0.1.10.0 class).
 
-import { StatsData } from "./charts";
+import type { StatsData } from "./charts";
 import { RAMP } from "./calendarHeatmap";
 
 type Pair = StatsData["file_coupling"][number];
@@ -19,41 +20,50 @@ function midTruncate (s: string, max: number): string {
   return `${s.slice(0, half)}…${s.slice(s.length - half)}`;
 }
 
-export function CouplingArcs ({ pairs, couplingMax, onOpenFileStory }: {
+export function CouplingArcs ({ pairs, couplingMax }: {
   pairs: Pair[];
   couplingMax: number; // RV1: OverviewView's one computation (max(1, ...))
-  onOpenFileStory?: (repo: string, file: string) => void;
 }) {
   if (pairs.length === 0) return null;
-  // Nodes ordered by total shared-weight desc, ties alphabetical repo|file.
-  const weight = new Map<string, number>();
+  // Nodes ordered by total shared-weight desc, ties by repo then file.
+  const weight = new Map<string, {
+    key: string;
+    repo: string;
+    file: string;
+    weight: number;
+  }>();
   for (const p of pairs) {
     for (const f of [p.file_a, p.file_b]) {
-      const k = `${p.repo}|${f}`;
-      weight.set(k, (weight.get(k) ?? 0) + p.shared);
+      const key = JSON.stringify([p.repo, f]);
+      weight.set(key, {
+        key,
+        repo: p.repo,
+        file: f,
+        weight: (weight.get(key)?.weight ?? 0) + p.shared,
+      });
     }
   }
-  const nodes = [...weight.entries()]
-    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
-    .map(([k]) => k);
+  const nodes = [...weight.values()].sort((a, b) => b.weight - a.weight
+    || (a.repo < b.repo ? -1 : a.repo > b.repo ? 1 : 0)
+    || (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
   const x = new Map<string, number>();
-  nodes.forEach((k, i) => {
-    x.set(k, nodes.length === 1
+  nodes.forEach((node, i) => {
+    x.set(node.key, nodes.length === 1
       ? VW / 2 : PAD + (i * (VW - 2 * PAD)) / (nodes.length - 1));
   });
   const bucket = (shared: number) =>
     RAMP[Math.min(4, Math.max(1, Math.ceil((shared / couplingMax) * 4)))];
 
   return (
-    <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" role="img"
-      aria-label="file coupling constellation">
+    <svg viewBox={`0 0 ${VW} ${VH}`} width="100%"
+      aria-hidden="true" focusable="false">
       {pairs.map((p) => {
-        const xa = x.get(`${p.repo}|${p.file_a}`)!;
-        const xb = x.get(`${p.repo}|${p.file_b}`)!;
+        const xa = x.get(JSON.stringify([p.repo, p.file_a]))!;
+        const xb = x.get(JSON.stringify([p.repo, p.file_b]))!;
         const [x1, x2] = xa < xb ? [xa, xb] : [xb, xa];
         const r = (x2 - x1) / 2;
         return (
-          <path key={`${p.repo}|${p.file_a}|${p.file_b}`}
+          <path key={JSON.stringify([p.repo, p.file_a, p.file_b])}
             d={`M ${x1} ${BASE_Y} A ${r} ${Math.min(r, BASE_Y - 8)} 0 0 1 ${x2} ${BASE_Y}`}
             fill="none" stroke={bucket(p.shared)} opacity={0.7}
             strokeWidth={1 + 3 * (p.shared / couplingMax)}>
@@ -61,13 +71,11 @@ export function CouplingArcs ({ pairs, couplingMax, onOpenFileStory }: {
           </path>
         );
       })}
-      {nodes.map((k) => {
-        const [repo, file] = [k.slice(0, k.indexOf("|")), k.slice(k.indexOf("|") + 1)];
-        const nx = x.get(k)!;
+      {nodes.map(({ key, repo, file }) => {
+        const nx = x.get(key)!;
         const base = file.split("/").pop() ?? file;
         return (
-          <g key={k} onClick={() => onOpenFileStory?.(repo, file)}
-            className={onOpenFileStory ? "cursor-pointer" : undefined}>
+          <g key={key}>
             <title>{`${repo}/${file}`}</title>
             <circle cx={nx} cy={BASE_Y} r={3} fill="#cbd5e1" />
             <text x={nx} y={BASE_Y + 14} textAnchor="middle" fontSize={8}

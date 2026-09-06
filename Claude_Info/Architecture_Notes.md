@@ -2,7 +2,7 @@
 
 Source of truth: `Ref/system_architecture.mermaid` + `Ref/hybrid_C_resolution_flow.mermaid`. This doc is the prose companion.
 
-## 1. System Architecture (4 parts)
+## 1. System Architecture (5 parts)
 
 ### 1.1 Capture — one user-scope hook, every session (v0.1.1.0)
 
@@ -29,11 +29,20 @@ Source of truth: `Ref/system_architecture.mermaid` + `Ref/hybrid_C_resolution_fl
 
 ### 1.4 Browser UI — React + Vite + Tailwind (English)
 
-- **Status bar**: `CLEAN ✓` / `N uncommitted changes` (resets to CLEAN when all changes are committed)
-- **Task sidebar**: plan tasks + status chips
-- **Main view**: changes grouped by task — why + files + diff viewer + **AMBIGUOUS queue** (manual pick)
-- **Overview tab** (v0.1.3.0/v0.1.4.0): KPI metric cards + Chart.js dashboard (attribution doughnut · events-per-task bar · 14-day activity line) + lazy Mermaid task→commit relationship map
-- **History tab**: commit → tasks → events (commits counted separately)
+- **Responsive shell**: repo scope, five-view navigation, status rail, Attention, and utilities remain reachable at phone, tablet, and desktop widths; Tasks is a modal drawer below 1024px and a persistent sidebar from 1024px.
+- **Changes**: changes grouped by task — why + files + diff viewer + **AMBIGUOUS queue** (manual pick), with bounded semantic collections.
+- **Overview**: Now (KPIs, plans, momentum) → Trends (three Chart.js charts, calendar, day lanes, coupling, punch card) → Explore (goals, identity, churn, trophies, records, provenance) → Relationships (lazy Mermaid). Attribution is a horizontal bar, not the retired doughnut.
+- **History**: commit → tasks → events, with independent API fetch depth and visible 50-row paging; commits remain counted separately.
+- **City and Chronicle**: City is a paged six-district SVG view with complete-model calculations and an exact-data alternative. Chronicle remains a same-origin iframe whose React host owns sizing/fallback only.
+
+### 1.5 Interface invariants (v0.2.12.0)
+
+- [UI_Design_System.md](../Docs/UI_Design_System.md) is the normative interface contract; semantic tokens and shared primitives live in `Frontend/src/index.css`, `tailwind.config.js`, `ui.tsx`, `icons.tsx`, and `dialog.tsx`.
+- The route is `{scope, view}` with canonical `view` then `repo` query order. Workspace scope and a repo literally named `ALL` are distinct. Back/Forward uses opaque entry ids plus in-memory, entry-local UI snapshots; private paths, filters, drafts, results, and Blobs never enter the URL or `history.state`.
+- Every modal/drawer uses the portal-based `DialogShell`: one overlay lease, inert background, body/app scroll freeze, dynamic Tab containment, Escape, and safe focus return. Header disclosure-to-dialog handoff returns to the persistent trigger.
+- Any semantic collection that can exceed 50 uses the shared bounded pager. Calculations, filtering, mutations, exports, and graph inputs continue to use the complete model; City alone pages six districts.
+- User-triggered REST work owns one absolute 10-second deadline plus abort/stale-generation guards. Digest preparation is two-stage and scope-bound; direct report and City downloads stay within their initiating activation.
+- One reactive reduced-motion source coordinates CSS, rAF, charts, reveal work, View Transitions, attract mode, and particles. Overview and City are route-lazy; Mermaid remains nested-lazy; the network-only service worker is unchanged.
 
 ## 2. Hybrid-C Resolution (the "why" attribution)
 

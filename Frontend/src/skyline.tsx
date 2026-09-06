@@ -4,7 +4,7 @@
 // faces are fixed darkenings of that hex (per-face lighting, not a second
 // ramp). Sqrt height scale so one outlier day never flattens the city.
 
-import { StatsData } from "./charts";
+import type { StatsData } from "./charts";
 import { fmtMinutes } from "./format";
 import { RAMP, rampBucket } from "./calendarHeatmap";
 
@@ -40,8 +40,7 @@ export function Skyline ({ calendar }: { calendar: CalDay[] }) {
   const width = OX + weeks * ISO_X + 4;
   const height = OY + HMAX + (weeks + 5) * ISO_Y + ISO_Y + 4;
   return (
-    <svg width={width} height={height} role="img"
-      aria-label="isometric activity skyline, last 365 days (UTC)">
+    <svg width={width} height={height} aria-hidden="true" focusable="false">
       {order.map(({ c, wi, di }) => {
         const gx = OX + (wi - di) * ISO_X;
         const gy = OY + HMAX + (wi + di) * ISO_Y;

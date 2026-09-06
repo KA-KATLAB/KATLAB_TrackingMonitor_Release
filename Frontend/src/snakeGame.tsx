@@ -12,8 +12,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { RAMP, rampBucket } from "./calendarHeatmap";
-import { StatsData } from "./charts";
-import { prefersReducedMotion } from "./theme";
+import type { StatsData } from "./charts";
+import { usePrefersReducedMotion } from "./theme";
 
 type CalDay = StatsData["activity_calendar"][number];
 
@@ -61,7 +61,8 @@ function buildSnap (calendar: CalDay[]): Snap {
 }
 
 export function SnakeCalendar ({ calendar }: { calendar: CalDay[] }) {
-  const reduced = prefersReducedMotion();
+  const reduced = usePrefersReducedMotion();
+  const suppressResumeRef = useRef(false);
   const snapRef = useRef<Snap>(buildSnap(calendar));
   // head index into the path; -1 = parked before the run (nothing eaten)
   const [hi, setHi] = useState(-1);
@@ -87,13 +88,19 @@ export function SnakeCalendar ({ calendar }: { calendar: CalDay[] }) {
     rafRef.current = requestAnimationFrame(loop);
   };
 
-  // Auto-play once on entering the snake view; rAF cancelled on unmount
-  // (the dayLanes cleanup recipe — StrictMode double-mount safe).
+  // Auto-play on entry. A live reduced-motion change cancels immediately and
+  // parks the snake; turning motion back on never replays stale activity.
   useEffect(() => {
-    if (!reduced) startRun();
+    if (reduced) {
+      suppressResumeRef.current = true;
+      cancelAnimationFrame(rafRef.current);
+      setHi(-1);
+    } else if (!suppressResumeRef.current) {
+      startRun();
+    }
     return () => cancelAnimationFrame(rafRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reduced]);
 
   const snap = snapRef.current;
   const dayAt = (c: number, r: number): CalDay | null => {
@@ -124,8 +131,7 @@ export function SnakeCalendar ({ calendar }: { calendar: CalDay[] }) {
           </button>
         </div>
       )}
-      <svg width={width} height={height} role="img"
-        aria-label="activity snake — the year's calendar, devoured">
+      <svg width={width} height={height} aria-hidden="true" focusable="false">
         {Array.from({ length: COLS }, (_, c) =>
           Array.from({ length: 7 }, (_, r) => {
             const d = dayAt(c, r);
@@ -136,7 +142,7 @@ export function SnakeCalendar ({ calendar }: { calendar: CalDay[] }) {
               <rect key={`${c}-${r}`} x={LEFT + c * STEP} y={TOP + r * STEP}
                 width={CELL} height={CELL} rx={2}
                 fill={eaten ? RAMP[0] : RAMP[rampBucket(d.events, snap.max)]}
-                style={{ transition: "fill 0.3s" }}>
+                style={reduced ? undefined : { transition: "fill 0.3s" }}>
                 <title>{`${d.day} (UTC) — ${d.events} event${d.events === 1 ? "" : "s"}`}</title>
               </rect>
             );

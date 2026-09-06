@@ -11,7 +11,9 @@
 // already names). The tracker is a MIRROR (the pet law): statuses flip
 // in the plan files, never here.
 
-import { Task } from "./api";
+import type { Task } from "./api";
+import { DisclosureTable } from "./accessibleData";
+import { CollectionPager, SectionHeading, Surface, useBoundedPage } from "./ui";
 
 const shortId = (ref: string) => ref.split(" - ").pop() ?? ref;
 const basename = (p: string) => p.replace(/\\/g, "/").split("/").pop() ?? p;
@@ -30,7 +32,7 @@ export interface PlanGroup {
 export function groupActivePlans (tasks: Task[]): PlanGroup[] {
   const map = new Map<string, Task[]>();
   for (const t of tasks) {
-    const k = `${t.repo}|${t.plan_file}`;
+    const k = JSON.stringify([t.repo, t.plan_file]);
     map.set(k, [...(map.get(k) ?? []), t]);
   }
   const groups: PlanGroup[] = [];
@@ -71,15 +73,21 @@ export function PlanBoard ({ tasks, onOpenFileStory }: {
   onOpenFileStory: (repo: string, file: string) => void;
 }) {
   const plans = groupActivePlans(tasks);
+  const pager = useBoundedPage({
+    identity: ["active-plan-board", ...plans.map((plan) =>
+      JSON.stringify([plan.repo, plan.planFile]))],
+    totalItems: plans.length,
+    pageSize: 50,
+  });
   if (plans.length === 0) return null; // the hidden-at-0 precedent
+  const planTasks = plans.flatMap((plan) => plan.tasks);
   return (
-    <div data-reveal className="mb-4 rounded border border-slate-700 bg-slate-900 p-3">
-      <div className="mb-2 text-xs font-semibold text-slate-300">
-        Active plans — the missions
-      </div>
+    <Surface data-reveal>
+      <SectionHeading level={4} title="Active plans"
+        description="The missions currently in motion." />
       <div className="space-y-3">
-        {plans.map((p) => (
-          <div key={`${p.repo}|${p.planFile}`}>
+        {plans.slice(pager.start, pager.end).map((p) => (
+          <div key={JSON.stringify([p.repo, p.planFile])}>
             <div className="flex items-baseline gap-2 text-sm">
               <span className="font-bold text-slate-100">{p.base}</span>
               <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-300">
@@ -90,7 +98,7 @@ export function PlanBoard ({ tasks, onOpenFileStory }: {
               </span>
             </div>
             {/* the segmented bar — one segment per task, served order */}
-            <div className="mt-1 flex h-2 gap-0.5 overflow-hidden rounded">
+            <div className="mt-1 flex h-2 gap-0.5 overflow-hidden rounded" aria-hidden="true">
               {p.tasks.map((t) => (
                 <span key={t.task_ref}
                   className={`h-full flex-1 ${t.status === "in-progress" ? "pulse-dot" : ""}`}
@@ -108,16 +116,16 @@ export function PlanBoard ({ tasks, onOpenFileStory }: {
                   <span className="font-bold text-slate-100">{t.title}</span>
                 </div>
                 {t.why && (
-                  <p className="mt-0.5 text-xs text-slate-400" title={t.why}
-                    style={{ display: "-webkit-box", WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                  <p className="mt-0.5 break-words text-xs text-slate-400">
                     {t.why}
                   </p>
                 )}
                 {t.files.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
-                    {t.files.slice(0, 4).map((f) => (
-                      <button key={f} onClick={() => onOpenFileStory(t.repo, f)}
+                    {t.files.slice(0, 4).map((f, fileOrdinal) => (
+                      <button key={JSON.stringify([f, fileOrdinal])} type="button"
+                        onClick={() => onOpenFileStory(t.repo, f)}
+                        aria-label={`${f} — open file story`}
                         title={`${f} — open the file story`}
                         className="rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-sky-300 hover:bg-slate-700">
                         {basename(f)}
@@ -146,6 +154,43 @@ export function PlanBoard ({ tasks, onOpenFileStory }: {
           </div>
         ))}
       </div>
-    </div>
+      {plans.length > 50 && (
+        <CollectionPager collectionLabel="Active plans" page={pager}
+          onPageChange={pager.setPage} className="mt-3" />
+      )}
+      <DisclosureTable
+        label="Active plan tasks"
+        summary={`${plans.length} active plan${plans.length === 1 ? "" : "s"} contain `
+          + `${planTasks.length} task${planTasks.length === 1 ? "" : "s"}.`}
+        rows={planTasks}
+        rowKey={(task) => JSON.stringify([task.repo, task.plan_file, task.task_ref])}
+        identity={["active-plan-tasks", ...plans.map((plan) =>
+          JSON.stringify([plan.repo, plan.planFile]))]}
+        columns={[
+          { key: "repo", label: "Repository", render: (task) => task.repo,
+            sortValue: (task) => task.repo },
+          { key: "plan", label: "Plan", render: (task) =>
+            <span className="break-all font-mono">{task.plan_file}</span>,
+            sortValue: (task) => task.plan_file },
+          { key: "task", label: "Task", render: (task) =>
+            <span className="break-words font-mono">{task.task_ref}</span>,
+            sortValue: (task) => task.task_ref },
+          { key: "title", label: "Title", render: (task) => task.title,
+            sortValue: (task) => task.title },
+          { key: "status", label: "Status", render: (task) => task.status,
+            sortValue: (task) => task.status },
+          { key: "files", label: "Declared files", render: (task) => task.files.length === 0
+            ? "—"
+            : <span className="flex max-w-xl flex-wrap gap-1">{task.files.map((file, fileOrdinal) => (
+              <button key={JSON.stringify([file, fileOrdinal])} type="button"
+                onClick={() => onOpenFileStory(task.repo, file)}
+                className="ui-focus-ring inline-flex min-h-6 min-w-6 items-center rounded font-mono text-sky-300 hover:underline">
+                {file}
+              </button>
+            ))}</span> },
+        ]}
+        className="mt-3 border-t border-slate-800 pt-3"
+      />
+    </Surface>
   );
 }

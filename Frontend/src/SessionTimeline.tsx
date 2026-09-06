@@ -1,129 +1,201 @@
-// v0.1.6.0 D3 (C.3): the story of ONE session — cross-repo chronological
-// timeline, replay-lite. STATIC snapshot fetched at open (no live WS append;
-// close/reopen refreshes — RV17). The API pages NEWEST-first, so rows are
-// sorted ts-ASC client-side BEFORE gap markers / task separators are
-// computed (RV7). Up to 3 pages of 500; a full 3rd page adds a truncation
-// note and the header effort is labelled "(fetched window)" (RV13). The
-// header effort sum is presentation-only arithmetic over the fetched rows —
-// the algorithm home stays in Backend/app/db.py (RV4 mirror contract).
-
 import { useEffect, useRef, useState } from "react";
-import { api, TrackedEvent } from "./api";
+import { api, createActionDeadline, isAbortError } from "./api";
+import type { TrackedEvent } from "./api";
+import { DialogShell } from "./dialog";
 import { fmtMinutes, fmtTs } from "./format";
-import { EFFORT_GAP_MAX_MIN, EFFORT_TAIL_MIN, MODE_BADGE, MODE_COLOR, sessionColor } from "./theme";
+import {
+  EFFORT_GAP_MAX_MIN,
+  EFFORT_TAIL_MIN,
+  MODE_BADGE,
+  MODE_COLOR,
+  sessionColor,
+} from "./theme";
+import { CollectionPager, useBoundedPage } from "./ui";
 
-const PAGE = 500, MAX_PAGES = 3;
+const API_PAGE = 500;
+const MAX_PAGES = 3;
 
-export function SessionTimeline ({ session, onClose }:
-  { session: string; onClose: () => void }) {
+export function SessionTimeline ({
+  session,
+  onClose,
+  onStatus,
+}: {
+  session: string;
+  onClose: () => void;
+  onStatus: (message: string) => void;
+}): JSX.Element {
   const [rows, setRows] = useState<TrackedEvent[] | null>(null);
   const [error, setError] = useState("");
   const [truncated, setTruncated] = useState(false);
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  const prevFocus = useRef<HTMLElement | null>(null);
+  const [busy, setBusy] = useState(true);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const retryPendingRef = useRef(false);
 
-  // Static snapshot at open (RV17); ts-ASC sort before render (RV7).
   useEffect(() => {
     let alive = true;
+    const action = createActionDeadline();
+    retryPendingRef.current = false;
+    setBusy(true);
+    setError("");
     (async () => {
       try {
         const all: TrackedEvent[] = [];
-        for (let p = 0; p < MAX_PAGES; p++) {
-          const page = await api.events({ session, limit: PAGE, offset: p * PAGE });
+        for (let pageIndex = 0; pageIndex < MAX_PAGES; pageIndex++) {
+          const page = await api.events({
+            session,
+            limit: API_PAGE,
+            offset: pageIndex * API_PAGE,
+          }, action.signal);
           all.push(...page);
-          if (page.length < PAGE) { if (alive) setTruncated(false); break; }
-          if (p === MAX_PAGES - 1 && alive) setTruncated(true);
+          if (page.length < API_PAGE) {
+            if (alive) setTruncated(false);
+            break;
+          }
+          if (pageIndex === MAX_PAGES - 1 && alive) setTruncated(true);
         }
         all.sort((a, b) => a.ts.localeCompare(b.ts));
-        if (alive) setRows(all);
-      } catch (exc) {
-        if (alive) setError(String(exc));
+        if (alive && !action.signal.aborted) {
+          setRows(all);
+          if (retryNonce > 0) onStatus("Session timeline recovered.");
+        }
+      } catch (errorValue) {
+        if (!alive || (isAbortError(errorValue) && !action.didTimeout())) return;
+        const message = action.didTimeout()
+          ? "Session timeline timed out after 10 seconds."
+          : `Session timeline failed: ${String(errorValue).slice(0, 120)}`;
+        setError(message);
+        onStatus(`${message} Retry is available.`);
+      } finally {
+        action.clear();
+        if (alive) setBusy(false);
       }
     })();
-    return () => { alive = false; };
-  }, [session]);
-
-  // Single-overlay rule (suppresses Ctrl+K) + Esc close + focus restore.
-  useEffect(() => {
-    prevFocus.current = document.activeElement as HTMLElement | null;
-    document.body.dataset.overlayOpen = "1";
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
     return () => {
-      delete document.body.dataset.overlayOpen;
-      window.removeEventListener("keydown", onKey);
-      prevFocus.current?.focus?.();
+      alive = false;
+      action.controller.abort();
+      action.clear();
     };
-  }, [onClose]);
+  }, [onStatus, retryNonce, session]);
 
-  // Presentation-only effort over the fetched rows (mirrored constants).
+  const retry = (): void => {
+    if (busy || retryPendingRef.current) return;
+    retryPendingRef.current = true;
+    setBusy(true);
+    setRetryNonce((value) => value + 1);
+  };
+
+  const pager = useBoundedPage({
+    identity: ["session-timeline", session],
+    totalItems: rows?.length ?? 0,
+    pageSize: 50,
+  });
+  const visibleRows = rows?.slice(pager.start, pager.end) ?? [];
   const gapMs = EFFORT_GAP_MAX_MIN * 60_000;
   let effortMin = 0;
   if (rows && rows.length > 0) {
-    let total = 0, blockStart = new Date(rows[0].ts).getTime(), prev = blockStart;
-    for (const e of rows.slice(1)) {
-      const t = new Date(e.ts).getTime();
-      if (t - prev > gapMs) { total += prev - blockStart; total += EFFORT_TAIL_MIN * 60_000; blockStart = t; }
-      prev = t;
+    let total = 0;
+    let blockStart = new Date(rows[0].ts).getTime();
+    let previous = blockStart;
+    for (const event of rows.slice(1)) {
+      const timestamp = new Date(event.ts).getTime();
+      if (timestamp - previous > gapMs) {
+        total += previous - blockStart + EFFORT_TAIL_MIN * 60_000;
+        blockStart = timestamp;
+      }
+      previous = timestamp;
     }
-    total += prev - blockStart + EFFORT_TAIL_MIN * 60_000;
+    total += previous - blockStart + EFFORT_TAIL_MIN * 60_000;
     effortMin = Math.round(total / 60_000);
   }
 
   return (
-    <div className="fixed inset-0 z-40 bg-slate-950/70 p-4 pt-[8vh]" onClick={onClose}>
-      <div ref={wrapRef} onClick={(e) => e.stopPropagation()}
-        className="mx-auto flex max-h-[80vh] w-full max-w-2xl flex-col rounded border border-slate-700 bg-slate-900 shadow-xl">
-        <div className="flex items-center gap-2 border-b border-slate-700 px-4 py-2 text-sm">
-          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: sessionColor(session) }} />
-          <span className="font-mono font-semibold text-slate-100">session {session.slice(0, 8)}</span>
-          {rows && (
-            <span className="text-[11px] text-slate-400"
-              title="estimated from capture timestamps — 15-min gap rule">
-              {rows.length} event{rows.length === 1 ? "" : "s"} · {fmtMinutes(effortMin)}
-              {truncated ? " (fetched window)" : ""}
-            </span>
-          )}
-          <button className="ml-auto text-slate-400 hover:text-white" onClick={onClose}>✕</button>
-        </div>
-        <div className="overflow-y-auto p-3 text-xs">
-          {error && <p className="text-rose-300">{error}</p>}
-          {rows && rows.length === 0 && <p className="text-slate-400">No events for this session.</p>}
-          {rows && rows.map((e, i) => {
-            const prev = rows[i - 1];
-            const gap = prev ? new Date(e.ts).getTime() - new Date(prev.ts).getTime() : 0;
-            const taskChanged = prev !== undefined && prev.task_ref !== e.task_ref;
-            return (
-              <div key={e.id}>
-                {prev && gap > gapMs && (
-                  <div className="my-2 text-center text-[11px] text-slate-500">
-                    — {fmtMinutes(Math.round(gap / 60_000))} gap —
-                  </div>
-                )}
-                {(i === 0 || taskChanged) && (
-                  <div className="mt-2 border-l-4 border-sky-600 pl-2 font-mono text-[11px] text-sky-300">
-                    {e.task_ref ?? "(unresolved — pick queue)"}
-                  </div>
-                )}
-                <div className="flex items-center gap-2 py-0.5 pl-3">
-                  <span className="text-slate-400" title={e.ts}>{fmtTs(e.ts)}</span>
-                  <span className="text-[11px] text-slate-500">{e.repo_id}</span>
-                  <span className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
-                    style={{ backgroundColor: MODE_COLOR[e.mode] }}>
-                    {MODE_BADGE[e.mode].label}
-                  </span>
-                  <span className="truncate font-mono">{e.file}</span>
+    <DialogShell
+      title={
+        <span className="flex min-w-0 items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="h-3 w-3 shrink-0 rounded-full"
+            style={{ backgroundColor: sessionColor(session) }}
+          />
+          <span className="break-all font-mono">session {session.slice(0, 8)}</span>
+        </span>
+      }
+      description={rows
+        ? (
+          <>
+            {rows.length} event{rows.length === 1 ? "" : "s"} · {fmtMinutes(effortMin)}
+            {truncated ? " (fetched window)" : ""}
+          </>
+        )
+        : "Cross-repository captured activity"}
+      onClose={onClose}
+      backdropClose
+      closeLabel="Close session timeline"
+    >
+      <div id="session-timeline-events" className="min-w-0 text-xs">
+        {busy && !rows && <p className="text-ui-muted">Loading session timeline…</p>}
+        {error && (
+          <div className="rounded-control border border-rose-700 bg-rose-950/30 p-3 text-rose-200">
+            <p>{error}</p>
+            <button type="button" className="ui-control mt-2 bg-ui-raised"
+              disabled={busy} aria-busy={busy}
+              onClick={retry}>
+              Retry
+            </button>
+          </div>
+        )}
+        {rows?.length === 0 && <p className="text-ui-muted">No events for this session.</p>}
+        {visibleRows.map((event, localIndex) => {
+          const absoluteIndex = pager.start + localIndex;
+          const previous = rows?.[absoluteIndex - 1];
+          const gap = previous
+            ? new Date(event.ts).getTime() - new Date(previous.ts).getTime()
+            : 0;
+          const taskChanged = !previous || previous.task_ref !== event.task_ref;
+          const continuation = localIndex === 0 && absoluteIndex > 0 && !taskChanged;
+          return (
+            <div key={event.id}>
+              {previous && gap > gapMs && (
+                <div className="my-2 text-center text-xs text-ui-muted">
+                  — {fmtMinutes(Math.round(gap / 60_000))} gap —
                 </div>
+              )}
+              {(taskChanged || continuation) && (
+                <div className="mt-2 break-words border-l-4 border-sky-600 pl-2 font-mono text-xs text-sky-300">
+                  {event.task_ref ?? "(unresolved — pick queue)"}
+                  {continuation ? " — continued" : ""}
+                </div>
+              )}
+              <div className="flex min-w-0 flex-wrap items-center gap-2 py-1 pl-3">
+                <span className="text-ui-muted" title={event.ts}>{fmtTs(event.ts)}</span>
+                <span className="break-all text-ui-muted">{event.repo_id}</span>
+                <span
+                  className="rounded px-1.5 py-0.5 text-xs font-bold text-white"
+                  style={{ backgroundColor: MODE_COLOR[event.mode] }}
+                >
+                  {MODE_BADGE[event.mode].label}
+                </span>
+                <span className="min-w-0 break-all font-mono">{event.file}</span>
               </div>
-            );
-          })}
-          {truncated && (
-            <p className="mt-2 text-[11px] text-amber-300">
-              ⚠ Truncated: only the newest {PAGE * MAX_PAGES} events were fetched — this session had more.
-            </p>
-          )}
-        </div>
+            </div>
+          );
+        })}
       </div>
-    </div>
+      {rows && rows.length > 50 && (
+        <CollectionPager
+          collectionLabel="Session timeline events"
+          controlsId="session-timeline-events"
+          page={pager}
+          onPageChange={pager.setPage}
+          className="mt-3 border-t border-ui-border pt-3"
+        />
+      )}
+      {truncated && (
+        <p className="mt-3 text-xs text-amber-300">
+          ⚠ Truncated: only the newest {API_PAGE * MAX_PAGES} events were fetched
+          — this session had more.
+        </p>
+      )}
+    </DialogShell>
   );
 }

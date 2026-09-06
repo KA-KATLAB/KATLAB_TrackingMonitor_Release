@@ -4,7 +4,7 @@
 // get a corner dot; native <title> tooltips carry the (UTC) marker — day
 // buckets are UTC (UF4's local rule applies to timestamps, not day buckets).
 
-import { StatsData } from "./charts";
+import type { StatsData } from "./charts";
 import { fmtMinutes } from "./format";
 
 type CalDay = StatsData["activity_calendar"][number];
@@ -89,8 +89,7 @@ export function CalendarHeatmap ({ calendar }: { calendar: CalDay[] }) {
   // v0.1.9.0 B.1 (RV8): the legend moved to the exported RampLegend — the
   // Overview card renders it once below whichever view is active.
   return (
-    <svg width={width} height={height} role="img"
-      aria-label="daily activity calendar, last 365 days (UTC)">
+    <svg width={width} height={height} aria-hidden="true" focusable="false">
       {months.map((m) => (
         <text key={m.x} x={m.x} y={10} className="fill-slate-400" fontSize={9}>
           {m.label}

@@ -5,7 +5,8 @@
 // chunk and the initial bundle stays lean.
 
 import { DIAGRAM } from "./theme";
-import { HistoryEntry, Task, TrackedEvent } from "./api";
+import { abortError, isAbortError, raceWithSignal } from "./api";
+import type { HistoryEntry, Task, TrackedEvent } from "./api";
 
 const NODE_CAP = 12; // R5 backstop: only 12+ TASK plans trip this
 let initialized = false;
@@ -18,12 +19,49 @@ export interface GraphInput {
   uncommitted: TrackedEvent[]; // client events state -> which tasks hit the sink (R17)
 }
 
+export interface GraphWorkContext {
+  origin: "foreground" | "background";
+  key: string;
+  generation: number;
+  signal: AbortSignal;
+  deadlineAt?: number;
+}
+
+export class MermaidModuleLoadError extends Error {
+  constructor (cause: unknown) {
+    super(`Mermaid module failed to load: ${String(cause)}`);
+    this.name = "MermaidModuleLoadError";
+  }
+}
+
+function assertContextActive (context: GraphWorkContext): void {
+  if (context.signal.aborted
+      || (context.deadlineAt !== undefined && Date.now() >= context.deadlineAt)) {
+    throw abortError();
+  }
+}
+
 function safe (s: string): string {
   // Mermaid label quoting: strip/replace shape chars, collapse whitespace.
   return s.replace(/["/\\()<>{}|]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-export interface BuildResult { def: string | null; capped: number; shown: number; total: number; }
+export interface BackboneRow {
+  taskRef: string;
+  taskId: string;
+  title: string;
+  files: string[];
+  commits: string[];
+  uncommitted: boolean;
+}
+
+export interface BuildResult {
+  def: string | null;
+  capped: number;
+  shown: number;
+  total: number;
+  rows: BackboneRow[];
+}
 
 export function buildBackbone (input: GraphInput): BuildResult {
   const { planFile, tasks, history, uncommitted } = input;
@@ -31,9 +69,13 @@ export function buildBackbone (input: GraphInput): BuildResult {
   const total = planTasks.length;
   const shown = Math.min(total, NODE_CAP - 2); // leave room for commit/sink nodes
   const use = planTasks.slice(0, shown);
-  if (use.length === 0) return { def: null, capped: 0, shown: 0, total };
+  if (use.length === 0) {
+    return { def: null, capped: 0, shown: 0, total, rows: [] };
+  }
 
-  const refs = new Set(use.map((t) => t.task_ref));
+  // Build the complete structured alternative before Mermaid is imported.
+  // The decorative graph stays capped, while its table remains lossless.
+  const refs = new Set(planTasks.map((t) => t.task_ref));
   // task_ref -> set of commit hashes (from committed history events, R17)
   const taskCommits = new Map<string, Set<string>>();
   for (const { events } of history) {
@@ -47,6 +89,14 @@ export function buildBackbone (input: GraphInput): BuildResult {
   const taskUncommitted = new Set(
     uncommitted.filter((e) => e.task_ref && refs.has(e.task_ref)).map((e) => e.task_ref),
   );
+  const rows: BackboneRow[] = planTasks.map((task) => ({
+    taskRef: task.task_ref,
+    taskId: task.task_id,
+    title: task.title,
+    files: [...task.files],
+    commits: [...(taskCommits.get(task.task_ref) ?? [])],
+    uncommitted: taskUncommitted.has(task.task_ref),
+  }));
 
   const lines = ["flowchart TD"];
   let hasSink = false;
@@ -63,13 +113,22 @@ export function buildBackbone (input: GraphInput): BuildResult {
   lines.push("  classDef task fill:#134e4a55,stroke:#14b8a6,color:#e2e8f0;");
   lines.push(`  class ${use.map((_, i) => `T${i}`).join(",")} task;`);
 
-  return { def: lines.join("\n"), capped: total - shown, shown, total };
+  return { def: lines.join("\n"), capped: total - shown, shown, total, rows };
 }
 
-async function ensureMermaid () {
+async function ensureMermaid (context: GraphWorkContext) {
   // R9: mermaid stays a dynamic import (its own Vite chunk); ONE initialize
   // shared by the backbone flowchart AND the v0.1.9.0 gitGraph.
-  const mermaid = (await import("mermaid")).default;
+  assertContextActive(context);
+  let imported: typeof import("mermaid");
+  try {
+    imported = await raceWithSignal(import("mermaid"), context.signal);
+  } catch (errorValue) {
+    if (isAbortError(errorValue)) throw errorValue;
+    throw new MermaidModuleLoadError(errorValue);
+  }
+  assertContextActive(context);
+  const mermaid = imported.default;
   if (!initialized) {
     mermaid.initialize({
       startOnLoad: false, theme: "base", securityLevel: "strict",
@@ -95,23 +154,42 @@ async function ensureMermaid () {
   return mermaid;
 }
 
-export async function renderBackbone (input: GraphInput): Promise<{ svg: string; meta: BuildResult }> {
-  const meta = buildBackbone(input);
+export async function renderBackbone (input: GraphInput, context: GraphWorkContext,
+  prepared?: BuildResult): Promise<{ svg: string; meta: BuildResult }> {
+  const meta = prepared ?? buildBackbone(input);
   if (!meta.def) return { svg: "", meta };
-  const mermaid = await ensureMermaid();
-  const { svg } = await mermaid.render(`ve-graph-${seq++}`, meta.def); // R9: fresh id
+  const mermaid = await ensureMermaid(context);
+  assertContextActive(context);
+  const { svg } = await raceWithSignal(
+    mermaid.render(`ve-graph-${seq++}`, meta.def),
+    context.signal,
+  ); // R9: fresh id
+  assertContextActive(context);
   return { svg, meta };
 }
 
 // --- v0.1.9.0 D4 (B.2): commit graph — real parents, bounded decoration ---
 
-export interface GitGraphResult { def: string | null; shown: number; total: number; }
+export interface GitGraphRow {
+  hash: string;
+  message: string;
+  timestamp: string;
+  parents: string[];
+  eventCount: number;
+}
+
+export interface GitGraphResult {
+  def: string | null;
+  shown: number;
+  total: number;
+  rows: GitGraphRow[];
+}
 
 const GIT_CAP = 20; // latest N of the fetched page
 
 export function buildGitGraph (entries: HistoryEntry[], branchName: string): GitGraphResult {
   const total = entries.length;
-  if (total === 0) return { def: null, shown: 0, total: 0 }; // RV3: empty page
+  if (total === 0) return { def: null, shown: 0, total: 0, rows: [] }; // RV3: empty page
   // RV2: the main branch is RENAMED via the init directive — every checkout
   // must use this sanitized name, never a literal "main". CFT-1: checkout
   // statements QUOTE it — a detached-HEAD repo's main is the SHORT HASH
@@ -119,6 +197,13 @@ export function buildGitGraph (entries: HistoryEntry[], branchName: string): Git
   // letter (parse-proven both ways against @mermaid-js/parser).
   const main = safe(branchName || "main").replace(/\s+/g, "_") || "main";
   const page = entries.slice(0, GIT_CAP).map((e) => e.commit);
+  const rows: GitGraphRow[] = entries.slice(0, GIT_CAP).map((entry) => ({
+    hash: entry.commit.hash,
+    message: entry.commit.message,
+    timestamp: entry.commit.ts,
+    parents: (entry.commit.parents ?? "").trim().split(/\s+/).filter(Boolean),
+    eventCount: entry.events.length,
+  }));
   const walk = [...page].reverse(); // oldest-first; main line = page order
   const short = (h: string) => h.slice(0, 7);
   const sideSeen = new Map<string, number>(); // RV4: same-tip repeats -> *2, *3
@@ -149,14 +234,20 @@ export function buildGitGraph (entries: HistoryEntry[], branchName: string): Git
       lines.push(`  commit id: "${short(c.hash)}"${tag}`);
     }
   });
-  return { def: lines.join("\n"), shown: page.length, total };
+  return { def: lines.join("\n"), shown: page.length, total, rows };
 }
 
-export async function renderGitGraph (entries: HistoryEntry[], branchName: string):
+export async function renderGitGraph (entries: HistoryEntry[], branchName: string,
+  context: GraphWorkContext, prepared?: GitGraphResult):
   Promise<{ svg: string; meta: GitGraphResult }> {
-  const meta = buildGitGraph(entries, branchName);
+  const meta = prepared ?? buildGitGraph(entries, branchName);
   if (!meta.def) return { svg: "", meta };
-  const mermaid = await ensureMermaid();
-  const { svg } = await mermaid.render(`ve-graph-${seq++}`, meta.def); // R9: fresh id
+  const mermaid = await ensureMermaid(context);
+  assertContextActive(context);
+  const { svg } = await raceWithSignal(
+    mermaid.render(`ve-graph-${seq++}`, meta.def),
+    context.signal,
+  ); // R9: fresh id
+  assertContextActive(context);
   return { svg, meta };
 }

@@ -1,13 +1,12 @@
 // v0.1.3.0 D2: Chart.js dashboard helpers. `chart.js/auto` auto-registers all
-// controllers/elements/scales (R9 — a bare `chart.js` import throws
-// "'doughnut' is not a registered controller"). Every chart is created via
+// controllers/elements/scales. Every chart is created via
 // makeChart and MUST be .destroy()'d on cleanup/re-create (R2: a Chart owns
 // its canvas; StrictMode + per-sync re-render would else throw "Canvas
 // already in use"). Colors come from theme.ts MODE_COLOR (R4/R26).
 
 import { Chart } from "chart.js/auto";
-import { MODE_COLOR, prefersReducedMotion } from "./theme";
-import { TrackedEvent } from "./api";
+import { MODE_CHART_LABEL, MODE_COLOR, MODE_ORDER, prefersReducedMotion } from "./theme";
+import type { TrackedEvent } from "./api";
 
 // A.1/D3: Chart.js draws text on CANVAS — page CSS never reaches it, so the
 // pairing must land on the defaults (per-chart font objects only set size).
@@ -66,26 +65,24 @@ const GRID = "#334155"; // slate-700
 const TEXT = "#94a3b8"; // slate-400
 const noAnim = () => (prefersReducedMotion() ? (false as const) : undefined);
 
-const MODES: TrackedEvent["mode"][] = ["B", "A_SCOPED", "A_GLOBAL", "AMBIGUOUS", "UNKNOWN", "MANUAL"];
-const MODE_LABEL: Record<TrackedEvent["mode"], string> = {
-  B: "Declared", A_SCOPED: "Active", A_GLOBAL: "Active *",
-  AMBIGUOUS: "Pick: multi", UNKNOWN: "Pick: none", MANUAL: "Your pick",
-};
-
-export function modeDoughnut (canvas: HTMLCanvasElement, s: StatsData): Chart {
+export function modeDistributionBar (canvas: HTMLCanvasElement, s: StatsData): Chart {
   return new Chart(canvas, {
-    type: "doughnut",
+    type: "bar",
     data: {
-      labels: MODES.map((m) => MODE_LABEL[m]),
+      labels: MODE_ORDER.map((mode) => MODE_CHART_LABEL[mode]),
       datasets: [{
-        data: MODES.map((m) => s.mode_counts[m] ?? 0),
-        backgroundColor: MODES.map((m) => MODE_COLOR[m]), // R26: same hex as the badges
-        borderColor: "#0f172a", borderWidth: 2,
+        data: MODE_ORDER.map((mode) => s.mode_counts[mode] ?? 0),
+        backgroundColor: MODE_ORDER.map((mode) => MODE_COLOR[mode]),
       }],
     },
     options: {
+      indexAxis: "y",
       responsive: true, maintainAspectRatio: false, animation: noAnim(), // R18
-      plugins: { legend: { position: "right", labels: { color: TEXT, font: { size: 11 } } } },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, ticks: { color: TEXT, precision: 0 }, grid: { color: GRID } },
+        y: { ticks: { color: TEXT, font: { size: 10 } }, grid: { display: false } },
+      },
     },
   });
 }

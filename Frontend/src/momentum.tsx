@@ -8,8 +8,9 @@
 // divergence from the green/red staple). Tile accents reuse the
 // goal-rings metric palette (events teal / minutes sky / commits amber).
 
-import { StatsData } from "./charts";
+import type { StatsData } from "./charts";
 import { fmtMinutes } from "./format";
+import { SectionHeading, Surface } from "./ui";
 
 type CalDay = StatsData["activity_calendar"][number];
 type Metric = "events" | "minutes" | "commits";
@@ -62,11 +63,11 @@ function Spark ({ values, accent }: { values: number[]; accent: string }) {
 export function MomentumStrip ({ calendar, scope }:
   { calendar: CalDay[]; scope: string | undefined }) {
   return (
-    <div data-reveal className="mb-4 rounded border border-slate-700 bg-slate-900 p-3">
-      <div className="mb-2 text-xs font-semibold text-slate-300">
-        Momentum — this week vs last (UTC) — {scope ?? "ALL repos"}
-      </div>
-      <div className="overflow-x-auto">
+    <Surface data-reveal>
+      <SectionHeading level={4} title="Momentum"
+        description={`This week vs last (UTC) — ${scope ?? "All repos"}.`} />
+      <div className="ui-local-scroller overflow-x-auto" role="region"
+        aria-label="Momentum metrics" tabIndex={0}>
         <div className="grid min-w-[420px] gap-3 sm:grid-cols-3">
           {TILES.map(({ key, label, accent }) => {
             const { cur, prev } = windowSums(calendar, key);
@@ -84,6 +85,7 @@ export function MomentumStrip ({ calendar, scope }:
                       {d.text}
                     </span>
                   </div>
+                  <div className="text-[10px] text-slate-500">last week {shown(prev)}</div>
                 </div>
                 <div className="ml-auto w-full max-w-[130px]">
                   <Spark accent={accent}
@@ -94,6 +96,6 @@ export function MomentumStrip ({ calendar, scope }:
           })}
         </div>
       </div>
-    </div>
+    </Surface>
   );
 }

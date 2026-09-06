@@ -10,10 +10,12 @@
 // run over the year; the shipped streakOf answers the CURRENT streak — a
 // different question, never reused.
 
-import { CSSProperties, useEffect, useRef, useState } from "react";
-import { StatsData } from "./charts";
+import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
+import type { StatsData } from "./charts";
 import { fmtMinutes } from "./format";
-import { prefersReducedMotion } from "./theme";
+import { usePrefersReducedMotion } from "./theme";
+import { SectionHeading, Surface } from "./ui";
 
 type CalDay = StatsData["activity_calendar"][number];
 const fmt = (n: number) => n.toLocaleString("en-US");
@@ -48,6 +50,9 @@ function runEndingToday (calendar: CalDay[]): number {
 type RowKey = "dayEvents" | "dayMinutes" | "streak" | "week";
 
 export function Records ({ calendar }: { calendar: CalDay[] }) {
+  const reducedMotion = usePrefersReducedMotion();
+  const reducedMotionRef = useRef(reducedMotion);
+  reducedMotionRef.current = reducedMotion;
   // today's raw values per row (the detection feed)
   const last = calendar[calendar.length - 1];
   const todayVals: Record<RowKey, number> = {
@@ -86,7 +91,7 @@ export function Records ({ calendar }: { calendar: CalDay[] }) {
       // strictly greater, crossed BETWEEN payloads, never re-fires
       if (prev[row] <= toBeat[row] && todayVals[row] > toBeat[row]) {
         const n = ++nonceRef.current;
-        if (!prefersReducedMotion()) {
+        if (!reducedMotionRef.current) {
           setBursts((b) => [...b.filter((x) => x.row !== row), { row, n }]);
           const t = window.setTimeout(() => {
             timersRef.current.delete(t);
@@ -105,6 +110,13 @@ export function Records ({ calendar }: { calendar: CalDay[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calendar]);
   useEffect(() => () => timersRef.current.forEach((t) => clearTimeout(t)), []);
+  useEffect(() => {
+    if (!reducedMotion) return;
+    timersRef.current.forEach((timer) => clearTimeout(timer));
+    timersRef.current.clear();
+    setBursts([]);
+    setBanner(null);
+  }, [reducedMotion]);
 
   const rows: { key: RowKey; label: string; value: string; day: string }[] = [
     { key: "dayEvents", label: "best day — captures", value: fmt(bestEv.events), day: bestEv.day },
@@ -114,15 +126,14 @@ export function Records ({ calendar }: { calendar: CalDay[] }) {
   ];
 
   return (
-    <div data-reveal className="mt-4 rounded border border-slate-700 bg-slate-900 p-3">
-      <div className="mb-2 flex items-center text-xs font-semibold text-slate-300">
-        <span>Personal records — (last 365d, UTC)</span>
-        {banner !== null && (
-          <span className="ml-auto rounded bg-amber-900/50 px-2 py-0.5 font-bold text-amber-300">
+    <Surface data-reveal>
+      <SectionHeading level={4} title="Personal records"
+        description="Last 365 days (UTC)."
+        actions={banner !== null ? (
+          <span className="rounded bg-amber-900/50 px-2 py-1 text-xs font-bold text-amber-300">
             NEW RECORD 🏆
           </span>
-        )}
-      </div>
+        ) : undefined} />
       <ul className="space-y-1.5 text-sm">
         {rows.map((r) => (
           <li key={r.key} className="relative flex items-baseline gap-2">
@@ -150,6 +161,6 @@ export function Records ({ calendar }: { calendar: CalDay[] }) {
           </li>
         ))}
       </ul>
-    </div>
+    </Surface>
   );
 }

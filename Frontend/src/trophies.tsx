@@ -4,8 +4,9 @@
 // render "???" until their condition holds (data-derived, no persistence;
 // window-based trophies decay honestly as data ages out of the 365 days).
 
-import { StatsData } from "./charts";
-import { Task } from "./api";
+import type { StatsData } from "./charts";
+import type { Task } from "./api";
+import { SectionHeading, Surface } from "./ui";
 
 const RANKS = ["C", "B", "A", "S", "SS", "SSS"] as const;
 // slate-500 / sky-600 / teal-500 / amber-400 / purple-500 / rose-500
@@ -91,11 +92,10 @@ export function TrophyCase ({ stats, tasks, scope }: {
 }) {
   const scoped = scope ? tasks.filter((t) => t.repo === scope) : tasks;
   return (
-    <div data-reveal className="mt-4 rounded border border-slate-700 bg-slate-900 p-3">
-      <div className="mb-2 text-xs font-semibold text-slate-300">
-        Trophy case — {scope ?? "ALL repos"}
-      </div>
-      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+    <Surface data-reveal>
+      <SectionHeading level={4} title="Trophy case"
+        description={scope ?? "All repos"} />
+      <div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
         {TROPHIES.map((t) => {
           const v = t.value(stats, scoped);
           const crossed = t.thresholds.filter((th) => v >= th).length;
@@ -116,7 +116,11 @@ export function TrophyCase ({ stats, tasks, scope }: {
                 </span>
               </div>
               <div className="mt-1 text-[11px] text-slate-400">{fmt(v)}</div>
-              <div className="mt-1 h-1 rounded bg-slate-700">
+              <div className="mt-0.5 text-[10px] leading-tight text-slate-500">{t.basis}</div>
+              <div className="mt-0.5 text-[10px] text-slate-400">
+                {next === null ? "maximum rank reached" : `next rank at ${fmt(next)}`}
+              </div>
+              <div className="mt-1 h-1 rounded bg-slate-700" aria-hidden="true">
                 <div className="h-1 rounded"
                   style={{ width: `${pct}%`, backgroundColor: color, opacity: 0.85 }} />
               </div>
@@ -146,6 +150,6 @@ export function TrophyCase ({ stats, tasks, scope }: {
           );
         })}
       </div>
-    </div>
+    </Surface>
   );
 }

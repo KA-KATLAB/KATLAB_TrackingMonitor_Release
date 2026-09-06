@@ -14,12 +14,18 @@
 // configure. CityScene is exported pure for the battery (the moodOf
 // precedent); App renders CityView only.
 
-import { CSSProperties, useEffect, useRef, useState } from "react";
-import { api, Repo, Task, TrackedEvent } from "./api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
+import { abortError, api, createActionDeadline, isAbortError, raceWithSignal } from "./api";
+import type { ActionDeadline, Repo, Task, TrackedEvent } from "./api";
 import { RAMP } from "./calendarHeatmap";
-import { StatsData } from "./charts";
-import { Mood, Pet, Wardrobe } from "./pet";
-import { UNCOMMITTED_AGE_H } from "./theme";
+import type { StatsData } from "./charts";
+import { startBlobDownload } from "./download";
+import { Pet } from "./pet";
+import type { Mood, Wardrobe } from "./pet";
+import { UNCOMMITTED_AGE_H, usePrefersReducedMotion } from "./theme";
+import { DisclosureTable } from "./accessibleData";
+import { CollectionPager, useRememberedBoundedPage } from "./ui";
 
 type ChurnRow = StatsData["file_churn"][number];
 
@@ -96,8 +102,8 @@ const WEATHER_TIP: Record<Exclude<Weather, null | "forecast">, string> = {
 };
 
 // one iso building (3 faces from base point bx,by — the skyline recipe)
-function Building ({ bx, by, h, color, tip }:
-  { bx: number; by: number; h: number; color: string; tip: string }) {
+function Building ({ bx, by, h, color }:
+  { bx: number; by: number; h: number; color: string }) {
   const w = BW, dy = w / 2;
   const p = (pts: number[][]) => pts.map(([x, y]) => `${x},${y}`).join(" ");
   return (
@@ -108,7 +114,6 @@ function Building ({ bx, by, h, color, tip }:
         fill={shade(color, 0.82)} />
       <polygon points={p([[bx, by - h], [bx + w, by - h + dy], [bx + 2 * w, by - h], [bx + w, by - h - dy]])}
         fill={color} />
-      <title>{tip}</title>
     </g>
   );
 }
@@ -132,14 +137,21 @@ export interface DistrictData {
   inProgress: Task[];    // cranes
 }
 
+function activateSvgAction (event: KeyboardEvent<SVGGElement>, action: () => void): void {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  action();
+}
+
 // The PURE scene — everything derivable from props (battery-testable).
 export function CityScene ({ districts, churnMax, mood, nowMs, localHour,
-  onOpenFileStory, onGoRepo }: {
+  rangeLabel, onOpenFileStory, onGoRepo }: {
   districts: DistrictData[];
   churnMax: number;      // max events across ALL districts' rows
   mood: Mood;
   nowMs: number;
   localHour: number;
+  rangeLabel: string;
   onOpenFileStory?: (repo: string, file: string) => void;
   onGoRepo?: (repoId: string) => void;
 }) {
@@ -147,7 +159,11 @@ export function CityScene ({ districts, churnMax, mood, nowMs, localHour,
   const bucket = skyBucket(localHour);
   return (
     <svg width={width} height={HEIGHT} role="img"
-      aria-label="KATLAB City — the living workspace">
+      aria-label={`KATLAB City — ${rangeLabel}`}>
+      <title>{`KATLAB City — ${rangeLabel}`}</title>
+      <desc>
+        {`Exactly this visible district page is shown. Building heights share the full-workspace scale.`}
+      </desc>
       {/* sky band + deterministic stars at night (index-math seeded) */}
       <rect x={0} y={0} width={width} height={SKY_H} fill={SKY_FILL[bucket]} />
       {bucket === "night" && Array.from({ length: 18 }, (_, i) => (
@@ -183,16 +199,28 @@ export function CityScene ({ districts, churnMax, mood, nowMs, localHour,
             {/* buildings — back row (0..3) first, front row after (painter) */}
             {rows.map((r, i) => {
               const row = i < 4 ? 0 : 1, col = i % 4;
-              const bx = dx + 22 + col * 32 + row * 12;
-              const by = GROUND_Y - 4 + row * 22;
+              const bx = dx + 4 + col * 44 + row * 6;
+              const by = GROUND_Y - 4 + row * 44;
               const h = HMIN + Math.sqrt(r.events / Math.max(1, churnMax)) * HSPAN;
               const base = r.file.split(/[\\/]/).pop() ?? r.file;
+              const buildingLabel = `${r.repo}/${r.file} — ${r.events} event${r.events === 1 ? "" : "s"}; open file story`;
               return (
-                <g key={`${r.repo}|${r.file}`} className="cursor-pointer"
-                  onClick={() => onOpenFileStory?.(r.repo, r.file)}>
+                <g key={JSON.stringify([r.repo, r.file])}
+                  role={onOpenFileStory ? "button" : undefined}
+                  tabIndex={onOpenFileStory ? 0 : undefined}
+                  aria-label={onOpenFileStory ? buildingLabel : undefined}
+                  className={onOpenFileStory ? "ui-svg-action cursor-pointer" : undefined}
+                  onClick={() => onOpenFileStory?.(r.repo, r.file)}
+                  onKeyDown={onOpenFileStory
+                    ? (event) => activateSvgAction(event, () => onOpenFileStory(r.repo, r.file))
+                    : undefined}>
+                  <title>{`${base} — ${r.events} event${r.events === 1 ? "" : "s"} · last ${r.last_ts}`}</title>
+                  {onOpenFileStory && (
+                    <rect x={bx - 7} y={by - 22} width={44} height={44}
+                      fill="transparent" />
+                  )}
                   <Building bx={bx} by={by} h={h}
-                    color={RAMP[recencyBand(r.last_ts, nowMs)]}
-                    tip={`${base} — ${r.events} event${r.events === 1 ? "" : "s"} · last ${r.last_ts}`} />
+                    color={RAMP[recencyBand(r.last_ts, nowMs)]} />
                 </g>
               );
             })}
@@ -276,7 +304,17 @@ export function CityScene ({ districts, churnMax, mood, nowMs, localHour,
               </g>
             )}
             {/* plaque: repo id + the StatusBar chip mirror */}
-            <g className="cursor-pointer" onClick={() => onGoRepo?.(d.repo.id)}>
+            <g role={onGoRepo ? "button" : undefined}
+              tabIndex={onGoRepo ? 0 : undefined}
+              aria-label={onGoRepo ? `Open Overview for repository ${d.repo.id}` : undefined}
+              className={onGoRepo ? "ui-svg-action cursor-pointer" : undefined}
+              onClick={() => onGoRepo?.(d.repo.id)}
+              onKeyDown={onGoRepo
+                ? (event) => activateSvgAction(event, () => onGoRepo(d.repo.id))
+                : undefined}>
+              {onGoRepo && (
+                <rect x={dx + 41} y={74} width={88} height={44} fill="transparent" />
+              )}
               <text x={dx + 85} y={92} textAnchor="middle" fontSize={12}
                 fontWeight="bold" className="fill-slate-200">{d.repo.id}</text>
               {offline ? (
@@ -310,10 +348,15 @@ export function CityScene ({ districts, churnMax, mood, nowMs, localHour,
   );
 }
 
-interface Drop { id: number; x: number; batch: number }
-interface Burst { repo: string; n: number; x: number }
+interface Drop { id: number; x: number; batch: number; pageKey: string }
+interface Burst { repo: string; n: number; x: number; pageKey: string }
 // v0.2.9.0 D4 (B.1, R-BK): the recovery rainbow (rain -> sun only).
-interface Rainbow { repo: string; n: number; x: number }
+interface Rainbow { repo: string; n: number; x: number; pageKey: string }
+interface CityAlternativeRow {
+  district: DistrictData;
+  building: ChurnRow | null;
+  buildingOrdinal: number | null;
+}
 // RV9: the pinned arc geometry — outside-in, red first (the physical
 // rainbow order); upper semicircles on the y=170 rooftop baseline.
 // Exported for the battery (the WARDROBE_TIERS readability precedent).
@@ -341,64 +384,263 @@ export function inlineSvgClasses (markup: string): string {
   return out.replace(/ class="[^"]*"/g, "");
 }
 
-export function CityView ({ repos, tasks, events, mood, wardrobe, stats,
-  onOpenFileStory, onGoRepo }: {
+interface CityRound {
+  generation: number;
+  key: string;
+  origin: "automatic" | "foreground";
+  controller: AbortController;
+  action?: ActionDeadline;
+  settled: Promise<boolean>;
+}
+
+async function fetchCityChurnPool (repoIds: readonly string[],
+  signal: AbortSignal): Promise<Map<string, ChurnRow[]>> {
+  const rows = new Map<string, ChurnRow[]>();
+  let cursor = 0;
+  let firstError: unknown;
+  let failed = false;
+  let stopped = false;
+  const workers = Array.from({ length: Math.min(6, repoIds.length) }, async () => {
+    while (!stopped && !signal.aborted) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= repoIds.length) return;
+      try {
+        const result = await api.stats(repoIds[index], signal);
+        rows.set(repoIds[index], result.file_churn);
+      } catch (errorValue) {
+        if (signal.aborted) return;
+        if (!failed) firstError = errorValue;
+        failed = true;
+        stopped = true;
+      }
+    }
+  });
+  await Promise.all(workers);
+  if (signal.aborted) throw abortError();
+  if (failed) throw firstError;
+  return rows;
+}
+
+export function CityView ({ repos, tasks, events, workspaceReady, mood, wardrobe, refreshIdentity,
+  onOpenFileStory, onGoRepo, onStatus }: {
   repos: Repo[];
   tasks: Task[];
   events: TrackedEvent[];   // the uncommitted pool (rain rides this)
+  workspaceReady: boolean;  // first complete repos/tasks/events snapshot accepted
   mood: Mood;
   wardrobe: Wardrobe;       // v0.2.7.0 B.2 (RV3/RV16): stops HERE — the
                             // street Kat lives on the HTML overlay, the
                             // pure scene (and its snapshot) never sees it
-  stats: StatsData | null;  // freshness nonce ONLY (tab-scoped in App)
+  refreshIdentity: number;  // changes only after an accepted scoped-stats success
   onOpenFileStory: (repo: string, file: string) => void;
   onGoRepo: (repoId: string) => void;
+  onStatus: (message: string) => void;
 }) {
+  const reducedMotion = usePrefersReducedMotion();
+  const reducedMotionRef = useRef(reducedMotion);
+  reducedMotionRef.current = reducedMotion;
   const [churn, setChurn] = useState<Map<string, ChurnRow[]>>(new Map());
+  const [acceptedKey, setAcceptedKey] = useState("");
+  const acceptedKeyRef = useRef("");
+  const [hydrating, setHydrating] = useState(false);
+  const [hydrationNote, setHydrationNote] = useState("");
+  const hydrationNoteRef = useRef("");
+  const [retryBusy, setRetryBusy] = useState(false);
+  const retryBusyRef = useRef(false);
   const [drops, setDrops] = useState<Drop[]>([]);
   const [bursts, setBursts] = useState<Burst[]>([]);
   const [rainbows, setRainbows] = useState<Rainbow[]>([]);
   const prevWeatherRef = useRef<Map<string, Weather> | null>(null);
   const rainbowN = useRef(0);
   const mountedRef = useRef(true);
-  const timersRef = useRef<Set<number>>(new Set());
-  const lastFetchRef = useRef(-Infinity);
-  const catchUpRef = useRef<number | null>(null);
+  const animationTimersRef = useRef<Map<number, string>>(new Map());
+  const snapshotTimerRef = useRef<number | null>(null);
+  const autoTimerRef = useRef<number | null>(null);
+  const lastRoundStartRef = useRef(-Infinity);
   const reposRef = useRef(repos);
   reposRef.current = repos;
+  const repoKey = JSON.stringify(repos.map((repo) => repo.id));
+  const repoKeyRef = useRef("");
+  const roundGenerationRef = useRef(0);
+  const roundRef = useRef<CityRound | null>(null);
+  const retryActionRef = useRef<ActionDeadline | null>(null);
+  const trailingRoundRef = useRef(false);
+  const scheduleAutomaticRef = useRef<() => void>(() => {});
   const prevIdsRef = useRef<Set<number> | null>(null);
   const prevCountsRef = useRef<Map<string, number> | null>(null);
   const batchRef = useRef(0);
   const nonceRef = useRef(0);
+  const visibleRepoIdsRef = useRef<string[]>([]);
+  const pageKeyRef = useRef("");
 
   const districtX = (repoId: string) => {
-    const i = reposRef.current.findIndex((r) => r.id === repoId);
+    const i = visibleRepoIdsRef.current.indexOf(repoId);
     return i < 0 ? null : 10 + i * PITCH + 85;
   };
 
-  // RV1+RV3: per-repo SCOPED stats, throttled to one round per window
-  // with ONE trailing catch-up so the final state always lands.
-  const doFetch = async () => {
-    lastFetchRef.current = Date.now();
-    try {
-      const list = reposRef.current;
-      const results = await Promise.all(list.map((r) => api.stats(r.id)));
-      if (!mountedRef.current) return;
-      setChurn(new Map(list.map((r, i) => [r.id, results[i].file_churn])));
-    } catch { /* keep the last skyline; the next nonce retries */ }
-  };
-  useEffect(() => {
-    const since = Date.now() - lastFetchRef.current;
-    if (since >= FETCH_WINDOW_MS) {
-      void doFetch();
-    } else if (catchUpRef.current === null) {
-      catchUpRef.current = window.setTimeout(() => {
-        catchUpRef.current = null;
-        void doFetch();
-      }, FETCH_WINDOW_MS - since);
+  const clearTransientAnimations = useCallback((): void => {
+    for (const timer of animationTimersRef.current.keys()) clearTimeout(timer);
+    animationTimersRef.current.clear();
+    setDrops([]);
+    setBursts([]);
+    setRainbows([]);
+  }, []);
+
+  const runRound = useCallback((origin: "automatic" | "foreground",
+    key: string, repoIds: readonly string[], owner: { controller: AbortController;
+      action?: ActionDeadline }): Promise<boolean> => {
+    const generation = ++roundGenerationRef.current;
+    lastRoundStartRef.current = Date.now();
+    const record: CityRound = {
+      generation,
+      key,
+      origin,
+      controller: owner.controller,
+      action: owner.action,
+      settled: Promise.resolve(false),
+    };
+    roundRef.current = record;
+    setHydrating(true);
+    record.settled = (async () => {
+      try {
+        const next = await fetchCityChurnPool(repoIds, owner.controller.signal);
+        if (!mountedRef.current || roundGenerationRef.current !== generation
+            || repoKeyRef.current !== key || owner.controller.signal.aborted) return false;
+        const recovered = !!hydrationNoteRef.current;
+        acceptedKeyRef.current = key;
+        setAcceptedKey(key);
+        setChurn(next);
+        hydrationNoteRef.current = "";
+        setHydrationNote("");
+        if (recovered) onStatus("City data recovered.");
+        return true;
+      } catch (errorValue) {
+        if (!mountedRef.current || roundGenerationRef.current !== generation
+            || repoKeyRef.current !== key) return false;
+        const timedOut = !!owner.action
+          && (owner.action.didTimeout() || Date.now() >= owner.action.deadlineAt);
+        if (isAbortError(errorValue) && !timedOut) return false;
+        const hasAccepted = acceptedKeyRef.current === key;
+        const message = timedOut
+          ? "City retry timed out after 10 seconds."
+          : `${hasAccepted ? "City refresh failed; showing the last accepted snapshot" : "City data is unavailable"}: ${String(errorValue).slice(0, 100)}.`;
+        hydrationNoteRef.current = message;
+        setHydrationNote(message);
+        if (origin === "foreground") onStatus(`${message} Retry is available.`);
+        return false;
+      } finally {
+        if (roundRef.current === record) {
+          roundRef.current = null;
+          if (mountedRef.current) setHydrating(false);
+        }
+        if (origin === "automatic" && trailingRoundRef.current) {
+          trailingRoundRef.current = false;
+          queueMicrotask(() => scheduleAutomaticRef.current());
+        }
+      }
+    })();
+    return record.settled;
+  }, [onStatus]);
+
+  const scheduleAutomatic = useCallback((): void => {
+    if (!workspaceReady) return;
+    const key = repoKeyRef.current;
+    const repoIds = reposRef.current.map((repo) => repo.id);
+    if (roundRef.current || retryBusyRef.current) {
+      trailingRoundRef.current = true;
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stats, repos.length]);
+    if (repoIds.length === 0) {
+      acceptedKeyRef.current = key;
+      setAcceptedKey(key);
+      setChurn(new Map());
+      hydrationNoteRef.current = "";
+      setHydrationNote("");
+      setHydrating(false);
+      return;
+    }
+    const wait = FETCH_WINDOW_MS - (Date.now() - lastRoundStartRef.current);
+    if (wait > 0) {
+      if (autoTimerRef.current === null) {
+        autoTimerRef.current = window.setTimeout(() => {
+          autoTimerRef.current = null;
+          scheduleAutomaticRef.current();
+        }, wait);
+      }
+      return;
+    }
+    trailingRoundRef.current = false;
+    void runRound("automatic", key, repoIds, { controller: new AbortController() });
+  }, [runRound, workspaceReady]);
+  scheduleAutomaticRef.current = scheduleAutomatic;
+
+  useEffect(() => {
+    const changedKey = repoKeyRef.current !== repoKey;
+    if (changedKey) {
+      repoKeyRef.current = repoKey;
+      acceptedKeyRef.current = "";
+      setAcceptedKey("");
+      setChurn(new Map());
+      hydrationNoteRef.current = "";
+      setHydrationNote("");
+      trailingRoundRef.current = false;
+      if (autoTimerRef.current !== null) {
+        window.clearTimeout(autoTimerRef.current);
+        autoTimerRef.current = null;
+      }
+      if (roundRef.current) {
+        roundGenerationRef.current += 1;
+        roundRef.current.controller.abort();
+        trailingRoundRef.current = true;
+      }
+      retryActionRef.current?.controller.abort();
+    }
+    scheduleAutomatic();
+  }, [refreshIdentity, repoKey, scheduleAutomatic]);
+
+  const retryHydration = (): void => {
+    if (retryBusyRef.current) return;
+    const action = createActionDeadline();
+    retryActionRef.current = action;
+    retryBusyRef.current = true;
+    setRetryBusy(true);
+    const key = repoKeyRef.current;
+    const repoIds = reposRef.current.map((repo) => repo.id);
+    const prior = roundRef.current;
+    if (prior) {
+      roundGenerationRef.current += 1;
+      prior.controller.abort();
+    }
+    void (async () => {
+      try {
+        if (prior) {
+          await raceWithSignal(prior.settled.then(() => undefined), action.signal);
+          if (roundRef.current === prior) roundRef.current = null;
+        }
+        if (action.signal.aborted || repoKeyRef.current !== key) throw abortError();
+        await runRound("foreground", key, repoIds,
+          { controller: action.controller, action });
+      } catch (errorValue) {
+        const timedOut = action.didTimeout() || Date.now() >= action.deadlineAt;
+        if (!mountedRef.current || repoKeyRef.current !== key
+            || (isAbortError(errorValue) && !timedOut)) return;
+        const message = "City retry timed out while stopping the prior refresh. Retry.";
+        hydrationNoteRef.current = message;
+        setHydrationNote(message);
+        onStatus(message);
+      } finally {
+        action.clear();
+        if (retryActionRef.current === action) retryActionRef.current = null;
+        retryBusyRef.current = false;
+        if (mountedRef.current) setRetryBusy(false);
+        if (trailingRoundRef.current) {
+          trailingRoundRef.current = false;
+          queueMicrotask(() => scheduleAutomaticRef.current());
+        }
+      }
+    })();
+  };
 
   // D2 rain: id-keyed growth diff; per-batch prune timeouts (RV6).
   useEffect(() => {
@@ -406,21 +648,25 @@ export function CityView ({ repos, tasks, events, mood, wardrobe, stats,
     const prev = prevIdsRef.current;
     prevIdsRef.current = ids;
     if (prev === null) return; // first payload = baseline, no rain
+    if (reducedMotionRef.current) return;
     const fresh = events.filter((e) => !prev.has(e.id));
     if (fresh.length === 0) return;
     const batch = ++batchRef.current;
+    const pageKey = pageKeyRef.current;
     const add: Drop[] = [];
     for (const e of fresh) {
       const x = districtX(e.repo_id);
-      if (x !== null) add.push({ id: e.id, x: x - 40 + (e.id % 11) * 8, batch });
+      if (x !== null) add.push({
+        id: e.id, x: x - 40 + (e.id % 11) * 8, batch, pageKey,
+      });
     }
     if (add.length === 0) return;
     setDrops((d) => [...d, ...add].slice(-12)); // newest ~12
     const t = window.setTimeout(() => {
-      timersRef.current.delete(t);
-      setDrops((d) => d.filter((x) => x.batch !== batch)); // own batch only
+      animationTimersRef.current.delete(t);
+      setDrops((d) => d.filter((x) => x.batch !== batch || x.pageKey !== pageKey));
     }, 900);
-    timersRef.current.add(t);
+    animationTimersRef.current.set(t, pageKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events]);
 
@@ -435,17 +681,23 @@ export function CityView ({ repos, tasks, events, mood, wardrobe, stats,
     const prev = prevWeatherRef.current;
     prevWeatherRef.current = cur;
     if (prev === null) return; // first payload = baseline
+    if (reducedMotionRef.current) return;
+    const pageKey = pageKeyRef.current;
     for (const [id, w] of cur) {
       if (prev.get(id) === "rain" && w === "sun") {
         const x = districtX(id);
         if (x === null) continue;
         const n = ++rainbowN.current;
-        setRainbows((b) => [...b.filter((y) => y.repo !== id), { repo: id, n, x }]);
+        setRainbows((b) => [
+          ...b.filter((y) => y.repo !== id || y.pageKey !== pageKey),
+          { repo: id, n, x, pageKey },
+        ]);
         const t = window.setTimeout(() => {
-          timersRef.current.delete(t);
-          setRainbows((b) => b.filter((y) => !(y.repo === id && y.n === n)));
+          animationTimersRef.current.delete(t);
+          setRainbows((b) => b.filter((y) =>
+            !(y.repo === id && y.n === n && y.pageKey === pageKey)));
         }, 2500);
-        timersRef.current.add(t);
+        animationTimersRef.current.set(t, pageKey);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -457,38 +709,105 @@ export function CityView ({ repos, tasks, events, mood, wardrobe, stats,
     const prev = prevCountsRef.current;
     prevCountsRef.current = cur;
     if (prev === null) return; // baseline
+    if (reducedMotionRef.current) return;
+    const pageKey = pageKeyRef.current;
     for (const [id, n] of cur) {
       const p = prev.get(id);
       if (p !== undefined && n < p) {
         const x = districtX(id);
         if (x === null) continue;
         const nonce = ++nonceRef.current;
-        setBursts((b) => [...b.filter((y) => y.repo !== id), { repo: id, n: nonce, x }]);
+        setBursts((b) => [
+          ...b.filter((y) => y.repo !== id || y.pageKey !== pageKey),
+          { repo: id, n: nonce, x, pageKey },
+        ]);
         const t = window.setTimeout(() => {
-          timersRef.current.delete(t);
-          setBursts((b) => b.filter((y) => !(y.repo === id && y.n === nonce)));
+          animationTimersRef.current.delete(t);
+          setBursts((b) => b.filter((y) =>
+            !(y.repo === id && y.n === nonce && y.pageKey === pageKey)));
         }, 900);
-        timersRef.current.add(t);
+        animationTimersRef.current.set(t, pageKey);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repos]);
 
-  // unmount: every pending timer cleared (throttle catch-up included)
-  useEffect(() => () => {
-    mountedRef.current = false;
-    timersRef.current.forEach((t) => clearTimeout(t));
-    if (catchUpRef.current !== null) clearTimeout(catchUpRef.current);
+  // Unmount: animation timers and both request owners are cancelled silently.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      roundGenerationRef.current += 1;
+      roundRef.current?.controller.abort();
+      roundRef.current?.action?.clear();
+      retryActionRef.current?.controller.abort();
+      retryActionRef.current?.clear();
+      for (const timer of animationTimersRef.current.keys()) clearTimeout(timer);
+      animationTimersRef.current.clear();
+      if (snapshotTimerRef.current !== null) clearTimeout(snapshotTimerRef.current);
+      if (autoTimerRef.current !== null) clearTimeout(autoTimerRef.current);
+    };
   }, []);
 
+  const nowMs = Date.now();
+  const churnMax = Math.max(1,
+    ...[...churn.values()].flatMap((rows) => rows.map((row) => row.events)));
+  const districts: DistrictData[] = repos.map((repo) => ({
+    repo,
+    churn: churn.get(repo.id) ?? [],
+    inProgress: tasks.filter((task) => task.repo === repo.id && task.status === "in-progress"),
+  }));
+  const districtPager = useRememberedBoundedPage(
+    "city-districts",
+    {
+      identity: ["city-districts", repoKey],
+      totalItems: districts.length,
+      pageSize: 6,
+    },
+  );
+  const visibleDistricts = districts.slice(districtPager.start, districtPager.end);
+  const visibleRepoIds = visibleDistricts.map((district) => district.repo.id);
+  const pageRange = districtPager.totalItems === 0
+    ? "0 of 0 repositories"
+    : `${districtPager.start + 1}–${districtPager.end} of ${districtPager.totalItems} repositories`;
+  const pageKey = JSON.stringify([repoKey, districtPager.page, visibleRepoIds]);
+  visibleRepoIdsRef.current = visibleRepoIds;
+  pageKeyRef.current = pageKey;
+  const width = Math.max(PITCH, visibleDistricts.length * PITCH) + 20;
+  const alternativeRows = districts.flatMap<CityAlternativeRow>((district) =>
+    district.churn.length > 0
+      ? district.churn.map((building, buildingOrdinal) => ({
+        district, building, buildingOrdinal,
+      }))
+      : [{ district, building: null, buildingOrdinal: null }]);
+
+  useEffect(() => {
+    clearTransientAnimations();
+  }, [clearTransientAnimations, pageKey]);
+
+  useEffect(() => {
+    if (reducedMotion) clearTransientAnimations();
+  }, [clearTransientAnimations, reducedMotion]);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [snapshotNote, setSnapshotNote] = useState("");
+  const [snapshotBusy, setSnapshotBusy] = useState(false);
+  const snapshotBusyRef = useRef(false);
   // v0.2.1.0 D3 (B.3): clone the scene svg, inline the fill classes,
   // download as a standalone file (the report Blob mechanics). The
   // rain/fireworks/Kat live on the HTML overlay — excluded by
   // construction (the button title says so).
   const snapshot = () => {
+    if (snapshotBusyRef.current) return;
     const svg = containerRef.current?.querySelector("svg");
-    if (!svg) return;
+    if (!svg) {
+      const message = "City snapshot is not ready yet.";
+      setSnapshotNote(message);
+      onStatus(message);
+      return;
+    }
+    snapshotBusyRef.current = true;
+    setSnapshotBusy(true);
     const now = new Date();
     const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     // CFT-1: XMLSerializer, NEVER outerHTML — the HTML serializer omits
@@ -496,50 +815,87 @@ export function CityView ({ repos, tasks, events, mood, wardrobe, stats,
     // the namespace fails to render; XMLSerializer auto-adds it.
     const markup = `<?xml version="1.0" encoding="UTF-8"?>\n` +
       inlineSvgClasses(new XMLSerializer().serializeToString(svg));
-    const blob = new Blob([markup], { type: "image/svg+xml" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `KATLAB_City_${day}.svg`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    try {
+      const identityToken = encodeURIComponent(JSON.stringify(visibleRepoIds)).replace(/\*/g, "%2A");
+      const fileRange = districtPager.totalItems === 0
+        ? "repos-0-of-0"
+        : `repos-${districtPager.start + 1}-${districtPager.end}-of-${districtPager.totalItems}`;
+      startBlobDownload({
+        blob: new Blob([markup], { type: "image/svg+xml" }),
+        filename: `KATLAB_City_${fileRange}_${identityToken || "empty"}_${day}.svg`,
+      });
+      const message = `City snapshot for ${pageRange} download started.`;
+      setSnapshotNote(message);
+      onStatus(message);
+      snapshotTimerRef.current = window.setTimeout(() => {
+        snapshotTimerRef.current = null;
+        snapshotBusyRef.current = false;
+        if (mountedRef.current) setSnapshotBusy(false);
+      }, 1_000);
+    } catch (errorValue) {
+      snapshotBusyRef.current = false;
+      setSnapshotBusy(false);
+      const message = `City snapshot could not start: ${String(errorValue).slice(0, 100)}.`;
+      setSnapshotNote(message);
+      onStatus(message);
+    }
   };
 
-  const nowMs = Date.now();
-  const churnMax = Math.max(1,
-    ...[...churn.values()].flatMap((rows) => rows.map((r) => r.events)));
-  const districts: DistrictData[] = repos.map((r) => ({
-    repo: r,
-    churn: churn.get(r.id) ?? [],
-    inProgress: tasks.filter((t) => t.repo === r.id && t.status === "in-progress"),
-  }));
-  const width = Math.max(PITCH, districts.length * PITCH) + 20;
+  const cityReady = workspaceReady && acceptedKey === repoKey;
 
   return (
     <section>
       {/* v0.2.1.0 D3 (B.3, RV2): the h2 gains the Overview header's flex
           treatment — the snapshot button rides ml-auto. */}
-      <h2 className="mb-3 flex items-center border-l-4 border-teal-500 pl-2 text-sm font-bold text-slate-200">
-        <span>KATLAB City — the living workspace</span>
-        <button onClick={snapshot}
-          title="download the city model as a standalone SVG — live overlays not included"
-          className="ml-auto rounded bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-200 hover:bg-slate-700">
-          snapshot ⬇
+      <div className="mb-3 flex min-w-0 items-center gap-2">
+        <h2 data-view-heading tabIndex={-1}
+          className="min-w-0 flex-1 border-l-4 border-teal-500 pl-2 text-sm font-bold text-slate-200">
+          KATLAB City — the living workspace
+        </h2>
+        <button onClick={snapshot} disabled={!cityReady || snapshotBusy}
+          aria-busy={snapshotBusy}
+          title={`download ${pageRange} as a standalone SVG — live overlays not included`}
+          className="ml-auto rounded bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-200 hover:bg-slate-700 disabled:opacity-40">
+          {snapshotBusy ? "starting snapshot…" : "snapshot ⬇"}
         </button>
-      </h2>
-      <div className="overflow-x-auto rounded border border-slate-700 bg-slate-900 p-3">
+      </div>
+      {(hydrationNote || snapshotNote || hydrating) && (
+        <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+          {hydrating && <span>{retryBusy ? "Retrying City data…" : "Refreshing City data…"}</span>}
+          {hydrationNote && <span className="text-amber-300">{hydrationNote}</span>}
+          {snapshotNote && <span>{snapshotNote}</span>}
+          {hydrationNote && (
+            <button type="button" className="ui-control bg-ui-raised"
+              disabled={retryBusy} aria-busy={retryBusy} onClick={retryHydration}>
+              {retryBusy ? "Retrying…" : "Retry City data"}
+            </button>
+          )}
+        </div>
+      )}
+      {!cityReady ? (
+        <div className="ui-skeleton flex min-h-[340px] items-center justify-center rounded border border-slate-700 bg-slate-900 p-6 text-sm text-slate-400">
+          {hydrationNote || (!workspaceReady
+            ? "Waiting for the first complete workspace snapshot…"
+            : hydrating ? "Loading City data…" : "City data is waiting to refresh.")}
+        </div>
+      ) : (
+      <div className="rounded border border-slate-700 bg-slate-900 p-3">
+        <div className="ui-local-scroller overflow-x-auto" role="region"
+          aria-label={`KATLAB City scene — ${pageRange}`} tabIndex={0}>
         <div ref={containerRef} className="relative" style={{ width, height: HEIGHT }}>
-          <CityScene districts={districts} churnMax={churnMax} mood={mood}
+          <CityScene districts={visibleDistricts} churnMax={churnMax} mood={mood}
             nowMs={nowMs} localHour={new Date().getHours()}
+            rangeLabel={pageRange}
             onOpenFileStory={onOpenFileStory} onGoRepo={onGoRepo} />
           {/* live overlay: rain + fireworks (HTML spans — the burst-p
               recipe home); pointer-events-none keeps the svg clickable */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-            {drops.map((d) => (
+            {drops.filter((drop) => drop.pageKey === pageKey).map((d) => (
               <span key={d.id} className="city-drop"
                 style={{ left: d.x, top: SKY_H } as CSSProperties} />
             ))}
-            {bursts.map((b) => (
-              <span key={`${b.repo}-${b.n}`}
+            {bursts.filter((burst) => burst.pageKey === pageKey).map((b) => (
+              <span key={JSON.stringify([b.repo, b.n])}
                 className="absolute" style={{ left: b.x, top: 150 } as CSSProperties}>
                 {Array.from({ length: 12 }, (_, i) => {
                   const angle = (i / 12) * 2 * Math.PI;
@@ -561,8 +917,8 @@ export function CityView ({ repos, tasks, events, mood, wardrobe, stats,
                 display:none under reduced motion — the city-drop form).
                 RV9 geometry: district-center x, baseline y=170, upper
                 semicircles, radii 60/54/48/42 outside-in red-first. */}
-            {rainbows.map((rb) => (
-              <svg key={`${rb.repo}-${rb.n}`} className="rainbow-p absolute"
+            {rainbows.filter((rainbow) => rainbow.pageKey === pageKey).map((rb) => (
+              <svg key={JSON.stringify([rb.repo, rb.n])} className="rainbow-p absolute"
                 width={140} height={74}
                 style={{ left: rb.x - 70, top: 96 } as CSSProperties}>
                 {RAINBOW_ARCS.map((a) => (
@@ -579,7 +935,58 @@ export function CityView ({ repos, tasks, events, mood, wardrobe, stats,
             </span>
           </div>
         </div>
+        </div>
+        <CollectionPager collectionLabel="City districts" page={districtPager}
+          onPageChange={districtPager.setPage} className="mt-2" />
+        <DisclosureTable
+          label="City districts and buildings"
+          summary={`${districts.length.toLocaleString("en-US")} district${districts.length === 1 ? "" : "s"} `
+            + `and ${districts.reduce((sum, district) => sum + district.churn.length, 0).toLocaleString("en-US")} `
+            + `file building${districts.reduce((sum, district) => sum + district.churn.length, 0) === 1 ? "" : "s"}; `
+            + `the scene shows ${pageRange}.`}
+          rows={alternativeRows}
+          rowKey={(row) => JSON.stringify([
+            row.district.repo.id,
+            row.building?.file ?? "plaza",
+          ])}
+          identity={["city-alternative", repoKey, acceptedKey]}
+          columns={[
+            { key: "district", label: "District", render: (row) => (
+              <button type="button" onClick={() => onGoRepo(row.district.repo.id)}
+                className="ui-focus-ring inline-flex min-h-6 min-w-6 items-center rounded text-left font-semibold text-teal-300 hover:underline">
+                {row.district.repo.id}
+              </button>
+            ), sortValue: (row) => row.district.repo.id },
+            { key: "health", label: "Health", render: (row) => row.district.repo.offline
+              ? "offline"
+              : row.district.repo.clean ? "clean" : `${row.district.repo.count} uncommitted` },
+            { key: "building", label: "File building", render: (row) => row.building ? (
+              <button type="button"
+                onClick={() => onOpenFileStory(row.building!.repo, row.building!.file)}
+                className="ui-focus-ring inline-flex min-h-6 min-w-6 items-center break-all rounded text-left font-mono text-sky-300 hover:underline">
+                {row.building.file}
+              </button>
+            ) : <span className="text-slate-500">plaza — no churn rows</span>,
+            sortValue: (row) => row.building?.file },
+            { key: "captures", label: "Captures", render: (row) =>
+              row.building?.events.toLocaleString("en-US") ?? "—",
+            sortValue: (row) => row.building?.events,
+            cellClassName: "text-right tabular-nums", headerClassName: "text-right" },
+            { key: "last", label: "Last observed", render: (row) =>
+              row.building?.last_ts ?? "—", sortValue: (row) => row.building?.last_ts },
+            { key: "scene", label: "Scene", render: (row) => {
+              const districtOrdinal = repos.findIndex((repo) => repo.id === row.district.repo.id);
+              const page = districtOrdinal < 0 ? 0 : Math.floor(districtOrdinal / 6) + 1;
+              const building = row.buildingOrdinal === null
+                ? "plaza"
+                : row.buildingOrdinal < CAP ? "visible building" : "table detail";
+              return `page ${page} · ${building}`;
+            } },
+          ]}
+          className="mt-3 border-t border-slate-800 pt-3"
+        />
       </div>
+      )}
     </section>
   );
 }
