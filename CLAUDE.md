@@ -48,6 +48,29 @@ When starting a new session, ALWAYS read documentation with CDD methodology:
 
 The "reason" for every change comes from KATLAB PLAN files (`temp/**/PLAN_v*.txt` in monitored repos). Current formats + the enhanced tracker-ready format are documented in [Plan_Format_Notes.md](Claude_Info/Plan_Format_Notes.md). Format enhancement is designed HERE and propagated to other repos via the guideline.
 
+## 🔒 **MANDATORY CHANGE WORKFLOW**
+
+Apply this workflow to **every** idea, feature, enhancement, refactor, bug fix,
+hotfix, and other repository change. Do not skip, combine, or reorder stages
+unless the user explicitly instructs otherwise:
+
+1. **Entry:** idea → brainstorm; issue → reproduce → root-cause analysis.
+2. **Detailed plan creation.**
+3. **CDD detailed-plan review:** reach 5 consecutive clean reviews. Fix every
+   finding directly in the plan and reset the clean streak, including for minor
+   findings.
+4. **Implementation:** begin only after the CDD gate passes.
+5. **CFT:** reach 5 consecutive clean code-flow reviews. Fix every finding in
+   the implementation and corresponding plan point, then reset the clean streak.
+6. **Focused and full verification:** run both at the scope appropriate to the
+   change and record the actual results.
+7. **Final plan update:** record the final implementation, verification evidence,
+   disposition, and status.
+
+Canonical sequence: **Idea (Brainstorm) / Issue (Reproduce → Root cause) →
+Detailed Plan creation → CDD detailed-plan review 5/5 → Implementation → CFT
+5/5 → Focused/Full verification → Final plan update.**
+
 ## **Working Mode — Solo**
 
 This workspace runs **SOLO by default** — work directly; do NOT spin up a multi-agent team (or auto-spawn agents) for routine tasks. Match effort to task.

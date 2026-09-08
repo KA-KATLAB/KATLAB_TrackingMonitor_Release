@@ -53,8 +53,10 @@ export interface ProviderHealth {
 export interface HealthPayload {
   server: HealthServer;
   repos: HealthRepo[];
-  activity: HealthActivity;
-  providers: ProviderHealth[];
+  // Optional only at the live rollout boundary: an older server can briefly
+  // serve newly built frontend assets until TrackingMonitor is restarted.
+  activity?: HealthActivity;
+  providers?: ProviderHealth[];
 }
 
 export interface Task {

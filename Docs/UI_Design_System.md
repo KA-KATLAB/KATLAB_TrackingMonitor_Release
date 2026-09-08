@@ -404,6 +404,10 @@ Do not:
 - Offline/stale states keep accepted data when safe and label it honestly.
 - Error panels name the cause class and offer only a recovery that can work. A cached lazy-import failure says Reload, not Retry.
 - Never hide an error by substituting empty data or let stale async completion overwrite a newer scope.
+- During a live frontend/backend rollout skew, keep accepted established fields
+  visible, label unavailable additive fields, and give the operator a working
+  restart path. Never coerce missing extensions into zero/empty success data or
+  let their absence crash the application shell.
 
 Do:
 

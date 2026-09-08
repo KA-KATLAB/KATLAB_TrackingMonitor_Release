@@ -29,6 +29,12 @@ function Row ({
 
 export function HealthBody ({ data }: { data: HealthPayload }): JSX.Element {
   const { server, repos, activity, providers } = data;
+  const activityAvailable = activity !== undefined && activity !== null;
+  const providersAvailable = Array.isArray(providers);
+  const missingExtensions = [
+    activityAvailable ? null : "activity inbox",
+    providersAvailable ? null : "provider health",
+  ].filter((value): value is string => value !== null).join(" and ");
   const watchersOk = server.watchers_alive === server.watchers_total;
   const uptimeMin = Math.max(0, Math.round(
     (Date.now() - new Date(server.started_ts).getTime()) / 60_000,
@@ -62,40 +68,60 @@ export function HealthBody ({ data }: { data: HealthPayload }): JSX.Element {
         </span>
       </Row>
 
-      <h3 className="mb-1 mt-3 font-semibold text-slate-300">Activity inbox</h3>
-      <Row label="pending">{activity.pending}</Row>
-      <Row label="rejected">{activity.rejected}</Row>
-      <Row label="unscoped">{activity.ignored_unscoped} ignored</Row>
-      <Row label="registry mismatch">
-        <span className={activity.registry_revision_mismatch > 0
-          ? "text-amber-300" : "text-ui-text"}>
-          {activity.registry_revision_mismatch}
-        </span>
-      </Row>
-
-      <h3 className="mb-1 mt-3 font-semibold text-slate-300">Providers</h3>
-      {providers.map((provider) => (
-        <div key={provider.provider}
-          className="mb-2 rounded-control border border-ui-border/60 px-2 py-1 last:mb-0">
-          <Row label="provider">{provider.provider}</Row>
-          <Row label="adapter">
-            <span className={provider.adapter_present ? "text-teal-300" : "text-rose-300"}>
-              {provider.adapter_present ? "present" : "missing"}
-            </span>
-          </Row>
-          <Row label="configuration">
-            <span className={provider.configuration_valid ? "text-teal-300" : "text-amber-300"}>
-              {provider.configuration_state.replaceAll("_", " ")}
-            </span>
-          </Row>
-          <Row label="observed">
-            <span className={provider.recently_observed ? "text-teal-300" : "text-ui-muted"}>
-              {provider.last_observed_at ? fmtRel(provider.last_observed_at) : "never"}
-              {provider.recently_observed ? " · recent" : ""}
-            </span>
-          </Row>
+      {missingExtensions && (
+        <div className="mt-3 rounded-control border border-amber-700 bg-amber-950/30 p-3 text-amber-200">
+          <p className="font-semibold">Additional health data unavailable</p>
+          <p className="mt-1">
+            Server v{server.version} did not provide {missingExtensions}. Restart
+            TrackingMonitor to load matching backend and frontend code.
+          </p>
         </div>
-      ))}
+      )}
+
+      {activityAvailable && (
+        <>
+          <h3 className="mb-1 mt-3 font-semibold text-slate-300">Activity inbox</h3>
+          <Row label="pending">{activity.pending}</Row>
+          <Row label="rejected">{activity.rejected}</Row>
+          <Row label="unscoped">{activity.ignored_unscoped} ignored</Row>
+          <Row label="registry mismatch">
+            <span className={activity.registry_revision_mismatch > 0
+              ? "text-amber-300" : "text-ui-text"}>
+              {activity.registry_revision_mismatch}
+            </span>
+          </Row>
+        </>
+      )}
+
+      {providersAvailable && (
+        <>
+          <h3 className="mb-1 mt-3 font-semibold text-slate-300">Providers</h3>
+          {providers.length === 0 ? (
+            <p className="text-ui-muted">No provider health records.</p>
+          ) : providers.map((provider) => (
+            <div key={provider.provider}
+              className="mb-2 rounded-control border border-ui-border/60 px-2 py-1 last:mb-0">
+              <Row label="provider">{provider.provider}</Row>
+              <Row label="adapter">
+                <span className={provider.adapter_present ? "text-teal-300" : "text-rose-300"}>
+                  {provider.adapter_present ? "present" : "missing"}
+                </span>
+              </Row>
+              <Row label="configuration">
+                <span className={provider.configuration_valid ? "text-teal-300" : "text-amber-300"}>
+                  {provider.configuration_state.replaceAll("_", " ")}
+                </span>
+              </Row>
+              <Row label="observed">
+                <span className={provider.recently_observed ? "text-teal-300" : "text-ui-muted"}>
+                  {provider.last_observed_at ? fmtRel(provider.last_observed_at) : "never"}
+                  {provider.recently_observed ? " · recent" : ""}
+                </span>
+              </Row>
+            </div>
+          ))}
+        </>
+      )}
 
       <h3 className="mb-1 mt-3 font-semibold text-slate-300">Repositories</h3>
       <div id="health-repos">

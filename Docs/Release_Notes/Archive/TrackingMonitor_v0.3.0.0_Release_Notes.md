@@ -62,7 +62,7 @@ No user settings are changed by this release.
 
 1. Restart TrackingMonitor after installing the release.
 2. Run `Scripts/render_hook_config.py --provider claude|codex` preflight and render
-   commands from [Installation_Guideline.md](Docs/Installation_Guideline.md).
+   commands from [Installation_Guideline.md](../../Installation_Guideline.md).
 3. Manually merge only the reviewed user-scope handlers, validate JSON, restart the
    provider, and use its normal trust flow.
 4. Add only exact reviewed checks to `Config/checks.json`; it ships valid-empty.

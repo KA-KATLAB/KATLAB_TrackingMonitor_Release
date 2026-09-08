@@ -1,5 +1,24 @@
 # Version Notes
 
+## v0.3.0.1 — System Health Version-Skew Hotfix (2026-09-08)
+
+**Key Highlights**
+
+- Fixed the critical blank-page failure from opening `sys` while an older
+  TrackingMonitor process serves newly rebuilt v0.3 frontend assets.
+- Corrected the client rollout contract: the v0.3-only `activity` and `providers`
+  health additions are optional at the live version boundary, while the matched
+  v0.3 backend contract remains unchanged.
+- System health now preserves valid legacy Server and Repositories data, labels
+  exactly which extended facts are unavailable, and directs the operator to
+  restart instead of fabricating zeros or empty success data.
+- Partial extension payloads retain the available section; a valid empty provider
+  array receives an explicit empty state. Existing request deadlines, retry,
+  DialogShell, focus, and paging behavior remain unchanged.
+- Scope is frontend compatibility plus the patch-version/documentation update:
+  no dependency, endpoint, schema, database, hook, watcher, Git, WebSocket,
+  service-worker, storage, polling, or monitored-repository change.
+
 ## v0.3.0.0 — Verification Cockpit & Agent Flight Recorder (2026-09-08)
 
 **Key Highlights**
@@ -33,7 +52,7 @@
 - Git remains strictly read-only (`status`, `diff`, `log`, `show`). Mission and
   evidence recording do not execute checks or perform repository/branch mutations.
 - Full scope and rollout guidance are in
-  [TrackingMonitor_v0.3.0.0_Release_Notes.md](../TrackingMonitor_v0.3.0.0_Release_Notes.md).
+  [TrackingMonitor_v0.3.0.0_Release_Notes.md](../Docs/Release_Notes/Archive/TrackingMonitor_v0.3.0.0_Release_Notes.md).
 
 ## v0.2.12.0 — Clarity at Every Size (2026-09-06)
 

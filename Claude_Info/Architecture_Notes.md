@@ -4,7 +4,7 @@ Current source of truth is the implementation plus normative contracts in `Docs/
 Historical notes reference `Ref/system_architecture.mermaid` and
 `Ref/hybrid_C_resolution_flow.mermaid`, but `Ref/` is absent in this checkout.
 
-## 1. System Architecture (v0.3.0.0)
+## 1. System Architecture (v0.3.0.1)
 
 ### 1.1 Capture — user-scope provider hooks, every session
 
@@ -46,7 +46,7 @@ Historical notes reference `Ref/system_architecture.mermaid` and
 - **History**: commit → tasks → events, with independent API fetch depth and visible 50-row paging; commits remain counted separately.
 - **City and Chronicle**: City is a paged six-district SVG view with complete-model calculations and an exact-data alternative. Chronicle remains a same-origin iframe whose React host owns sizing/fallback only.
 
-### 1.5 Interface invariants (v0.3.0.0)
+### 1.5 Interface invariants (v0.3.0.1)
 
 - [UI_Design_System.md](../Docs/UI_Design_System.md) is the normative interface contract; semantic tokens and shared primitives live in `Frontend/src/index.css`, `tailwind.config.js`, `ui.tsx`, `icons.tsx`, and `dialog.tsx`.
 - The route is `{scope, view}` with canonical `view` then `repo` query order. Workspace scope and a repo literally named `ALL` are distinct. Back/Forward uses opaque entry ids plus in-memory, entry-local UI snapshots; private paths, filters, drafts, results, and Blobs never enter the URL or `history.state`.
@@ -54,8 +54,11 @@ Historical notes reference `Ref/system_architecture.mermaid` and
 - Any semantic collection that can exceed 50 uses the shared bounded pager. Calculations, filtering, mutations, exports, and graph inputs continue to use the complete model; City alone pages six districts.
 - User-triggered REST work owns one absolute 10-second deadline plus abort/stale-generation guards. Digest preparation is two-stage and scope-bound; direct report and City downloads stay within their initiating activation.
 - One reactive reduced-motion source coordinates CSS, rAF, charts, reveal work, View Transitions, attract mode, and particles. Mission, Overview, and City are route-lazy; Mermaid remains nested-lazy; Mission is excluded from attract mode and the network-only service worker is unchanged.
+- During a live frontend/backend rollout skew, established health fields remain
+  visible, absent additive fields are labelled unavailable, and restart guidance
+  is shown; missing data is never presented as a zero/empty success state.
 
-### 1.6 Mission, evidence, and privacy invariants (v0.3.0.0)
+### 1.6 Mission, evidence, and privacy invariants (v0.3.0.1)
 
 - Plans may declare a top-level `<verification>` block. Raw plan bytes define the
   plan revision; edits stale prior bound evidence while unchanged restart does not.
