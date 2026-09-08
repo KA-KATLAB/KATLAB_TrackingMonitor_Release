@@ -9,6 +9,7 @@ import {
   EFFORT_TAIL_MIN,
   MODE_BADGE,
   MODE_COLOR,
+  eventSessionIdentity,
   sessionColor,
 } from "./theme";
 import { CollectionPager, useBoundedPage } from "./ui";
@@ -175,6 +176,7 @@ export function FileStory ({
         {visibleRows.map((event, localIndex) => {
           const absoluteIndex = pager.start + localIndex;
           const previous = rows?.[absoluteIndex - 1];
+          const session = eventSessionIdentity(event);
           const dayChanged = !previous
             || previous.ts.slice(0, 10) !== event.ts.slice(0, 10);
           const continuation = localIndex === 0 && absoluteIndex > 0 && !dayChanged;
@@ -198,11 +200,11 @@ export function FileStory ({
                     {event.task_ref.split(" - ").pop()}
                   </span>
                 )}
-                {event.session_id && (
+                {session && (
                   <span
-                    title={"session " + event.session_id.slice(0, 8)}
+                    title={`${session.provider} session ${session.sessionId.slice(0, 8)}`}
                     className="inline-block h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: sessionColor(event.session_id) }}
+                    style={{ backgroundColor: sessionColor(session.provider, session.sessionId) }}
                   />
                 )}
                 {event.branch && repoBranch && event.branch !== repoBranch && (

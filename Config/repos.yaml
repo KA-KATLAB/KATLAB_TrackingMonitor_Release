@@ -3,11 +3,16 @@
 # Adding a repo = add an entry below, restart. Zero code changes.
 #
 # PATH CONVENTION (R1, v0.1.1.0): the capture hook reads this file with a
-# regex (stdlib, not YAML) - every repo "path:" line MUST stay SINGLE-LINE
+# closed stdlib projection (not YAML) - root keys are only "server"/"repos";
+# keep exactly one literal top-level "repos:" line, and every repo "path:"
+# line MUST stay SINGLE-LINE
 # and SINGLE-QUOTED, e.g.  path: 'X:\absolute\path'  (never folded/
 # multi-line/flow style; never unquoted when the path contains #).
 # This registry doubles as the hook's capture ALLOWLIST: only repos listed
-# here are captured (unreadable/empty file = fail-open, capture all).
+# here are captured. Unreadable, invalid, or empty registry = fail-closed
+# capture no-op; provider/editor execution still continues successfully.
+# IDs must be normalized YAML strings matching [A-Za-z0-9_-]+. Quote values
+# that YAML would otherwise type as a boolean, null, or number.
 
 server:
   host: 127.0.0.1

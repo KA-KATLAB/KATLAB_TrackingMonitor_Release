@@ -1,5 +1,6 @@
 """SQLite data layer (PLAN v0.1.0.0 C.2). stdlib sqlite3 + WAL, no ORM."""
 
+import hashlib
 import json
 import os
 import sqlite3
@@ -43,25 +44,227 @@ def init_db (repos: list) -> None:
     # pre-existing databases - CREATE IF NOT EXISTS above never alters an
     # existing table. Idempotent needed-columns loop, generalized per table:
     # PRAGMA-guarded, one ALTER per missing column.
-    needed: dict[str, tuple[str, ...]] = {
-        "events": ("session_id", "branch"),
-        "commits": ("parents",),
+    needed: dict[str, dict[str, str]] = {
+        "events": {
+            "session_id": "TEXT", "branch": "TEXT", "provider": "TEXT",
+            "turn_id": "TEXT", "agent_id": "TEXT", "tool_use_id": "TEXT",
+            "operation": "TEXT", "plan_file": "TEXT", "task_id": "TEXT",
+        },
+        "commits": {"parents": "TEXT"},
     }
     for table, wanted in needed.items():
         columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
-        for column in wanted:
+        for column, definition in wanted.items():
             if column not in columns:
-                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT")
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
     for repo in repos:
         conn.execute(
             "INSERT INTO repos (id, name, path) VALUES (?, ?, ?) "
             "ON CONFLICT(id) DO UPDATE SET name = excluded.name, path = excluded.path",
             (repo.id, repo.name, str(repo.path)),
         )
+    # These indexes must be created after the additive event-column migration;
+    # schema.sql runs against old tables that CREATE TABLE IF NOT EXISTS cannot alter.
+    event_columns = {
+        row["name"] for row in conn.execute("PRAGMA table_info(events)")
+    }
+    if {"repo_id", "plan_file", "task_id", "commit_hash", "id"}.issubset(event_columns):
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_events_plan_commit "
+            "ON events (repo_id, plan_file, task_id, commit_hash, id)"
+        )
+    if {"repo_id", "file", "commit_hash", "id"}.issubset(event_columns):
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_events_file_commit "
+            "ON events (repo_id, file, commit_hash, id)"
+        )
     conn.commit()
 
 
 # --- tasks (F11/F16: atomic per-plan sync) ----------------------------------
+
+def _canonical_sha256 (value: dict) -> str:
+    encoded = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def requirement_revision (check_id: str, streak_target: int | None,
+                          evidence_sources: list[str] | None = None,
+                          check_revision: str | None = None) -> str:
+    """Canonical requirement revision; C.2 supplies registry-derived values."""
+    if evidence_sources is None:
+        evidence_sources = ["manual"] if check_id.startswith("review:") else []
+    return _canonical_sha256({
+        "check_id": check_id,
+        "streak_target": streak_target,
+        "evidence_sources": sorted(set(evidence_sources)),
+        "check_revision": check_revision,
+    })
+
+
+def sync_plan_snapshot (repo_id: str, plan_file: str, content_sha256: str,
+                        result, last_seen_at: str,
+                        check_definitions=()) -> str:
+    """Atomically publish one exact-buffer parse and return its revision time.
+
+    A fatal parse updates only the current snapshot. Last-valid tasks and
+    requirements remain available for compatible display but readiness sees the
+    snapshot's fatal state. Any sqlite failure rolls the whole transaction back.
+    """
+    conn = get_conn()
+    existing = conn.execute(
+        "SELECT content_sha256, revision_at FROM plan_snapshots "
+        "WHERE repo_id = ? AND plan_file = ?",
+        (repo_id, plan_file),
+    ).fetchone()
+    revision_at = (
+        existing["revision_at"]
+        if existing and existing["content_sha256"] == content_sha256
+        else last_seen_at
+    )
+    warning_codes = list(dict.fromkeys(result.warning_codes))[:50]
+    parse_state = "fatal" if result.fatal else ("warning" if warning_codes else "valid")
+    definitions = {definition.id: definition for definition in check_definitions}
+    with conn:
+        conn.execute(
+            "INSERT INTO plan_snapshots "
+            "(repo_id, plan_file, content_sha256, revision_at, parse_state, "
+            "warning_codes_json, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(repo_id, plan_file) DO UPDATE SET "
+            "content_sha256 = excluded.content_sha256, "
+            "revision_at = excluded.revision_at, parse_state = excluded.parse_state, "
+            "warning_codes_json = excluded.warning_codes_json, "
+            "last_seen_at = excluded.last_seen_at",
+            (repo_id, plan_file, content_sha256, revision_at, parse_state,
+             json.dumps(warning_codes), last_seen_at),
+        )
+        if not result.fatal:
+            conn.execute(
+                "DELETE FROM tasks WHERE repo_id = ? AND plan_file = ?",
+                (repo_id, plan_file),
+            )
+            conn.execute(
+                "DELETE FROM plan_requirements WHERE repo_id = ? AND plan_file = ?",
+                (repo_id, plan_file),
+            )
+            conn.executemany(
+                "INSERT INTO tasks "
+                "(repo_id, plan_file, task_id, title, status, files_json, why) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (repo_id, plan_file, task.id, task.title, task.status,
+                     json.dumps(task.files), task.why)
+                    for task in result.tasks
+                ],
+            )
+            conn.executemany(
+                "INSERT INTO plan_requirements "
+                "(repo_id, plan_file, check_id, streak_target, source_order, "
+                "requirement_revision, revision_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (repo_id, plan_file, req.id, req.streak_target, ordinal,
+                     requirement_revision(
+                         req.id,
+                         req.streak_target,
+                         ["manual"] if req.id.startswith("review:") else list(
+                             definitions[req.id].evidence_sources
+                         ) if req.id in definitions else [],
+                         definitions[req.id].revision if req.id in definitions else None,
+                     ),
+                     revision_at)
+                    for ordinal, req in enumerate(result.requirements)
+                ],
+            )
+    return revision_at
+
+
+def delete_plan_state (repo_id: str, plan_file: str) -> None:
+    """Delete a plan only after the watcher confirms two-manifest absence."""
+    conn = get_conn()
+    with conn:
+        conn.execute(
+            "DELETE FROM tasks WHERE repo_id = ? AND plan_file = ?",
+            (repo_id, plan_file),
+        )
+        conn.execute(
+            "DELETE FROM plan_requirements WHERE repo_id = ? AND plan_file = ?",
+            (repo_id, plan_file),
+        )
+        conn.execute(
+            "DELETE FROM plan_snapshots WHERE repo_id = ? AND plan_file = ?",
+            (repo_id, plan_file),
+        )
+
+
+def get_plan_snapshots (repo_id: str | None = None) -> list[sqlite3.Row]:
+    if repo_id:
+        return get_conn().execute(
+            "SELECT * FROM plan_snapshots WHERE repo_id = ? ORDER BY plan_file",
+            (repo_id,),
+        ).fetchall()
+    return get_conn().execute(
+        "SELECT * FROM plan_snapshots ORDER BY repo_id, plan_file"
+    ).fetchall()
+
+
+def get_plan_snapshot (repo_id: str, plan_file: str) -> sqlite3.Row | None:
+    return get_conn().execute(
+        "SELECT * FROM plan_snapshots WHERE repo_id = ? AND plan_file = ?",
+        (repo_id, plan_file),
+    ).fetchone()
+
+
+def get_plan_requirements (repo_id: str | None = None,
+                           plan_file: str | None = None) -> list[sqlite3.Row]:
+    query = "SELECT * FROM plan_requirements WHERE 1=1"
+    params: list = []
+    if repo_id is not None:
+        query += " AND repo_id = ?"
+        params.append(repo_id)
+    if plan_file is not None:
+        query += " AND plan_file = ?"
+        params.append(plan_file)
+    query += " ORDER BY repo_id, plan_file, source_order"
+    return get_conn().execute(query, params).fetchall()
+
+
+def get_plan_requirement_binding (repo_id: str, plan_file: str,
+                                  check_id: str) -> dict | None:
+    row = get_conn().execute(
+        "SELECT r.*, s.content_sha256 AS plan_revision, s.parse_state "
+        "FROM plan_requirements r JOIN plan_snapshots s "
+        "ON s.repo_id = r.repo_id AND s.plan_file = r.plan_file "
+        "WHERE r.repo_id = ? AND r.plan_file = ? AND r.check_id = ?",
+        (repo_id, plan_file, check_id),
+    ).fetchone()
+    if row is None or row["parse_state"] != "valid":
+        return None
+    return dict(row)
+
+
+def automatic_plan_bindings (repo_id: str, check_id: str) -> list[dict]:
+    rows = get_conn().execute(
+        "SELECT r.*, s.content_sha256 AS plan_revision, s.parse_state "
+        "FROM plan_requirements r JOIN plan_snapshots s "
+        "ON s.repo_id = r.repo_id AND s.plan_file = r.plan_file "
+        "WHERE r.repo_id = ? AND r.check_id = ? AND s.parse_state = 'valid' "
+        "ORDER BY r.plan_file",
+        (repo_id, check_id),
+    ).fetchall()
+    bindings: list[dict] = []
+    for row in rows:
+        statuses = [task["status"] for task in get_conn().execute(
+            "SELECT status FROM tasks WHERE repo_id = ? AND plan_file = ?",
+            (repo_id, row["plan_file"]),
+        )]
+        value = dict(row)
+        value["in_progress_count"] = statuses.count("in-progress")
+        value["all_done"] = all(status == "done" for status in statuses)
+        bindings.append(value)
+    return bindings
+
 
 def sync_plan_tasks (repo_id: str, plan_file: str, tasks: list[dict]) -> None:
     """Replace ALL tasks of one plan file atomically. tasks=[] removes them (F16)."""
@@ -101,11 +304,15 @@ def insert_events_with_offset (repo_id: str, events: list[dict], new_offset: int
     with conn:
         for e in events:
             cur = conn.execute(
-                "INSERT INTO events (repo_id, ts, tool, file, task_ref, mode, candidates_json, session_id, branch) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO events (repo_id, ts, tool, file, task_ref, mode, "
+                "candidates_json, session_id, branch, provider, turn_id, agent_id, "
+                "tool_use_id, operation, plan_file, task_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (repo_id, e["ts"], e["tool"], e["file"], e.get("task_ref"),
                  e["mode"], json.dumps(e["candidates"]) if e.get("candidates") else None,
-                 e.get("session_id"), e.get("branch")),
+                 e.get("session_id"), e.get("branch"), e.get("provider"),
+                 e.get("turn_id"), e.get("agent_id"), e.get("tool_use_id"),
+                 e.get("operation"), e.get("plan_file"), e.get("task_id")),
             )
             ids.append(cur.lastrowid)
         conn.execute(
@@ -128,7 +335,8 @@ def get_events (repo_id: str | None = None, mode: str | None = None,
                 session: str | None = None,
                 file: str | None = None,
                 since: str | None = None,
-                until: str | None = None) -> list[sqlite3.Row]:
+                until: str | None = None,
+                provider: str | None = None) -> list[sqlite3.Row]:
     query = "SELECT * FROM events WHERE 1=1"
     params: list = []
     if repo_id:
@@ -153,6 +361,11 @@ def get_events (repo_id: str | None = None, mode: str | None = None,
     if until:
         query += " AND ts < ?"
         params.append(until)
+    if provider == "claude":
+        query += " AND (provider = 'claude' OR provider IS NULL)"
+    elif provider is not None:
+        query += " AND provider = ?"
+        params.append(provider)
     query += " ORDER BY id DESC LIMIT ? OFFSET ?"  # F38 pagination
     params += [limit, offset]
     return get_conn().execute(query, params).fetchall()
@@ -163,11 +376,580 @@ def get_event (event_id: int) -> sqlite3.Row | None:
 
 
 def set_manual_task (event_id: int, task_ref: str) -> None:
-    with get_conn() as conn:
-        conn.execute(
-            "UPDATE events SET task_ref = ?, mode = 'MANUAL' WHERE id = ?",
-            (task_ref, event_id),
+    """Set legacy display + normalized keys from one exact current-task match."""
+    conn = get_conn()
+    event = conn.execute(
+        "SELECT repo_id FROM events WHERE id = ?", (event_id,),
+    ).fetchone()
+    if event is None:
+        raise ValueError("unknown event")
+    matches = [
+        row for row in conn.execute(
+            "SELECT plan_file, task_id FROM tasks WHERE repo_id = ?",
+            (event["repo_id"],),
         )
+        if f"{row['plan_file']} - {row['task_id']}" == task_ref
+    ]
+    if len(matches) != 1:
+        raise ValueError("task reference is not one exact current task")
+    with conn:
+        conn.execute(
+            "UPDATE events SET task_ref = ?, mode = 'MANUAL', "
+            "plan_file = ?, task_id = ? WHERE id = ?",
+            (task_ref, matches[0]["plan_file"], matches[0]["task_id"], event_id),
+        )
+
+
+def backfill_event_task_keys (repo_id: str) -> int:
+    """Bind legacy display refs only when one current task constructs that ref."""
+    conn = get_conn()
+    by_ref: dict[str, list[sqlite3.Row]] = {}
+    for row in conn.execute(
+            "SELECT plan_file, task_id FROM tasks WHERE repo_id = ?", (repo_id,)):
+        by_ref.setdefault(f"{row['plan_file']} - {row['task_id']}", []).append(row)
+    updates = [
+        (matches[0]["plan_file"], matches[0]["task_id"], row["id"])
+        for row in conn.execute(
+            "SELECT id, task_ref FROM events WHERE repo_id = ? AND task_ref IS NOT NULL "
+            "AND (plan_file IS NULL OR task_id IS NULL)",
+            (repo_id,),
+        )
+        if len(matches := by_ref.get(row["task_ref"], [])) == 1
+    ]
+    with conn:
+        conn.executemany(
+            "UPDATE events SET plan_file = ?, task_id = ? WHERE id = ?",
+            updates,
+        )
+    return len(updates)
+
+
+# --- provider-neutral activity ledger --------------------------------------
+
+ACTIVITY_CAPTURE_COLUMNS = (
+    "schema_version", "provider", "evidence_source", "kind", "ts",
+    "delivery_class", "session_id", "turn_id", "agent_id", "parent_agent_id",
+    "agent_type", "model", "permission_mode", "tool_use_id", "tool_name",
+    "tool_class", "outcome", "duration_ms", "check_id",
+)
+ACTIVITY_COUNTER_NAMES = frozenset({
+    "ignored_unscoped", "registry_revision_mismatch",
+})
+
+
+def _increment_activity_counter (conn: sqlite3.Connection, name: str) -> None:
+    if name not in ACTIVITY_COUNTER_NAMES:
+        raise ValueError("unknown activity counter")
+    conn.execute(
+        "INSERT INTO activity_counters (name, value) VALUES (?, 1) "
+        "ON CONFLICT(name) DO UPDATE SET value = value + 1",
+        (name,),
+    )
+
+
+def classify_existing_activity (uid: str,
+                                record_sha256: str) -> tuple[str, int] | None:
+    """Classify a committed transport identity without mutable plan state."""
+    row = get_conn().execute(
+        "SELECT id, record_sha256 FROM activity_events WHERE uid = ?", (uid,),
+    ).fetchone()
+    if row is None:
+        return None
+    status = "duplicate" if row["record_sha256"] == record_sha256 else "conflict"
+    return status, int(row["id"])
+
+
+def insert_activity (transport: dict, record_sha256: str, repo_ids: list[str],
+                     derived: dict, created_at: str) -> tuple[str, int]:
+    """Insert immutable activity and normalized links, or classify one retry."""
+    conn = get_conn()
+    with conn:
+        existing = conn.execute(
+            "SELECT id, record_sha256 FROM activity_events WHERE uid = ?",
+            (transport["uid"],),
+        ).fetchone()
+        if existing is not None:
+            status = "duplicate" if existing["record_sha256"] == record_sha256 else "conflict"
+            return status, existing["id"]
+
+        columns = ["uid", "record_sha256", *ACTIVITY_CAPTURE_COLUMNS,
+                   "plan_repo_id", "plan_file", "task_ref", "assignment_mode",
+                   "check_revision", "requirement_revision", "plan_revision", "created_at"]
+        values = [
+            transport["uid"], record_sha256,
+            *(transport.get(column) for column in ACTIVITY_CAPTURE_COLUMNS),
+            derived.get("plan_repo_id"), derived.get("plan_file"),
+            derived.get("task_ref"), derived["assignment_mode"],
+            derived.get("check_revision"), derived.get("requirement_revision"),
+            derived.get("plan_revision"), created_at,
+        ]
+        placeholders = ",".join("?" for _ in columns)
+        cursor = conn.execute(
+            f"INSERT INTO activity_events ({','.join(columns)}) VALUES ({placeholders})",
+            values,
+        )
+        activity_id = cursor.lastrowid
+        conn.executemany(
+            "INSERT INTO activity_repo_links (activity_id, repo_id) VALUES (?, ?)",
+            [(activity_id, repo_id) for repo_id in repo_ids],
+        )
+        health_counter = derived.get("_health_counter")
+        if health_counter is not None:
+            _increment_activity_counter(conn, health_counter)
+    return "inserted", activity_id
+
+
+def activity_session_repo_ids (provider: str, session_id: str,
+                               current_repo_ids: set[str]) -> set[str]:
+    if not current_repo_ids:
+        return set()
+    rows = get_conn().execute(
+        "SELECT DISTINCT l.repo_id FROM activity_events a JOIN activity_repo_links l "
+        "ON l.activity_id = a.id WHERE a.provider = ? AND a.session_id = ?",
+        (provider, session_id),
+    )
+    return {row["repo_id"] for row in rows if row["repo_id"] in current_repo_ids}
+
+
+def activity_session_is_admitted (provider: str, session_id: str,
+                                  current_repo_ids: set[str]) -> bool:
+    return bool(activity_session_repo_ids(provider, session_id, current_repo_ids))
+
+
+def increment_activity_counter (name: str) -> None:
+    with get_conn() as conn:
+        _increment_activity_counter(conn, name)
+
+
+def get_activity_counter (name: str) -> int:
+    row = get_conn().execute(
+        "SELECT value FROM activity_counters WHERE name = ?", (name,),
+    ).fetchone()
+    return int(row["value"]) if row else 0
+
+
+def get_activity_events () -> list[sqlite3.Row]:
+    return get_conn().execute("SELECT * FROM activity_events ORDER BY id").fetchall()
+
+
+def get_activity_event (activity_id: int) -> sqlite3.Row | None:
+    return get_conn().execute(
+        "SELECT * FROM activity_events WHERE id = ?", (activity_id,),
+    ).fetchone()
+
+
+def get_latest_activity_id () -> int | None:
+    row = get_conn().execute("SELECT MAX(id) AS id FROM activity_events").fetchone()
+    return int(row["id"]) if row and row["id"] is not None else None
+
+
+def get_activity_links (activity_id: int | None = None) -> list[sqlite3.Row]:
+    if activity_id is None:
+        return get_conn().execute(
+            "SELECT * FROM activity_repo_links ORDER BY activity_id, repo_id"
+        ).fetchall()
+    return get_conn().execute(
+        "SELECT * FROM activity_repo_links WHERE activity_id = ? ORDER BY repo_id",
+        (activity_id,),
+    ).fetchall()
+
+
+def _activity_scope_sql (repo_id: str | None) -> tuple[str, list]:
+    if repo_id is None:
+        return "", []
+    return (
+        " AND (EXISTS (SELECT 1 FROM activity_repo_links direct "
+        "WHERE direct.activity_id = a.id AND direct.repo_id = ?) "
+        "OR (a.session_id IS NOT NULL "
+        "AND NOT EXISTS (SELECT 1 FROM activity_repo_links own "
+        "WHERE own.activity_id = a.id) "
+        "AND EXISTS (SELECT 1 FROM activity_events context "
+        "JOIN activity_repo_links context_link ON context_link.activity_id = context.id "
+        "WHERE context.provider = a.provider AND context.session_id = a.session_id "
+        "AND context_link.repo_id = ?)))",
+        [repo_id, repo_id],
+    )
+
+
+def get_activity_page (*, repo_id: str | None = None,
+                       provider: str | None = None,
+                       session_id: str | None = None,
+                       kind: str | None = None,
+                       check_id: str | None = None,
+                       plan_file: str | None = None,
+                       order: str = "desc", limit: int = 50,
+                       offset: int = 0) -> tuple[list[tuple[sqlite3.Row, dict]], int]:
+    """Return one bounded activity page; effective-plan filtering streams rows."""
+    clauses = ["1=1"]
+    params: list = []
+    for column, value in (
+        ("provider", provider), ("session_id", session_id),
+        ("kind", kind), ("check_id", check_id),
+    ):
+        if value is not None:
+            clauses.append(f"a.{column} = ?")
+            params.append(value)
+    scope_sql, scope_params = _activity_scope_sql(repo_id)
+    direction = "ASC" if order == "asc" else "DESC"
+    query = (
+        "SELECT a.* FROM activity_events a WHERE " + " AND ".join(clauses)
+        + scope_sql + f" ORDER BY a.ts {direction}, a.id {direction}"
+    )
+    all_params = [*params, *scope_params]
+    conn = get_conn()
+    if plan_file is None:
+        # Timeline/general-ledger paging must remain proportional to the requested
+        # page. Effective assignment is needed for response projection, but not to
+        # select an unfiltered row, so never resolve it across the whole ledger.
+        total = conn.execute(
+            "SELECT COUNT(*) AS count FROM activity_events a WHERE "
+            + " AND ".join(clauses) + scope_sql,
+            all_params,
+        ).fetchone()["count"]
+        rows = conn.execute(
+            query + " LIMIT ? OFFSET ?", [*all_params, limit, offset],
+        ).fetchall()
+        return [(row, effective_activity_binding(row)) for row in rows], int(total)
+
+    page: list[tuple[sqlite3.Row, dict]] = []
+    total = 0
+    for row in conn.execute(query, all_params):
+        effective = effective_activity_binding(row)
+        if plan_file is not None and (
+            effective["plan_repo_id"] != repo_id
+            or effective["plan_file"] != plan_file
+        ):
+            continue
+        if offset <= total < offset + limit:
+            page.append((row, effective))
+        total += 1
+    return page, total
+
+
+def get_session_page (*, current_repo_ids: set[str],
+                      repo_id: str | None = None,
+                      provider: str | None = None,
+                      session_id: str | None = None,
+                      order: str = "desc", limit: int = 50,
+                      offset: int = 0) -> tuple[list[dict], int]:
+    clauses = ["a.session_id IS NOT NULL"]
+    params: list = []
+    if provider is not None:
+        clauses.append("a.provider = ?")
+        params.append(provider)
+    if session_id is not None:
+        clauses.append("a.session_id = ?")
+        params.append(session_id)
+    scope_sql, scope_params = _activity_scope_sql(repo_id)
+    where = " AND ".join(clauses) + scope_sql
+    grouped = (
+        "SELECT a.provider, a.session_id, MIN(a.ts) AS started_at, "
+        "MAX(a.ts) AS ended_at, MAX(a.id) AS last_id, COUNT(*) AS event_count, "
+        "COUNT(DISTINCT CASE WHEN a.agent_id IS NOT NULL THEN a.agent_id END) "
+        "AS agent_count, "
+        "COUNT(DISTINCT CASE WHEN a.tool_use_id IS NOT NULL THEN a.tool_use_id END) "
+        "AS tool_count, "
+        "SUM(CASE WHEN a.kind IN ('check_finished','review_result') THEN 1 ELSE 0 END) "
+        "AS check_count, "
+        "SUM(CASE WHEN a.delivery_class = 'durable' THEN 1 ELSE 0 END) AS durable_count, "
+        "SUM(CASE WHEN a.delivery_class = 'best_effort' THEN 1 ELSE 0 END) "
+        "AS best_effort_count FROM activity_events a WHERE " + where
+        + " GROUP BY a.provider, a.session_id"
+    )
+    all_params = [*params, *scope_params]
+    total = get_conn().execute(
+        "SELECT COUNT(*) AS count FROM (" + grouped + ")", all_params,
+    ).fetchone()["count"]
+    direction = "ASC" if order == "asc" else "DESC"
+    rows = get_conn().execute(
+        grouped + f" ORDER BY ended_at {direction}, last_id {direction}, "
+        f"provider {direction}, session_id {direction} LIMIT ? OFFSET ?",
+        [*all_params, limit, offset],
+    ).fetchall()
+    items = []
+    for row in rows:
+        durable = int(row["durable_count"])
+        best_effort = int(row["best_effort_count"])
+        delivery = "mixed" if durable and best_effort else (
+            "durable" if durable else "best_effort"
+        )
+        item = {
+            "provider": row["provider"],
+            "session_id": row["session_id"],
+            "started_at": row["started_at"],
+            "ended_at": row["ended_at"],
+            "event_count": int(row["event_count"]),
+            "agent_count": int(row["agent_count"]),
+            "tool_count": int(row["tool_count"]),
+            "check_count": int(row["check_count"]),
+            "delivery": delivery,
+            "repo_ids": sorted(activity_session_repo_ids(
+                row["provider"], row["session_id"], current_repo_ids,
+            )),
+        }
+        item["repo_count"] = len(item["repo_ids"])
+        items.append(item)
+    return items, int(total)
+
+
+def get_provider_last_activity (provider: str) -> str | None:
+    row = get_conn().execute(
+        "SELECT MAX(ts) AS ts FROM activity_events WHERE provider = ?",
+        (provider,),
+    ).fetchone()
+    return row["ts"] if row and row["ts"] else None
+
+
+def get_manual_evidence (check_id: str) -> list[sqlite3.Row]:
+    return get_conn().execute(
+        "SELECT * FROM activity_events WHERE evidence_source = 'manual' "
+        "AND check_id = ? ORDER BY ts, id",
+        (check_id,),
+    ).fetchall()
+
+
+def get_attributed_plan_events (repo_id: str, plan_file: str) -> list[sqlite3.Row]:
+    """Current-task attribution only; plan-file edits are never implementation."""
+    return get_conn().execute(
+        "SELECT e.* FROM events e JOIN tasks t ON t.repo_id = e.repo_id "
+        "AND t.plan_file = e.plan_file AND t.task_id = e.task_id "
+        "WHERE e.repo_id = ? AND e.plan_file = ? AND e.file <> e.plan_file "
+        "ORDER BY e.ts, e.id",
+        (repo_id, plan_file),
+    ).fetchall()
+
+
+def get_unresolved_uncommitted_count (repo_id: str) -> int:
+    row = get_conn().execute(
+        "SELECT COUNT(*) AS count FROM events WHERE repo_id = ? "
+        "AND commit_hash IS NULL AND mode IN ('AMBIGUOUS', 'UNKNOWN')",
+        (repo_id,),
+    ).fetchone()
+    return int(row["count"])
+
+
+def first_attempt_start (provider: str, session_id: str, tool_use_id: str,
+                         check_id: str, check_revision: str) -> sqlite3.Row | None:
+    return get_conn().execute(
+        "SELECT * FROM activity_events WHERE evidence_source = 'hook' "
+        "AND provider = ? AND session_id = ? "
+        "AND tool_use_id = ? AND check_id = ? AND check_revision = ? "
+        "AND kind = 'check_started' ORDER BY ts, id LIMIT 1",
+        (provider, session_id, tool_use_id, check_id, check_revision),
+    ).fetchone()
+
+
+def canonical_check_attempts (check_id: str | None = None) -> list[dict]:
+    query = (
+        "SELECT * FROM activity_events WHERE evidence_source = 'hook' "
+        "AND kind IN ('check_started', 'check_finished') "
+        "AND session_id IS NOT NULL AND tool_use_id IS NOT NULL "
+        "AND check_id IS NOT NULL AND check_revision IS NOT NULL"
+    )
+    params: list = []
+    if check_id is not None:
+        query += " AND check_id = ?"
+        params.append(check_id)
+    query += " ORDER BY ts, id"
+    grouped: dict[tuple, dict[str, sqlite3.Row | None]] = {}
+    for row in get_conn().execute(query, params):
+        key = (
+            row["provider"], row["session_id"], row["tool_use_id"],
+            row["check_id"], row["check_revision"],
+        )
+        attempt = grouped.setdefault(key, {"start": None, "finish": None})
+        slot = "start" if row["kind"] == "check_started" else "finish"
+        if attempt[slot] is None:
+            attempt[slot] = row
+    return [
+        {"key": key, "start": value["start"], "finish": value["finish"]}
+        for key, value in grouped.items()
+    ]
+
+
+def _canonical_pair_ids (row: sqlite3.Row) -> set[int]:
+    if row["evidence_source"] != "hook":
+        return {row["id"]}
+    if (row["kind"] not in {"check_started", "check_finished"}
+            or not all(row[key] for key in (
+                "session_id", "tool_use_id", "check_id", "check_revision",
+            ))):
+        return set()
+    for attempt in canonical_check_attempts(row["check_id"]):
+        if attempt["key"] == (
+                row["provider"], row["session_id"], row["tool_use_id"],
+                row["check_id"], row["check_revision"]):
+            return {
+                item["id"] for item in (attempt["start"], attempt["finish"])
+                if item is not None
+            }
+    return set()
+
+
+def canonical_evidence_id (row: sqlite3.Row) -> int:
+    """Return the stable UI/API identity for one canonical evidence attempt."""
+    pair_ids = _canonical_pair_ids(row)
+    if not pair_ids:
+        return int(row["id"])
+    if row["evidence_source"] == "hook":
+        for attempt in canonical_check_attempts(row["check_id"]):
+            if attempt["key"] == (
+                    row["provider"], row["session_id"], row["tool_use_id"],
+                    row["check_id"], row["check_revision"]):
+                evidence = attempt["finish"] or attempt["start"]
+                if evidence is not None:
+                    return int(evidence["id"])
+    return min(pair_ids)
+
+
+def canonical_evidence_repo_ids (row: sqlite3.Row,
+                                 current_repo_ids: set[str]) -> list[str]:
+    """Direct repository union for the canonical evidence attempt."""
+    pair_ids = _canonical_pair_ids(row) or {row["id"]}
+    placeholders = ",".join("?" for _ in pair_ids)
+    linked = get_conn().execute(
+        f"SELECT DISTINCT repo_id FROM activity_repo_links "
+        f"WHERE activity_id IN ({placeholders}) ORDER BY repo_id",
+        sorted(pair_ids),
+    ).fetchall()
+    return [item["repo_id"] for item in linked
+            if item["repo_id"] in current_repo_ids]
+
+
+def effective_activity_binding (row: sqlite3.Row) -> dict:
+    pair_ids = _canonical_pair_ids(row) or {row["id"]}
+    placeholders = ",".join("?" for _ in pair_ids)
+    assignment = get_conn().execute(
+        f"SELECT * FROM activity_assignments WHERE activity_id IN ({placeholders}) "
+        "ORDER BY id DESC LIMIT 1",
+        sorted(pair_ids),
+    ).fetchone()
+    if assignment is not None:
+        if assignment["action"] == "clear":
+            return {"assignment_mode": "UNASSIGNED", "plan_repo_id": None,
+                    "plan_file": None, "requirement_revision": None,
+                    "plan_revision": None}
+        return {"assignment_mode": "MANUAL_ASSIGNMENT",
+                "plan_repo_id": assignment["repo_id"],
+                "plan_file": assignment["plan_file"],
+                "requirement_revision": assignment["requirement_revision"],
+                "plan_revision": assignment["plan_revision"]}
+
+    if row["evidence_source"] == "hook":
+        start = first_attempt_start(
+            row["provider"], row["session_id"], row["tool_use_id"],
+            row["check_id"], row["check_revision"],
+        )
+        if start is not None:
+            row = start
+    return {key: row[key] for key in (
+        "assignment_mode", "plan_repo_id", "plan_file",
+        "requirement_revision", "plan_revision",
+    )}
+
+
+def append_activity_assignment (activity_id: int, repo_id: str,
+                                plan_file: str | None, action: str,
+                                check_definitions, assigned_at: str) -> int:
+    if action not in {"assign", "clear"}:
+        raise ValueError("invalid assignment action")
+    row = get_conn().execute(
+        "SELECT * FROM activity_events WHERE id = ?", (activity_id,),
+    ).fetchone()
+    if row is None or row["kind"] not in {"check_started", "check_finished", "review_result"}:
+        raise ValueError("activity is not assignable evidence")
+    canonical_ids = _canonical_pair_ids(row)
+    if activity_id not in canonical_ids:
+        raise ValueError("duplicate evidence row is not assignable")
+    placeholders = ",".join("?" for _ in canonical_ids)
+    if get_conn().execute(
+        f"SELECT 1 FROM activity_repo_links WHERE activity_id IN ({placeholders}) "
+        "AND repo_id = ? LIMIT 1",
+        [*sorted(canonical_ids), repo_id],
+    ).fetchone() is None:
+        raise ValueError("repository is not directly linked to the canonical evidence")
+
+    requirement_revision_value = None
+    plan_revision = None
+    if action == "assign":
+        if plan_file is None:
+            raise ValueError("assign requires a plan")
+        binding = get_plan_requirement_binding(repo_id, plan_file, row["check_id"])
+        if binding is None:
+            raise ValueError("plan does not declare a usable requirement")
+        definitions = {item.id: item for item in check_definitions}
+        if row["check_id"].startswith("review:"):
+            source_allowed = row["evidence_source"] == "manual"
+        else:
+            definition = definitions.get(row["check_id"])
+            source_allowed = (
+                definition is not None and repo_id in definition.repo_ids
+                and row["evidence_source"] in definition.evidence_sources
+                and row["check_revision"] == definition.revision
+            )
+        if not source_allowed:
+            raise ValueError("evidence source is not allowed")
+        requirement_revision_value = binding["requirement_revision"]
+        plan_revision = binding["plan_revision"]
+    else:
+        if plan_file is not None:
+            raise ValueError("clear must not name a plan")
+        effective = effective_activity_binding(row)
+        if (effective["plan_repo_id"] != repo_id
+                or effective["assignment_mode"] in {"NONE", "UNASSIGNED"}):
+            raise ValueError("clear must name the current effective repository")
+
+    with get_conn() as conn:
+        cursor = conn.execute(
+            "INSERT INTO activity_assignments "
+            "(activity_id, repo_id, action, plan_file, requirement_revision, "
+            "plan_revision, assigned_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (activity_id, repo_id, action, plan_file,
+             requirement_revision_value, plan_revision, assigned_at),
+        )
+    return cursor.lastrowid
+
+
+def requirement_has_current_pass (binding: dict) -> bool:
+    """Conservative current-pass probe used only for AUTO_VERIFYING selection."""
+    floor_values = [binding["revision_at"]]
+    floor_values.extend(
+        row["ts"] for row in get_conn().execute(
+            "SELECT ts FROM events WHERE repo_id = ? AND plan_file = ? AND file <> ?",
+            (binding["repo_id"], binding["plan_file"], binding["plan_file"]),
+        )
+    )
+    floor_epochs = [epoch for value in floor_values if (epoch := _ts_epoch(value)) is not None]
+    if not floor_epochs:
+        return False
+    floor = max(floor_epochs)
+
+    manual_rows = get_conn().execute(
+        "SELECT * FROM activity_events WHERE evidence_source = 'manual' "
+        "AND kind = 'check_finished' AND check_id = ? AND outcome = 'pass'",
+        (binding["check_id"],),
+    ).fetchall()
+    candidates: list[tuple[sqlite3.Row, str]] = [
+        (row, row["ts"]) for row in manual_rows
+    ]
+    for attempt in canonical_check_attempts(binding["check_id"]):
+        start = attempt["start"]
+        finish = attempt["finish"]
+        if (start is not None and finish is not None
+                and finish["outcome"] == "pass"):
+            candidates.append((finish, finish["ts"]))
+    for row, evidence_ts in candidates:
+        effective = effective_activity_binding(row)
+        if (
+            effective["plan_repo_id"] == binding["repo_id"]
+            and effective["plan_file"] == binding["plan_file"]
+            and effective["requirement_revision"] == binding["requirement_revision"]
+            and effective["plan_revision"] == binding["plan_revision"]
+            and (_ts_epoch(evidence_ts) is not None)
+            and _ts_epoch(evidence_ts) > floor
+        ):
+            return True
+    return False
 
 
 # --- commits + linking (F9/F32/F35/F36 sweep) --------------------------------
@@ -183,6 +965,14 @@ def upsert_commit (repo_id: str, commit: dict) -> None:
             (repo_id, commit["hash"], commit["message"], commit["ts"],
              json.dumps(commit["files"]), commit["parents"]),
         )
+
+
+def get_commit_hashes (repo_id: str) -> set[str]:
+    return {
+        row["hash"] for row in get_conn().execute(
+            "SELECT hash FROM commits WHERE repo_id = ?", (repo_id,),
+        )
+    }
 
 
 def link_events_to_commit (repo_id: str, commit_hash: str, commit_ts: str,
@@ -382,7 +1172,8 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
 
     # v0.1.6.0 D1 (B.1): effort aggregates - one ordered scan feeds both
     # the per-task clustering (task_ref NOT NULL only; sessions = distinct
-    # non-null session_id) and the per-UTC-day minutes (all events; a block
+    # non-null (provider, session_id), with legacy NULL provider = Claude)
+    # and the per-UTC-day minutes (all events; a block
     # crossing midnight splits at the bucket boundary - accepted). The
     # SELECT is ORDER BY ts, so every per-group list stays sorted.
     # v0.1.7.0 D3 (A.1): the punch card rides the SAME scan — 7x24 counts in
@@ -392,7 +1183,7 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
     task_events: dict = {}
     day_epochs: dict = {}
     for r in conn.execute(
-            f"SELECT ts, task_ref, repo_id, session_id FROM events "
+            f"SELECT ts, task_ref, repo_id, provider, session_id FROM events "
             f"WHERE repo_id IN ({placeholders}) ORDER BY ts", repo_ids):
         epoch = _ts_epoch(r["ts"])
         if epoch is None:
@@ -413,7 +1204,7 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
                 (r["repo_id"], r["task_ref"]), ([], set()))
             epochs.append(epoch)
             if r["session_id"]:
-                sessions.add(r["session_id"])
+                sessions.add((r["provider"] or "claude", r["session_id"]))
     effort_per_task = sorted(
         ({"repo": repo, "task_ref": ref,
           "minutes": _cluster_minutes(epochs), "sessions": len(sessions)}
@@ -475,8 +1266,9 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
         ],
         "ext_total": sum(ext_counts.values()),
         "sessions": conn.execute(
-            f"SELECT COUNT(DISTINCT session_id) FROM events "
-            f"WHERE session_id IS NOT NULL AND repo_id IN ({placeholders})",
+            f"SELECT COUNT(*) FROM (SELECT 1 FROM events "
+            f"WHERE session_id IS NOT NULL AND repo_id IN ({placeholders}) "
+            f"GROUP BY COALESCE(provider, 'claude'), session_id)",
             repo_ids).fetchone()[0],
         "first_event_ts": conn.execute(
             f"SELECT MIN(ts) FROM events WHERE repo_id IN ({placeholders})",
@@ -575,7 +1367,7 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
     win_task: dict = {}
     win_sessions: dict = {}
     for r in conn.execute(
-            f"SELECT repo_id, task_ref, ts, session_id FROM events "
+            f"SELECT repo_id, task_ref, ts, provider, session_id FROM events "
             f"WHERE task_ref IS NOT NULL AND ts >= ? "
             f"AND repo_id IN ({placeholders}) ORDER BY ts",
             [win_start, *repo_ids]):
@@ -585,7 +1377,8 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
         key = (r["repo_id"], r["task_ref"])
         win_task.setdefault(key, []).append(epoch)
         if r["session_id"]:
-            win_sessions.setdefault(key, set()).add(r["session_id"])
+            win_sessions.setdefault(key, set()).add(
+                (r["provider"] or "claude", r["session_id"]))
     top_task = min(
         ({"repo": k[0], "task_ref": k[1], "minutes": _cluster_minutes(v),
           "sessions": len(win_sessions.get(k, set()))}

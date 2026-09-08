@@ -1,0 +1,22 @@
+{
+  "provider_version": "Codex CLI 0.153.4",
+  "payload": {
+    "session_id": "session-codex-synthetic",
+    "turn_id": "turn-codex-synthetic",
+    "agent_id": "agent-codex-root",
+    "agent_type": "root",
+    "transcript_path": "C:\\Synthetic\\transcript.jsonl",
+    "cwd": "${REPO_A}",
+    "hook_event_name": "PostToolUse",
+    "model": "gpt-synthetic",
+    "permission_mode": "default",
+    "tool_name": "apply_patch",
+    "tool_input": {
+      "command": "*** Begin Patch\n*** Update File: ${REPO_A}\\src\\alpha.py\n*** Move to: ${REPO_A}\\src\\alpha-renamed.py\n*** Add File: ${REPO_B}\\src\\beta.py\n*** Delete File: ${REPO_B}\\src\\obsolete.py\n*** End Patch"
+    },
+    "tool_response": {
+      "status": "synthetic success"
+    },
+    "tool_use_id": "tool-codex-patch"
+  }
+}

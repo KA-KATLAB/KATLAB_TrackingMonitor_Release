@@ -1,0 +1,18 @@
+{
+  "provider_version": "Claude Code 2.1.258",
+  "payload": {
+    "session_id": "session-claude-synthetic",
+    "transcript_path": "C:\\Synthetic\\transcript.jsonl",
+    "cwd": "${REPO_A}",
+    "permission_mode": "default",
+    "hook_event_name": "PostToolUseFailure",
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "synthetic-check --safe"
+    },
+    "tool_use_id": "tool-claude-failure",
+    "error": "synthetic failure text",
+    "is_interrupt": false,
+    "duration_ms": 73
+  }
+}

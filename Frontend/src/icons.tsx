@@ -134,3 +134,29 @@ export function InfoIcon (props: IconProps): JSX.Element {
     </IconBase>
   );
 }
+
+export function MissionIcon (props: IconProps): JSX.Element {
+  return (
+    <IconBase {...props}>
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+    </IconBase>
+  );
+}
+
+export function PlayIcon (props: IconProps): JSX.Element {
+  return (
+    <IconBase {...props}>
+      <path d="m8 5 11 7-11 7Z" />
+    </IconBase>
+  );
+}
+
+export function PauseIcon (props: IconProps): JSX.Element {
+  return (
+    <IconBase {...props}>
+      <path d="M8 5v14M16 5v14" />
+    </IconBase>
+  );
+}

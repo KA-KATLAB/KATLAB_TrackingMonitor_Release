@@ -29,11 +29,11 @@ CDD means careful, deep, and detailed: understand the reason behind a rule, not 
 
 ## Project purpose
 
-KATLAB TrackingMonitor is a local Windows web application that captures Claude Code file-edit events across configured repositories, attributes each event to the plan task that caused it, correlates events with read-only Git state, and presents the result through REST, WebSocket, React UI, and the generated Chronicle.
+KATLAB TrackingMonitor is a local Windows web application that captures metadata-only Claude Code and Codex activity across configured repositories, attributes file edits to plan tasks, correlates verification evidence with read-only Git state, and presents readiness through REST, WebSocket, the six-view React UI, and the generated Chronicle.
 
 The high-level flow is:
 
-`user-scope hook -> per-repo events.jsonl -> FastAPI/watchers/SQLite -> REST + WebSocket -> React UI + Chronicle`
+`user-scope hooks -> per-repo events.jsonl + central activity inbox -> FastAPI/watchers/SQLite -> REST + WebSocket -> React UI + Chronicle`
 
 ## Non-negotiable boundaries
 
@@ -48,12 +48,14 @@ The high-level flow is:
 
 ## Critical system invariants
 
-- Capture must never block editing: `Hook/katlab_tracking_hook.py` remains stdlib-only, fail-open where documented, and exits successfully even on malformed input or environmental failure.
+- Capture must never block provider work: hook modules remain stdlib-only and exit successfully on malformed input or environmental failure. Registry and record validation fail closed to a capture no-op; there is no capture-all fallback.
 - Event version remains compatible with optional fields; validate malformed records without stalling the persisted byte offset.
 - Never silently guess attribution. Preserve the Hybrid-C resolver outcomes `B`, `A_SCOPED`, `A_GLOBAL`, `AMBIGUOUS`, `UNKNOWN`, and `MANUAL`.
-- Preserve watcher startup order: config/DB -> parse all plans -> catch-up ingest -> commit backfill -> initial Git status -> clean sweep -> watchers/poll loop.
+- Preserve watcher startup order: config/checks/DB -> all plans -> all legacy file events -> central activity -> commit/status/link/sweep -> readiness -> watchers/poll loop.
 - All Git subprocess use stays inside `Backend/app/git_module.py`, remains read-only, and tolerates transient failures without killing background work.
-- `Config/repos.yaml` is read once at startup and doubles as the hook allowlist. Every `path:` value must remain single-line and single-quoted because the hook parses it with a stdlib regex.
+- Mission and evidence recording are observability only. They never run checks, commit, push, check out, create, or delete branches; a green requirement means only that declared evidence is present and fresh.
+- Treat `(provider, session_id)` and `(repo_id, plan_file)` as composite identities. Never join either value alone across providers or repositories.
+- The server reads `Config/repos.yaml` once at startup; hooks read it per event as their fail-closed allowlist. Every `path:` value must remain single-line and single-quoted because the hook projection uses a stdlib parser.
 - Keep API response shapes stable, including empty-scope shapes. Mirror backend contract changes in `Frontend/src/api.ts` and related TypeScript types.
 - Keep shared constants and algorithms in one authoritative home. Reuse them rather than creating near-duplicates.
 - Preserve reduced-motion, offline, empty-data, stale-reference, and Windows-path behavior.
@@ -88,7 +90,7 @@ Match checks to the affected surface:
 - Hook: use isolated temporary repositories/configuration for tests; never pollute real monitored repos.
 - Documentation-only changes: check links, paths, commands, terminology, and the 200-line limit for this file.
 
-There is no committed general-purpose automated test suite. Do not imply otherwise; document targeted checks and any checks not run.
+`Tests/` is a committed focused regression suite for capture, ingest, plans, evidence, readiness, API, Git allowlisting, and demo behavior. It is not a general-purpose browser/end-to-end suite; document targeted checks and anything not run.
 
 ## Completion report
 
@@ -102,4 +104,4 @@ Report:
 
 ## Detailed guidance
 
-Use [Codex_Info/Repository_Guide.md](Codex_Info/Repository_Guide.md) for module ownership, architectural contracts, workflow details, and the verification matrix. Follow [Docs/UI_Design_System.md](Docs/UI_Design_System.md) for frontend design, accessibility, responsive, motion, and bounded-rendering work. Authoritative historical and normative sources remain in `Claude_Info/` and `Docs/`.
+Use [Codex_Info/Repository_Guide.md](Codex_Info/Repository_Guide.md) for module ownership, architectural contracts, workflow details, and the verification matrix. Follow [Docs/UI_Design_System.md](Docs/UI_Design_System.md), [Docs/Agent_Activity_Spec.md](Docs/Agent_Activity_Spec.md), [Docs/Verification_Evidence_Spec.md](Docs/Verification_Evidence_Spec.md), and [Docs/Mission_API_Spec.md](Docs/Mission_API_Spec.md) for their respective normative surfaces. Historical sources remain in `Claude_Info/`.

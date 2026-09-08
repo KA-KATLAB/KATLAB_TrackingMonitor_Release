@@ -1,0 +1,56 @@
+{
+  "provider_version": "Codex CLI 0.153.4",
+  "payloads": [
+    {
+      "session_id": "session-codex-synthetic",
+      "transcript_path": null,
+      "cwd": "${REPO_A}",
+      "hook_event_name": "SessionStart",
+      "model": "gpt-synthetic",
+      "permission_mode": "default",
+      "source": "startup"
+    },
+    {
+      "session_id": "session-codex-synthetic",
+      "turn_id": "turn-codex-synthetic",
+      "transcript_path": null,
+      "cwd": "${REPO_A}",
+      "hook_event_name": "SubagentStart",
+      "model": "gpt-synthetic",
+      "permission_mode": "default",
+      "agent_id": "agent-codex-child",
+      "agent_type": "worker"
+    },
+    {
+      "session_id": "session-codex-synthetic",
+      "turn_id": "turn-codex-synthetic",
+      "transcript_path": null,
+      "agent_transcript_path": null,
+      "cwd": "${REPO_A}",
+      "hook_event_name": "SubagentStop",
+      "model": "gpt-synthetic",
+      "permission_mode": "default",
+      "agent_id": "agent-codex-child",
+      "agent_type": "worker",
+      "stop_hook_active": false,
+      "last_assistant_message": "synthetic response"
+    },
+    {
+      "session_id": "session-codex-synthetic",
+      "turn_id": "turn-codex-synthetic",
+      "transcript_path": null,
+      "cwd": "${REPO_A}",
+      "hook_event_name": "Interrupt",
+      "model": "gpt-synthetic",
+      "permission_mode": "default"
+    },
+    {
+      "session_id": "session-codex-synthetic",
+      "transcript_path": null,
+      "cwd": "${REPO_A}",
+      "hook_event_name": "SessionEnd",
+      "model": "gpt-synthetic",
+      "reason": "other"
+    }
+  ]
+}

@@ -21,9 +21,14 @@ When prose and running code disagree, do not silently choose one. Establish whet
 
 | Path | Ownership |
 |---|---|
-| `Hook/katlab_tracking_hook.py` | User-scope PostToolUse capture, repo discovery, allowlist, durable JSONL append |
+| `Hook/katlab_tracking_hook.py` | Fail-safe Claude/Codex entry point and channel router |
+| `Hook/katlab_activity.py` | Strict registries, safe paths, atomic activity transport, durable JSONL append |
+| `Hook/provider_adapters.py` | Provider payload projection into metadata-only records |
 | `Backend/app/config.py` | YAML loading, authoring validation, offline-repo handling |
-| `Backend/app/db.py` | SQLite schema initialization, migrations, event/task/commit queries, statistics |
+| `Backend/app/db.py` | SQLite migrations and event/task/plan/evidence/commit queries |
+| `Backend/app/activity.py` | Strict central-inbox validation, recovery, admission, and ingestion |
+| `Backend/app/readiness.py` | Authoritative requirement and seven-state Mission evaluation |
+| `Backend/app/provider_health.py` | Independent adapter/configuration/recency facts per provider |
 | `Backend/app/plan_parser.py` | Enhanced `<task>` plan parsing and warnings |
 | `Backend/app/resolver.py` | Glob semantics and Hybrid-C attribution |
 | `Backend/app/git_module.py` | The only Git subprocess boundary; read-only operations only |
@@ -35,6 +40,8 @@ When prose and running code disagree, do not silently choose one. Establish whet
 | `Frontend/src/api.ts` | REST types and client; backend contract mirror |
 | `Frontend/src/ws.ts` | WebSocket connection/reconnect boundary |
 | `Frontend/src/App.tsx` | Global live state, synchronization, navigation, cross-view effects |
+| `Frontend/src/MissionView.tsx` | Verification cockpit, evidence queue, and session flight recorder |
+| `Frontend/src/missionModel.ts` | Pure Mission labels, ordering, lanes, and entry-state normalization |
 | `Frontend/src/OverviewView.tsx` | Overview composition |
 | `Frontend/src/theme.ts` | Shared modes, colors, timing thresholds, and cross-feature helpers |
 | `Frontend/src/*.tsx` | Focused cards, views, modals, visualizations, and interaction modules |
@@ -42,35 +49,40 @@ When prose and running code disagree, do not silently choose one. Establish whet
 | `Scripts/Chronicle/generate.py` | REST-fed Chronicle model, atomic generation/build, loop lifecycle |
 | `Scripts/Chronicle/pages.py` | Generated Markdown/config/CSS/JS renderers |
 | `Scripts/Chronicle/scribe.py` | Bounded headless-Claude story generation |
+| `Scripts/record_evidence.py` | Validated explicit manual check/review evidence publisher |
+| `Scripts/render_hook_config.py` | Read-only provider preflight and merge-ready hook renderer |
 | `Scripts/*.bat` | Windows start/stop/restart lifecycle |
-| `Config/repos.yaml` | Server settings, monitored-repo registry, capture allowlist |
+| `Config/repos.yaml` | Server settings, monitored-repo registry, fail-closed capture allowlist |
+| `Config/checks.json` | Versioned automatic/manual verification registry |
 | `Docs/` | Normative plan, tracking, and onboarding contracts |
 | `Guidelines/` | Copyable instructions used inside monitored repos |
 | `Claude_Info/` | Architecture, monitored-repo, plan-format, and version history |
 
 ## 3. Data and control flow
 
-1. The user-scope hook receives a Claude Code tool event.
-2. It finds the edited file's nearest `.git` ancestor and checks the configured allowlist.
-3. It appends one versioned JSON object to `<repo>/.katlab_tracking/events.jsonl`.
-4. The tracker parses all configured plans before ingesting missed JSONL records.
+1. User-scope Claude/Codex hooks receive supported lifecycle or tool events.
+2. Strict adapters retain bounded metadata and map only registered repositories.
+3. File attribution appends to `<repo>/.katlab_tracking/events.jsonl`; provider and
+   verification activity is atomically published to the central inbox.
+4. The tracker parses all configured plans before ingesting missed records.
 5. The resolver matches each file against task declarations and records an exact or unresolved attribution.
-6. SQLite persists events, tasks, manual choices, commits, offsets, and derived relations.
+6. SQLite persists events, plan snapshots, requirements, evidence, immutable assignment history, commits, offsets, and derived relations.
 7. Read-only Git checks provide dirty state, diffs, branch, HEAD, and new commit metadata.
-8. REST provides snapshots; WebSocket messages trigger prompt client resynchronization.
-9. React renders live state. Chronicle periodically reads REST and atomically replaces its built site.
+8. One backend readiness engine derives evidence freshness, blockers, and Mission state.
+9. REST provides snapshots; additive WebSocket signals trigger bounded REST resynchronization.
+10. React renders six views. Chronicle periodically reads REST and atomically replaces its built site.
 
 ## 4. Core contracts
 
 ### 4.1 Capture and ingest
 
-- The hook must use only Python's standard library and must never interrupt Claude Code work.
+- Hook modules use only Python's standard library and never interrupt provider work.
 - Repo paths written to events are repo-relative with forward slashes.
 - Event schema version is `1`; `session_id` and `branch` are optional compatibility fields.
 - Append durability is more important than server availability.
 - Ingest consumes only through the last complete newline.
 - Malformed records warn and advance the offset; no malformed line may wedge replay forever.
-- Config unreadable/empty is the documented hook fail-open case. Do not casually invert this policy.
+- Missing, unreadable, empty, invalid, or ambiguous repo configuration disables capture for that event while the provider continues. Never restore capture-all fallback behavior.
 
 ### 4.2 Plan parsing and attribution
 
@@ -91,7 +103,10 @@ When prose and running code disagree, do not silently choose one. Establish whet
 - Missing repository paths are environmental drift: mark those repos offline and keep the server alive.
 - `Config/repos.yaml` is loaded once; configuration changes require restart.
 - The hook regex requires each repo `path:` to be single-line and single-quoted.
-- `KATLAB_TRACKER_CONFIG` and `KATLAB_TRACKER_DB` isolate demo/test instances.
+- `KATLAB_TRACKER_CONFIG`, `KATLAB_TRACKER_DB`, and
+  `KATLAB_TRACKER_ACTIVITY_DIR` isolate demo/test instances.
+- Generated static status is accepted only with `KATLAB_TRACKER_DEMO=1`,
+  `demo: true`, a workspace-relative path under `Demo/runtime`, and its marker.
 
 ### 4.4 Git and commit correlation
 
@@ -101,12 +116,15 @@ When prose and running code disagree, do not silently choose one. Establish whet
 - Detect commits oldest-first and link eligible events before clean sweeps.
 - A clean sweep may attach otherwise-unlinkable events to `HEAD`; keep its documented attribution limitations honest.
 - Commit identity is the composite `(repo_id, hash)`, because separate working copies can share hashes.
+- Mission and `record_evidence.py` never invoke Git or mutate repositories; they
+  cannot commit, push, check out, create, or delete a branch.
 
 ### 4.5 Database and API
 
 - Migrations are idempotent and preserve existing runtime databases.
 - Offset advancement and event insertion remain in one transaction.
-- Maintain fixed shapes for empty and non-empty `/api/stats` responses.
+- Maintain fixed shapes for empty and non-empty `/api/stats`, `/api/mission`,
+  `/api/activity`, and `/api/sessions` responses.
 - Preserve the standard API envelope: `success`, `data`, `message`, and timestamp.
 - Existing filters and pagination must compose rather than silently override one another.
 - Additive contract changes require matching TypeScript types and all empty/error paths.
@@ -116,14 +134,17 @@ When prose and running code disagree, do not silently choose one. Establish whet
 
 The required startup sequence is:
 
-1. initialize DB and per-repo state;
-2. create tracking directories for online repos;
-3. parse all plans;
-4. catch up complete event lines;
-5. backfill recent commits;
-6. refresh initial Git status;
-7. sweep unlinked events only if clean;
-8. start repo, `.git/logs`, and polling tasks.
+1. load and validate repositories and checks;
+2. initialize/migrate DB, per-repo state, and the central inbox;
+3. parse and reconcile every online repository's plans globally;
+4. catch up complete legacy file-event lines globally;
+5. ingest pending central activity after the complete plan/event world exists;
+6. hydrate commits, detect/link new history, backfill normalized task keys, and
+   refresh current status;
+7. sweep remaining unlinked events only after a valid clean observation;
+8. compute the initial readiness snapshot;
+9. start repo/Git/activity watchers and the polling safety loop. Demo-status
+   entries receive no Git watcher or Git probe.
 
 Plan-before-catch-up prevents permanent `UNKNOWN` attribution. The dedicated Git watcher exists because default file-watcher filtering ignores `.git`.
 
@@ -132,6 +153,10 @@ Plan-before-catch-up prevents permanent `UNKNOWN` attribution. The dedicated Git
 - Follow [`Docs/UI_Design_System.md`](../Docs/UI_Design_System.md) for visual tokens, shared controls, dialog behavior, responsive composition, data alternatives, motion, and bounded rendering.
 - Treat `api.ts` interfaces as executable contract mirrors, not convenient approximations.
 - `App.tsx` owns global snapshots and cross-view effects; keep feature-specific algorithms in focused modules.
+- Navigation has six canonical views in order: Changes, Mission, Overview,
+  History, City, Chronicle. Mission remains route-lazy and outside attract mode.
+- Mission readiness comes only from the backend; React displays reasons and never
+  infers a pass. Session identity is always `(provider, session_id)`.
 - Scope statistics intentionally: some features are tab-scoped, while workspace identity such as Kat's wardrobe is unscoped.
 - Preserve stable callback identities for overlays whose effects restore focus.
 - Async effects must protect against stale completion with the existing alive/cancellation patterns.
@@ -175,7 +200,7 @@ Plan-before-catch-up prevents permanent `UNKNOWN` attribution. The dedicated Git
 
 - Change the contract here only; do not apply it directly in EA, UM, or another monitored repo.
 - Keep `Docs/Installation_Guideline.md`, `Docs/Tracking_Discipline.md`, `Docs/Plan_Format_Spec.md`, and `Guidelines/Onboarding_Prompt.txt` consistent.
-- Preserve user-scope hook registration and forbid duplicate per-repo registration.
+- Preserve explicit user-scope provider hook registration and forbid duplicate per-repo registration.
 - Validate the single-line, single-quoted registry-path example.
 
 ## 6. Verification matrix
@@ -199,7 +224,9 @@ Do not run every check for every edit. Choose the smallest set that can falsify 
 
 - The supported environment is Windows with Python 3.10+ and Node.js.
 - The frontend's only standard verification script is `npm run build` (`tsc -b && vite build`).
-- No general committed Python/JS test suite exists; historical “batteries” were targeted release checks.
+- `Tests/` is a committed focused Python regression suite for v0.3 capture,
+  ingestion, plans, evidence, readiness, API, Git allowlisting, and demo behavior;
+  it is not a general-purpose browser/end-to-end suite.
 - Product Python dependencies are in `Backend/requirements.txt`; Chronicle has a separate pinned set in `Scripts/Chronicle/requirements.txt`.
 - The primary launcher is `Scripts/start_tracking_monitor.bat`; demo uses `Scripts/Demo/start_demo.bat`.
 - Runtime state and generated output are intentionally gitignored.

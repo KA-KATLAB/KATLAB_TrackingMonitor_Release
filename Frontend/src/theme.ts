@@ -4,7 +4,7 @@
 
 import { useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
-import type { TrackedEvent } from "./api";
+import type { ActivityProvider, EventProvider, TrackedEvent } from "./api";
 
 export const MODE_COLOR: Record<TrackedEvent["mode"], string> = {
   B: "#059669", // emerald-600
@@ -65,11 +65,44 @@ export const ODOMETER_MILESTONES: ReadonlySet<number> = new Set(
 // nudge AND the pet's "anxious" mood (never a mirrored copy).
 export const UNCOMMITTED_AGE_H = 48;
 
-// v0.1.5.0 D1 (C.1): identity color for session dots - deterministic hash
-// -> HSL hue, saturation/lightness fixed for the dark palette. An IDENTITY
-// cue, not a mode (modes stay in MODE_COLOR); same session = same color
-// everywhere (dots + digest).
-export function sessionColor (id: string): string {
+export interface SessionIdentity<Provider extends string = ActivityProvider> {
+  provider: Provider;
+  sessionId: string;
+}
+
+export type EventSessionIdentity = SessionIdentity<EventProvider>;
+
+// Legacy file-event rows predate provider metadata and came from Claude.
+export function normalizeEventProvider (
+  provider: EventProvider | null | undefined,
+): EventProvider {
+  return provider === "codex" ? "codex" : "claude";
+}
+
+export function sessionIdentityKey (provider: string, sessionId: string): string {
+  return JSON.stringify([provider, sessionId]);
+}
+
+export function sameSessionIdentity (
+  left: SessionIdentity | null,
+  right: SessionIdentity | null,
+): boolean {
+  return left !== null && right !== null
+    && left.provider === right.provider && left.sessionId === right.sessionId;
+}
+
+export function eventSessionIdentity (
+  event: Pick<TrackedEvent, "provider" | "session_id">,
+): EventSessionIdentity | null {
+  return event.session_id
+    ? { provider: normalizeEventProvider(event.provider), sessionId: event.session_id }
+    : null;
+}
+
+// Identity color for session dots. Provider is part of identity, so equal raw
+// session IDs from different providers remain visually and functionally distinct.
+export function sessionColor (provider: string, sessionId: string): string {
+  const id = sessionIdentityKey(provider, sessionId);
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
   return `hsl(${hash % 360}, 65%, 60%)`;

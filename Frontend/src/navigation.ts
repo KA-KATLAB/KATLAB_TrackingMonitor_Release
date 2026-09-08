@@ -1,5 +1,6 @@
 export const VIEW_VALUES = [
   "changes",
+  "mission",
   "overview",
   "history",
   "city",

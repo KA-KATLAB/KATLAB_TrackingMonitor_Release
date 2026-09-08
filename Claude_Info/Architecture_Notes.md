@@ -1,48 +1,87 @@
 # Architecture Notes
 
-Source of truth: `Ref/system_architecture.mermaid` + `Ref/hybrid_C_resolution_flow.mermaid`. This doc is the prose companion.
+Current source of truth is the implementation plus normative contracts in `Docs/`.
+Historical notes reference `Ref/system_architecture.mermaid` and
+`Ref/hybrid_C_resolution_flow.mermaid`, but `Ref/` is absent in this checkout.
 
-## 1. System Architecture (5 parts)
+## 1. System Architecture (v0.3.0.0)
 
-### 1.1 Capture — one user-scope hook, every session (v0.1.1.0)
+### 1.1 Capture — user-scope provider hooks, every session
 
-- `Edit` / `Write` / `MultiEdit` fires a **PostToolUse hook** — a tiny Python script registered ONCE per PC at user scope (`C:\Users\ADMIN\.claude\settings.json`), so it fires in EVERY Claude Code session regardless of the session's root (the real workflow is one session spanning several repos)
-- The hook routes each event to the repo that OWNS the edited file (nearest `.git` ancestor) and appends a raw event `{file, timestamp, tool}` to that repo's `events.jsonl`
-- **Allowlist**: only repos registered in `Config/repos.yaml` are captured (fail-open to capture-all when the registry is unreadable/empty; path lines must stay single-line + single-quoted — the hook reads the registry with a stdlib regex, not YAML)
-- **Durable by design**: pure file append — capture keeps working even when the server is down
+- Claude Code and Codex register the shared Python router once per PC at user scope;
+  provider-specific adapters normalize supported lifecycle, tool, and subagent events.
+- Successful file tools route one attribution event to the owning registered repo's
+  `events.jsonl`; metadata-only provider/check events use the central atomic inbox.
+- **Allowlist**: only repos registered in `Config/repos.yaml` are captured. Missing,
+  unreadable, empty, invalid, or ambiguous configuration yields a capture no-op while
+  provider work continues; path lines stay single-line and single-quoted.
+- **Durable by design**: file and check evidence is synchronous and flushed; general
+  activity is best-effort asynchronous where supported and works while the server is down.
 
 ### 1.2 Data sources (per monitored repo)
 
 | Source | Role |
 |---|---|
-| `events.jsonl` | raw change events from the hook |
+| `events.jsonl` | bounded legacy file-attribution metadata from the hook |
+| central activity inbox | atomic provider lifecycle/tool/check metadata |
 | PLAN files (task blocks) | the "why" — tasks, file declarations, statuses |
+| `Config/checks.json` | trusted automatic/manual check definitions |
 | `.git` (logs/HEAD, index) | truth for committed vs. uncommitted, diffs, commit detection |
 
 ### 1.3 Local server — FastAPI, single process
 
-- **File watchers** (`watchfiles`): tail `events.jsonl`, watch plan files (parse + cache, re-parse on change)
+- **Watchers** (`watchfiles`): tail file events, plans, Git logs, and the central activity inbox
 - **Resolver**: hybrid-C decision tree (section 2) attributes each event to a task
-- **Git module**: status · diff · commit detection per repo
-- **SQLite**: events · tasks · commits
-- **API**: REST + WebSocket (live push to UI)
+- **Git module**: bounded read-only `status` · `diff` · `log` · `show` only
+- **SQLite**: events · plan snapshots · tasks · requirements · activity/evidence · assignments · commits
+- **Readiness**: one backend engine computes evidence freshness, blockers, and seven Mission states
+- **API**: bounded REST snapshots + additive WebSocket invalidation signals
 
 ### 1.4 Browser UI — React + Vite + Tailwind (English)
 
-- **Responsive shell**: repo scope, five-view navigation, status rail, Attention, and utilities remain reachable at phone, tablet, and desktop widths; Tasks is a modal drawer below 1024px and a persistent sidebar from 1024px.
+- **Responsive shell**: repo scope, six-view navigation, status rail, Attention, and utilities remain reachable at phone, tablet, and desktop widths; Tasks is a modal drawer below 1024px and a persistent sidebar from 1024px.
 - **Changes**: changes grouped by task — why + files + diff viewer + **AMBIGUOUS queue** (manual pick), with bounded semantic collections.
+- **Mission**: plan readiness, requirement rail, blocker/evidence queue, provider-aware session flight recorder, replay, and exact-data table; all decisions come from the backend.
 - **Overview**: Now (KPIs, plans, momentum) → Trends (three Chart.js charts, calendar, day lanes, coupling, punch card) → Explore (goals, identity, churn, trophies, records, provenance) → Relationships (lazy Mermaid). Attribution is a horizontal bar, not the retired doughnut.
 - **History**: commit → tasks → events, with independent API fetch depth and visible 50-row paging; commits remain counted separately.
 - **City and Chronicle**: City is a paged six-district SVG view with complete-model calculations and an exact-data alternative. Chronicle remains a same-origin iframe whose React host owns sizing/fallback only.
 
-### 1.5 Interface invariants (v0.2.12.0)
+### 1.5 Interface invariants (v0.3.0.0)
 
 - [UI_Design_System.md](../Docs/UI_Design_System.md) is the normative interface contract; semantic tokens and shared primitives live in `Frontend/src/index.css`, `tailwind.config.js`, `ui.tsx`, `icons.tsx`, and `dialog.tsx`.
 - The route is `{scope, view}` with canonical `view` then `repo` query order. Workspace scope and a repo literally named `ALL` are distinct. Back/Forward uses opaque entry ids plus in-memory, entry-local UI snapshots; private paths, filters, drafts, results, and Blobs never enter the URL or `history.state`.
 - Every modal/drawer uses the portal-based `DialogShell`: one overlay lease, inert background, body/app scroll freeze, dynamic Tab containment, Escape, and safe focus return. Header disclosure-to-dialog handoff returns to the persistent trigger.
 - Any semantic collection that can exceed 50 uses the shared bounded pager. Calculations, filtering, mutations, exports, and graph inputs continue to use the complete model; City alone pages six districts.
 - User-triggered REST work owns one absolute 10-second deadline plus abort/stale-generation guards. Digest preparation is two-stage and scope-bound; direct report and City downloads stay within their initiating activation.
-- One reactive reduced-motion source coordinates CSS, rAF, charts, reveal work, View Transitions, attract mode, and particles. Overview and City are route-lazy; Mermaid remains nested-lazy; the network-only service worker is unchanged.
+- One reactive reduced-motion source coordinates CSS, rAF, charts, reveal work, View Transitions, attract mode, and particles. Mission, Overview, and City are route-lazy; Mermaid remains nested-lazy; Mission is excluded from attract mode and the network-only service worker is unchanged.
+
+### 1.6 Mission, evidence, and privacy invariants (v0.3.0.0)
+
+- Plans may declare a top-level `<verification>` block. Raw plan bytes define the
+  plan revision; edits stale prior bound evidence while unchanged restart does not.
+- Evidence records only bounded structural metadata. Prompts, responses, commands,
+  patches, source, transcripts, environment values, stdout/stderr, and error text
+  never enter the ledger, API, WebSocket, or DOM.
+- Automatic evidence attaches only through one uniquely eligible current plan;
+  ambiguity remains visibly unassigned. Manual reassignment is append-only.
+- Readiness has seven states: `not_configured`, `planning`, `implementation`,
+  `verification`, `blocked`, `ready_to_commit`, and `verified_committed`.
+- A passing gate means only that declared evidence is current. Mission does not run
+  checks or mutate Git; neither it nor the recorder can commit, push, check out,
+  create, or delete branches.
+- Sessions use `(provider, session_id)` and plans use `(repo_id, plan_file)`; neither
+  raw identifier is globally unique alone.
+- Startup globally loads plans, legacy file events, and central activity before
+  commit/status reconciliation and readiness, then starts watchers. With persisted
+  commit history, reconciliation snapshots HEAD, pages to a known boundary, then
+  pages the exact boundary-to-snapshot range so merged sibling commits are included;
+  every unseen commit links oldest-first before any clean sweep. An empty history
+  seeds only one bounded page. A failed or moving-HEAD scan leaves events unlinked,
+  and sweep authority is valid only while HEAD still equals that reconciled snapshot.
+  Demo static status is triple-gated and receives no Git probe or Git watcher.
+- All-scope Mission reads rebuild authoritative readiness globally. Repo-scoped reads
+  and live invalidations recompute only affected repositories and atomically replace
+  those cached plan slices; summary counts are then derived from the merged cache.
 
 ## 2. Hybrid-C Resolution (the "why" attribution)
 
@@ -70,4 +109,6 @@ Implemented per the reviewed plan (57 findings baked in) + post-implementation C
 
 - The server tracks **N repos simultaneously** — each with its own `events.jsonl`, plan files, and `.git`
 - Repo registry: see [Monitored_Repos.md](Monitored_Repos.md)
-- Divide-and-conquer: hook + guideline are authored HERE; the hook is registered ONCE at user scope (maintained here, v0.1.1.0); each monitored repo self-installs only gitignore + plan rules per the **Installation Guideline** — no logic duplication across repos; `Config/repos.yaml` doubles as the capture allowlist
+- Divide-and-conquer: hooks + guideline are authored HERE; each provider is registered
+  once at user scope by the operator; each monitored repo self-installs only gitignore
+  + plan rules per the **Installation Guideline**; `Config/repos.yaml` is the allowlist.

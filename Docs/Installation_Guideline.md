@@ -1,91 +1,221 @@
-# TrackingMonitor — Repo Onboarding Guideline
+# KATLAB TrackingMonitor Installation and Repo Onboarding
 
-Self-contained steps for the **Claude Code session running INSIDE a monitored repo** (divide-and-conquer: the TrackingMonitor repo NEVER edits monitored repos — you, the session in the target repo, execute these steps yourself).
+TrackingMonitor home:
 
-**TrackingMonitor home** (single source of truth for hook + server + UI):
 `D:\KATLAB_Reiky\_Development_Workspace\KATLAB_TrackingMonitor`
 
-## How capture works (context — NOTHING to install per repo)
+The application, hook, and helper scripts never edit provider settings or monitored
+repositories. Provider activation and repo onboarding are explicit operator actions.
 
-The PostToolUse hook is registered ONCE per PC at **user scope** (`C:\Users\ADMIN\.claude\settings.json`, maintained by the TrackingMonitor repo — NOT by you). It fires in EVERY Claude Code session regardless of the session's root and routes each event to the repo that OWNS the edited file (nearest `.git` ancestor), appending to `<that repo>/.katlab_tracking/events.jsonl`. One session may span several repos — each edit still lands in the right repo's events file.
+## 1. Activate user-scope provider hooks
 
-**Allowlist**: the hook captures ONLY repos registered in `TrackingMonitor/Config/repos.yaml`. If that file is unreadable or empty, the hook fails OPEN (captures every repo — durability first); that fail-open mode is the only way a stray `.katlab_tracking/` can appear in an unregistered repo (harmless — delete it).
+Supported configuration baselines:
 
-## Step 1 — Remove any legacy per-repo hook (migration)
+- Claude Code 2.1.258: `%USERPROFILE%\.claude\settings.json`
+- Codex CLI 0.153.4: `%USERPROFILE%\.codex\hooks.json`
 
-Older guideline versions registered the hook in each repo's `.claude/settings.json`. If this repo's `.claude/settings.json` contains a `hooks.PostToolUse` entry invoking `katlab_tracking_hook.py`, REMOVE that entry — a second registration would double-fire events for sessions rooted here. If that entry is the file's ONLY content, delete the file. PRESERVE all other settings (F40: merge-not-overwrite applies to removal too — verify the JSON after editing).
+Stop the provider before editing its settings. Run the matching read-only preflight:
 
-**NEVER add per-repo hook entries** — registration is user-scope only.
+```powershell
+python Scripts\render_hook_config.py --provider claude --preflight "$env:USERPROFILE\.claude\settings.json"
+python Scripts\render_hook_config.py --provider codex --preflight "$env:USERPROFILE\.codex\hooks.json"
+```
 
-## Step 2 — Gitignore the tracking data
+Results:
 
-Add to this repo's `.gitignore` (the dir is tracker-owned runtime data):
+- `PREFLIGHT OK`: no existing KATLAB registration was found.
+- `PREFLIGHT STOP`: inspect the existing KATLAB entries and merge without duplicating
+  them. Do not paste another full copy.
+- `PREFLIGHT ERROR`: repair or explicitly review the settings JSON first.
+
+Render the provider's merge-ready snippet to the console:
+
+```powershell
+python Scripts\render_hook_config.py --provider claude
+python Scripts\render_hook_config.py --provider codex
+```
+
+Manually merge the rendered `hooks` object into the provider's existing user-scope
+JSON. Preserve every unrelated key, matcher group, and hook. Never replace the whole
+settings file with the snippet.
+
+The rendered registrations intentionally use:
+
+| Evidence | Claude | Codex | Delivery |
+|---|---|---|---|
+| File attribution | successful Edit/Write/MultiEdit | successful apply_patch | synchronous |
+| Check start | PreToolUse Bash | PreToolUse Bash | synchronous, durable |
+| Check finish | PostToolUse/Failure Bash | PostToolUse Bash | synchronous, durable |
+| General tools | PostToolUse/Failure | PostToolUse | asynchronous |
+| Lifecycle | session, subagent, stop | session, subagent, stop, interrupt | asynchronous where supported |
+
+Validate the merged JSON without rewriting it:
+
+```powershell
+python -m json.tool "$env:USERPROFILE\.claude\settings.json" > $null
+python -m json.tool "$env:USERPROFILE\.codex\hooks.json" > $null
+```
+
+Restart the provider, open `/hooks`, review the exact KATLAB commands, and approve
+them through the normal trust flow. Do not use a hook-trust bypass. Managed policy
+may still disable user hooks; treat a failed smoke test as the deciding evidence.
+
+### Hook rollback
+
+Stop the provider and manually remove only command handlers whose command references
+`KATLAB_TrackingMonitor\Hook\katlab_tracking_hook.py`. Remove a matcher group or event
+only if it becomes empty. Preserve all unrelated settings, validate the JSON, then
+restart the provider.
+
+## 2. Capture safety model
+
+The hook reads `Config/repos.yaml` and captures only registered repositories. An
+unreadable, missing, empty, ambiguous, or invalid registry makes capture a no-op;
+provider execution still exits successfully. There is no capture-all fallback.
+
+File attribution is appended to `<repo>/.katlab_tracking/events.jsonl`. Provider
+activity and check evidence are atomically published to the central
+`data/activity_inbox/`. Records contain bounded metadata only: never prompts,
+responses, commands, patches, source, transcripts, environment values, stdout,
+stderr, or error text.
+
+`Config/checks.json` is loaded by both hooks and the server. After changing it,
+restart TrackingMonitor and active Claude/Codex sessions before running a registered
+check. A command, working-directory, repository, or revision mismatch stays
+unassigned and is never retroactively guessed.
+
+### Declare and record verification evidence
+
+Plans opt in with one column-zero block:
+
+```text
+<verification>
+review:cdd@5
+my-reviewed-check
+review:cft@5
+</verification>
+```
+
+`review:*` checks are manual-only. Ordinary IDs require an exact reviewed entry in
+`Config/checks.json`; the committed registry is initially valid-empty. Provider
+check capture matches exact normalized command, working directory, repository,
+definition revision, start/finish pair, and accepted exit status.
+
+From the TrackingMonitor root, explicitly record a completed review or a check whose
+definition allows `manual` evidence:
+
+```powershell
+python Scripts\record_evidence.py --repo My_Repo_Id --plan temp/Plan/PLAN_v1.0.0.0_Example.txt --check review:cdd --outcome clean
+python Scripts\record_evidence.py --repo My_Repo_Id --plan temp/Plan/PLAN_v1.0.0.0_Example.txt --check review:cft --outcome finding
+python Scripts\record_evidence.py --repo My_Repo_Id --plan temp/Plan/PLAN_v1.0.0.0_Example.txt --check my-reviewed-check --outcome pass
+```
+
+Review outcomes are `clean|finding`; ordinary outcomes are
+`pass|fail|cancelled`. The plan must match that repository's configured
+`plan_globs`. The recorder validates and publishes metadata only. It does
+not run the check, edit a monitored repository, or invoke Git. Record evidence only
+after the relevant final edit: plan/check revisions and implementation-sensitive
+file activity can make older evidence stale.
+
+### Read Mission safely
+
+Open the **Mission** view or inspect `GET /api/mission`. The seven plan states are
+`not_configured`, `planning`, `implementation`, `verification`, `blocked`,
+`ready_to_commit`, and `verified_committed`. `GET /api/activity` and
+`GET /api/sessions` expose bounded evidence and provider-composite sessions.
+
+A green requirement means only that its declared evidence is present and fresh.
+Inspect blockers and unassigned evidence; TrackingMonitor is not a correctness
+oracle. Mission and evidence recording never run commands, commit, push, check out,
+create, or delete branches.
+
+### Evidence troubleshooting and rollback
+
+1. Check `/api/health` for separate adapter, configuration, recency, inbox, rejected,
+   and ignored-unscoped facts.
+2. Confirm the repo ID/path and check definition, then restart both TrackingMonitor
+   and the provider after configuration changes.
+3. Treat `unassigned`, `stale`, `incomplete`, `failed`, `finding`, and `unknown` as
+   distinct evidence states; do not relabel or guess them.
+4. Preserve `data/activity_inbox`, `data/activity_rejected`, and the SQLite database
+   while diagnosing. Copy diagnostics before any explicitly authorized cleanup.
+5. To roll back activity/evidence hooks, manually remove only the newly rendered
+   lifecycle/general-tool/check handlers. Keep the legacy file-attribution handler
+   if Changes tracking must continue; validate JSON and restart the provider.
+
+## 3. Remove legacy per-repo hooks
+
+In each monitored repo, inspect `.claude/settings.json` and `.codex/hooks.json`. If
+one contains a command invoking `katlab_tracking_hook.py`, remove only that handler.
+Delete an empty matcher/event object only when necessary for valid JSON; preserve
+all unrelated settings. Never add a per-repo TrackingMonitor hook.
+
+Existing user-scope KATLAB file hooks must be reconciled during the preflight in
+Section 1, not duplicated.
+
+## 4. Ignore runtime attribution data
+
+Add this to the monitored repo's `.gitignore` before its first captured edit:
 
 ```text
 # KATLAB TrackingMonitor runtime data
 .katlab_tracking/
 ```
 
-Do this BEFORE any hooked session edits this repo — an un-ignored `events.jsonl` turns this repo's git status dirty, and the tracker would pollute its own uncommitted metric.
+## 5. Author tracked plans
 
-## Step 3 — Plan authoring rules
+- Location: `temp/Plan/PLAN_*.txt`
+- Format: `Docs/Plan_Format_Spec.md`
+- Keep exactly one task `in-progress` while implementing.
+- Flip a task before its first edit and mark it `done` immediately after completion.
+- Declare precise repo-relative forward-slash paths in `<files>`.
+- Use `PLAN_*.txt` only for plans; the name controls statistics exclusions.
+- Persist the short standing rules in the monitored repo's `AGENTS.md` or equivalent.
 
-- Plans live in **`temp/Plan/PLAN_*.txt`** (enhanced format ONLY — legacy plans are invisible to the tracker: zero tasks, no errors)
-- The `PLAN_*.txt` **naming is load-bearing** (v0.1.10.0): any file whose basename starts `PLAN_` and ends `.txt` is treated as a PLAN by the tracker's statistics (excluded from the identity/churn/coupling surfaces so code heat stays honest) — even when its tasks are done or it parses to zero tasks. Never give a non-plan file a `PLAN_*.txt` name; captures on it still count as events, but it disappears from those stats views
-- Format spec: `TrackingMonitor/Docs/Plan_Format_Spec.md` (task blocks at column 0; required tags id/title/status; UTF-8; repo-relative `<files>` globs)
-- Discipline: keep **exactly ONE task `in-progress`** per repo at a time; flip statuses as you work — the tracker re-parses live
-- Full standing rules (flip-before-edit, empty manual-pick queue): `TrackingMonitor/Docs/Tracking_Discipline.md`
-- Persist those standing rules into THIS repo's own CLAUDE.md as a short section (merge-not-overwrite) — future sessions must follow them without re-reading TrackingMonitor docs
+## 6. Register the monitored repo
 
-## Step 4 — Register the repo (user does this, BEFORE the smoke test)
-
-Ask the user to add an entry to `TrackingMonitor/Config/repos.yaml`:
+The operator adds one entry to `Config/repos.yaml`:
 
 ```yaml
-  - id: My_Repo_Id          # letters/digits/_/- only
+  - id: My_Repo_Id
     name: "Readable name"
     path: 'X:\absolute\path\to\repo'
     plan_globs:
       - "temp/Plan/PLAN_*.txt"
 ```
 
-⚠️ **Path convention (R1)**: the capture hook reads this file with a regex, not YAML — the `path:` line must stay **single-line and single-quoted** (never folded/multi-line/flow style; never unquoted when the path contains `#`). A style the server accepts but the hook cannot read silently drops this repo's capture.
+The `path:` value is load-bearing: keep it single-line and single-quoted. IDs are
+normalized YAML strings matching `[A-Za-z0-9_-]+`; quote values YAML would otherwise
+type as a boolean, null, or number. IDs and resolved absolute paths must be unique.
+`plan_globs` is a bounded list of unique,
+repo-relative forward-slash patterns; absolute paths, backslashes, empty segments,
+`.` and `..` segments are invalid. Restart TrackingMonitor after registry changes
+because the server loads this configuration at startup.
 
-**THEN RESTART the TrackingMonitor server (F25)** — config is read at startup only. Registration also puts this repo on the capture **allowlist** — the smoke test below CANNOT pass before this step.
+The optional `server` value must be a mapping containing only `host`, `port`, and
+`status_poll_seconds`. `host` must be a nonempty string, `port` an integer from
+1 to 65535, and the polling interval an integer from 5 to 86400 seconds.
 
-## Step 5 — Smoke-test capture
+## 7. Smoke test
 
-1. From ANY Claude Code session **started AFTER the user-scope hook registration** (restart the session if unsure), edit a scratch file in THIS repo (Edit/Write)
-2. Confirm `<repo_root>/.katlab_tracking/events.jsonl` exists and its last line is a JSON event for that file (repo-relative, forward slashes)
+1. Start a fresh provider session after user-scope activation.
+2. Edit a scratch file inside the registered repo with a supported file tool.
+3. Confirm `.katlab_tracking/events.jsonl` has one complete, repo-relative event.
+4. Confirm `http://127.0.0.1:8100/api/health` reports the expected hook and provider
+   configuration/recency facts.
+5. Remove the scratch file through the repo's normal workflow.
 
-**One-glance verdict (v0.2.3.0+):** the tracker's **health panel** (the "sys" chip in the UI header, or `curl http://127.0.0.1:8100/api/health`) shows the whole smoke result at once — hook **line present ✓**, this repo's capture freshness ("2m ago" after the smoke edit), and the growing `events.jsonl` size. If the panel shows "line missing ✗" or freshness "never" after a smoke edit, walk the checklist below.
+If capture is absent, check in order: provider restart, normal hook trust, valid
+single-quoted repo registration, Python path from the provider, then managed policy.
 
-If nothing appears, check in this order:
+Start TrackingMonitor with `Scripts/start_tracking_monitor.bat`; the default UI is
+`http://127.0.0.1:8100`. Mission is directly addressable with
+`http://127.0.0.1:8100/?view=mission`.
 
-1. the session was started before the hook registration → restart it
-2. this repo is missing from `Config/repos.yaml` (allowlist) → do Step 4
-3. `python` is not on PATH for the session
-4. a managed-settings policy restricts hooks (a managed policy exists on this PC; treated as model-pin-only until a failed smoke says otherwise)
-
-## Optional — README badge (v0.2.0.1+)
-
-The server renders a live stats card per registered repo:
+## Optional local badge
 
 ```markdown
 ![KATLAB](http://127.0.0.1:8100/badge/<repo_id>.svg)
 ```
 
-- Shows the repo's last-7-days event count + its live status chip
-  (CLEAN ✓ / N uncommitted / OFFLINE); refreshes within ~5 minutes.
-- **Honest limit:** it renders in LOCAL previews only (VS Code markdown
-  preview, local doc tools). github.com can NOT display it — GitHub's
-  camo image proxy cannot reach `127.0.0.1`. Do not expect it on the
-  hosted README page.
-- Adding it is THIS repo's own choice — entirely optional, never
-  required by the tracking contract.
-
-## Notes
-
-- The tracker only READS this repo (git status/diff/log/show — never any mutation).
-- The resolution mode of the smoke event depends on this repo's live task set (no `in-progress` task → UNKNOWN in the manual queue — that is correct behavior, NOT a capture failure).
-- Start the server: double-click `TrackingMonitor/Scripts/start_tracking_monitor.bat` → UI at the configured host/port (default `http://127.0.0.1:8100`).
+This works in local previews only; GitHub cannot reach the loopback server.

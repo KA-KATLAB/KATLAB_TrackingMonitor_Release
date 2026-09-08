@@ -26,10 +26,12 @@ def glob_to_regex (pattern: str) -> re.Pattern:
         ch = pattern[i]
         if ch == "*":
             if pattern[i:i + 2] == "**":
-                out.append(".*")
                 i += 2
                 if i < len(pattern) and pattern[i] == "/":
-                    i += 1  # "**/" already covered by ".*"
+                    out.append("(?:.*/)?")
+                    i += 1
+                else:
+                    out.append(".*")
                 continue
             out.append("[^/]*")
         elif ch == "?":
@@ -45,10 +47,19 @@ class Resolution:
     mode: str                      # B|A_SCOPED|A_GLOBAL|AMBIGUOUS|UNKNOWN
     task_ref: str | None           # "<plan filename> - <task id>" or None
     candidates: list[str] | None   # task refs for the manual picker (AMBIGUOUS)
+    plan_file: str | None = None   # normalized relational key; never parsed from task_ref
+    task_id: str | None = None
 
 
 def task_ref (task_row) -> str:
     return f"{task_row['plan_file']} - {task_row['task_id']}"
+
+
+def _resolved (mode: str, task_row) -> Resolution:
+    return Resolution(
+        mode, task_ref(task_row), None,
+        task_row["plan_file"], task_row["task_id"],
+    )
 
 
 def resolve (file_path: str, repo_tasks: list) -> Resolution:
@@ -61,16 +72,16 @@ def resolve (file_path: str, repo_tasks: list) -> Resolution:
                 break  # one task counts once, however many patterns match
 
     if len(matches) == 1:
-        return Resolution("B", task_ref(matches[0]), None)
+        return _resolved("B", matches[0])
 
     if len(matches) > 1:
         in_progress = [t for t in matches if t["status"] == "in-progress"]
         if len(in_progress) == 1:
-            return Resolution("A_SCOPED", task_ref(in_progress[0]), None)
+            return _resolved("A_SCOPED", in_progress[0])
         return Resolution("AMBIGUOUS", None, [task_ref(t) for t in matches])
 
     # N = 0 - undeclared file
     in_progress_all = [t for t in repo_tasks if t["status"] == "in-progress"]
     if len(in_progress_all) == 1:
-        return Resolution("A_GLOBAL", task_ref(in_progress_all[0]), None)
+        return _resolved("A_GLOBAL", in_progress_all[0])
     return Resolution("UNKNOWN", None, None)

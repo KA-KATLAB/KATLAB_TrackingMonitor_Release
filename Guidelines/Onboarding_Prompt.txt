@@ -1,27 +1,40 @@
-Onboard THIS repo to KATLAB TrackingMonitor so my new detailed plans are tracked by its UI.
+Onboard THIS repository to KATLAB TrackingMonitor so enhanced plans are tracked.
 
-1. Read these two docs carefully and completely (CDD) — they are the source of truth. You must NEVER edit anything inside the TrackingMonitor repo, read-only:
+1. Read these TrackingMonitor sources completely. They are read-only for this task:
    - D:\KATLAB_Reiky\_Development_Workspace\KATLAB_TrackingMonitor\Docs\Installation_Guideline.md
    - D:\KATLAB_Reiky\_Development_Workspace\KATLAB_TrackingMonitor\Docs\Plan_Format_Spec.md
    - D:\KATLAB_Reiky\_Development_Workspace\KATLAB_TrackingMonitor\Docs\Tracking_Discipline.md
 
-2. Execute Installation Guideline Steps 1-2 in THIS repo only (skip any step already done — verify, don't redo):
-   - Step 1: REMOVE any legacy per-repo PostToolUse hook entry invoking katlab_tracking_hook.py from this repo's .claude/settings.json — the hook is USER-SCOPE now (once per PC); NEVER add per-repo hook entries. If that entry is the file's only content, delete the file; otherwise preserve everything else (merge-not-overwrite).
-   - Step 2: add .katlab_tracking/ to .gitignore
+2. In THIS repository only:
+   - Remove only legacy per-repo KATLAB handlers from `.claude/settings.json` or
+     `.codex/hooks.json`; preserve all unrelated settings and valid JSON.
+   - Add `.katlab_tracking/` to `.gitignore` if absent.
+   - Never add a per-repo TrackingMonitor hook.
 
-3. From now on, author ALL new plans in the Enhanced Plan Format per Plan_Format_Spec.md. Non-negotiables:
-   - <task id="..."> blocks starting at column 0; required: id attribute, <title>, <status>
-   - <status> is exactly one of: pending | in-progress | done
-   - <files>: one path/glob per line, relative to THIS repo root, forward slashes (* does not cross /, ** does)
-   - <why>: free text shown in the UI as the reason for the change
-   - Discipline: exactly ONE task in-progress at a time; flip statuses live as you work (the tracker re-parses on save); declare <files> precisely
-   - The tracker parses ONLY this format — legacy plan formats are invisible to it
-   - The PLAN_*.txt naming is LOAD-BEARING (v0.1.10.0): any file whose basename starts PLAN_ and ends .txt is treated as a plan by the tracker's statistics (excluded from the identity/churn/coupling views) — NEVER give a non-plan file that name
+3. Use `temp/Plan/PLAN_*.txt` and the exact Enhanced Plan Format for every new plan:
+   - column-zero `<task id="...">` blocks;
+   - required `<title>` and `<status>`;
+   - status exactly `pending`, `in-progress`, or `done`;
+   - one precise repo-relative forward-slash path/glob per `<files>` line;
+   - exactly one in-progress task while implementing;
+   - flip before editing and mark done immediately after completion;
+   - never use the `PLAN_*.txt` name for a non-plan file.
+   - optionally declare one top-level `<verification>` block; ordinary check IDs
+     must exist in the operator-reviewed `Config/checks.json`, while
+     `review:cdd@N` / `review:cft@N` are manual review streaks.
 
-4. Persist the tracking discipline into THIS repo's own CLAUDE.md (merge, don't overwrite): a short standing-rules section — flip the task to in-progress BEFORE editing, exactly ONE task in-progress at a time, flip to done right after finishing, declare <files> precisely, keep the manual-pick queue empty (full rules: Tracking_Discipline.md above) — so every FUTURE session here follows them without re-reading TrackingMonitor docs.
+4. Merge a short version of those standing rules into THIS repo's `AGENTS.md` or
+   equivalent instruction file. Preserve existing content. Include the rule to keep
+   the manual-pick queue empty.
 
-5. Steps 4-5 of the guideline (registering this repo in TrackingMonitor's Config/repos.yaml + restarting the server + coordinating the smoke test) are MY job — do NOT do them. Just report back: the exact plan-file location(s) you will use, and each step's pass/fail. (FYI v0.2.3.0+: after my smoke test, the tracker's health panel — the "sys" chip, or /api/health — shows the one-glance verdict: hook line present, this repo's capture freshness, events.jsonl size.)
+5. Do not edit TrackingMonitor configuration, provider user settings, or runtime
+   data. The operator owns repo registration, TrackingMonitor restart, user-scope
+   hook activation/trust, and the smoke test.
 
-6. OPTIONAL (v0.2.0.1+, this repo's own choice — never required): the tracker serves a live stats badge at http://127.0.0.1:8100/badge/<repo_id>.svg (last-7-days events + live status chip). You MAY embed it in this repo's README via ![KATLAB](http://127.0.0.1:8100/badge/<repo_id>.svg) — it renders in LOCAL previews only (VS Code markdown preview); github.com cannot display it (GitHub's camo proxy cannot reach 127.0.0.1).
+6. Treat Mission as evidence observability only. Keep provider activity
+   metadata-only, inspect unassigned evidence, and never claim a green gate proves
+   universal correctness. TrackingMonitor does not run checks or commit/push/
+   checkout/create/delete branches.
 
-Constraints: no git mutation commands in this repo unless I explicitly ask; stop and ask me ASAP if anything conflicts with this repo's existing rules.
+7. Report the exact files changed, the plan locations to use, and each onboarding
+   check as pass/fail. Do not run Git mutation commands unless explicitly requested.

@@ -68,3 +68,56 @@ Task reference shown in the UI: **`<plan file> - <task id>`**, where `<plan file
 2. Set `in-progress` when starting a task, `done` immediately after finishing (the tracker re-parses on save — status changes are live)
 3. Declare `<files>` as precisely as possible → more MODE B (exact) attributions, fewer AMBIGUOUS
 4. Plans are working documents: archive to subfolders when complete (the tracker removes tasks of deleted/renamed plans automatically — F16)
+
+## 5. Optional verification requirements (v0.3)
+
+One enhanced plan may contain one verification block whose opening and closing
+tags start at column zero:
+
+```text
+<verification>
+review:cdd@5
+backend-compile
+frontend-build
+review:cft@5
+</verification>
+```
+
+The block is optional; old enhanced plans and legacy plans remain valid. Each
+non-empty line is `CHECK_ID` or `CHECK_ID@N`:
+
+- `CHECK_ID` matches `^[a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)?$`;
+- `@N` is legal only for `review:*`, where `N` is `1..99`;
+- a `review:*` entry without `@N` has target `1`;
+- ordinary checks never receive an implicit streak;
+- whitespace around a line is ignored, but whitespace inside an ID/target is not;
+- the first valid occurrence of an ID wins and later duplicates warn.
+
+Structurally valid top-level blocks are considered in source order. The first
+valid block supplies requirements; a second valid block warns and is ignored. A
+nested or unclosed block is invalid and supplies nothing; if a later independent
+block is valid, that later block becomes the first valid one. A stray close or a
+malformed column-zero opening tag warns. Indented examples are ignored, matching
+the task-block column-zero rule. A block inside a task body is nested, warns, and
+can never supply plan-level evidence.
+
+Warnings are recoverable: valid tasks and valid requirement lines remain usable,
+but readiness reports the current warning. Invalid UTF-8/unreadable input is fatal
+and preserves the last valid tasks and requirements.
+
+Non-`review:*` IDs must exist in the committed trusted-check registry. `review:*`
+is implicit manual-only evidence. Full source, revision, freshness, and pairing
+rules are normative in
+[`Verification_Evidence_Spec.md`](Verification_Evidence_Spec.md).
+
+## 6. Stable snapshots and deletion
+
+The watcher acquires two byte-identical, file-identity-stable observations across
+the debounce window. Hashing, UTF-8 decoding, parsing, warnings, and persistence all
+consume that exact final buffer. An unstable truncate/write or atomic-replace gap
+keeps the complete prior snapshot and retries.
+
+The raw-byte SHA-256 is the plan revision. Its revision timestamp changes only when
+bytes change, not on restart. A valid zero-task or zero-requirement plan still has a
+snapshot. A plan absent at startup is deleted from snapshots/tasks/requirements
+only after two identical complete glob manifests and a final absence check.

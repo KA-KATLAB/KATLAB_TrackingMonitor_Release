@@ -1,6 +1,8 @@
 # TrackingMonitor — Working Discipline for Monitored Repos
 
-Standing rules for EVERY Claude Code session working inside a monitored repo (EA/UM/...). The tracker is LIVE: each Edit/Write is captured and attributed to a plan task — these rules keep that attribution exact and the manual-pick queue empty.
+Standing rules for every Claude Code or Codex session working inside a monitored
+repo (EA/UM/...). The tracker is live: supported file tools are captured and
+attributed to a plan task; provider/check activity is metadata-only.
 
 ## The 3 rules
 
@@ -20,3 +22,10 @@ Standing rules for EVERY Claude Code session working inside a monitored repo (EA
 - TrackingMonitor repo itself is READ-ONLY for you — never edit it.
 - Legacy-format plans are invisible to the tracker (zero tasks); only the enhanced format counts.
 - The status bar goes CLEAN only when the repo has zero uncommitted changes — commit rhythm stays the user's call.
+- Declare gates in one top-level `<verification>` block. Run only the reviewed
+  command; record manual evidence only with `Scripts/record_evidence.py` after the
+  final relevant edit. A later plan/source edit can make prior evidence stale.
+- Mission states and green checks are evidence summaries, not universal correctness
+  claims. Inspect every blocker and unassigned record.
+- TrackingMonitor never runs a gate or mutates Git. It cannot commit, push, check
+  out, create, or delete branches; those actions remain explicit user decisions.

@@ -1,164 +1,92 @@
-"""KATLAB TrackingMonitor - PostToolUse capture hook.
+"""KATLAB's failure-swallowing provider entry point and fail-closed capture router.
 
-Registered ONCE per PC at USER scope (C:\\Users\\<user>\\.claude\\settings.json,
-see Docs/Installation_Guideline.md) so it fires in EVERY Claude Code session
-regardless of where the session is rooted - the real workflow is one session
-spanning several repos. Reads the Claude Code PostToolUse JSON from stdin and
-appends one event line to .katlab_tracking/events.jsonl inside the repo that
-OWNS the edited file.
-
-Contract (PLAN v0.1.0.0 B.1; user-scope + allowlist PLAN v0.1.1.0 A.1):
-- exit 0 ALWAYS - a hook failure must never block the user's tool call
-- stdlib only, no server dependency (durable local append)
-- repo root = nearest ancestor of file_path (fallback: cwd) containing .git
-- allowlist: append ONLY for repos registered in Config/repos.yaml
-  (KATLAB_TRACKER_CONFIG overrides the registry path; an unreadable or
-  empty registry fails OPEN = capture every repo, durability first);
-  registry path lines must stay single-line + quoted (R1 convention)
-- "file" stored repo-root-relative with FORWARD slashes
+No arguments preserves the installed Claude PostToolUse file channel. New
+registrations explicitly select a provider and channel. Every failure is swallowed
+at this boundary so editor/agent execution always receives exit status zero.
 """
 
-import json
-import os
-import re
 import sys
-from datetime import datetime, timezone
-from pathlib import Path
 
-EVENT_VERSION = 1
-TRACKING_DIR = ".katlab_tracking"
-EVENTS_FILE = "events.jsonl"
-CONFIG_ENV = "KATLAB_TRACKER_CONFIG"
-DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "Config" / "repos.yaml"
+try:
+    from .katlab_activity import (
+        append_file_event,
+        load_hook_checks,
+        load_registered_repos,
+        publish_activity,
+        read_bounded_json,
+    )
+    from .provider_adapters import activity_record, check_record, file_captures
+except ImportError:  # Absolute invocation from Claude/Codex settings.
+    from katlab_activity import (  # type: ignore
+        append_file_event,
+        load_hook_checks,
+        load_registered_repos,
+        publish_activity,
+        read_bounded_json,
+    )
+    from provider_adapters import activity_record, check_record, file_captures  # type: ignore
 
-_PATH_LINE = re.compile(r"^\s*path:\s*(.+?)\s*$")
+
+PROVIDERS = {"claude", "codex"}
+CHANNELS = {"file", "activity", "check"}
 
 
-def find_repo_root (start: Path) -> Path | None:
-    for candidate in [start, *start.parents]:
-        if (candidate / ".git").exists():
-            return candidate
-    return None
-
-
-def read_branch (repo_root: Path) -> str | None:
-    """v0.1.6.0 D2 (A.1): current branch from .git/HEAD - stdlib, fail-open.
-    Dir case: parse "ref: refs/heads/<name>". Worktree FILE case: follow
-    "gitdir: <path>" once, RELATIVE paths resolved against repo_root
-    (v0.1.6.0 RV11). Detached HEAD (bare hash), missing files or ANY
-    exception -> None. Never raises, no subprocess."""
-    try:
-        git = repo_root / ".git"
-        if git.is_dir():
-            head = git / "HEAD"
-        elif git.is_file():
-            first = git.read_text(encoding="utf-8", errors="replace").splitlines()[0]
-            if not first.startswith("gitdir:"):
-                return None
-            gitdir = Path(first[len("gitdir:"):].strip())
-            if not gitdir.is_absolute():
-                gitdir = (repo_root / gitdir).resolve()
-            head = gitdir / "HEAD"
-        else:
+def parse_cli (args: list[str]) -> tuple[str, str, bool] | None:
+    if not args:
+        return "claude", "file", True
+    if len(args) != 4:
+        return None
+    values: dict[str, str] = {}
+    for index in (0, 2):
+        key = args[index]
+        if key not in {"--provider", "--channel"} or key in values:
             return None
-        line = head.read_text(encoding="utf-8", errors="replace").splitlines()[0].strip()
-        if line.startswith("ref: refs/heads/"):
-            name = line[len("ref: refs/heads/"):].strip()
-            return name or None
-        return None  # detached or unrecognized - server-side context covers it
-    except Exception:
+        values[key] = args[index + 1]
+    provider = values.get("--provider")
+    channel = values.get("--channel")
+    if provider not in PROVIDERS or channel not in CHANNELS:
         return None
+    return provider, channel, False
 
 
-def _unquote (raw: str) -> str:
-    if raw[:1] in ("'", '"') and raw.count(raw[0]) >= 2:
-        return raw[1:raw.index(raw[0], 1)]
-    return raw.split("#", 1)[0].strip()
+def run (args: list[str] | None = None) -> None:
+    selection = parse_cli(list(sys.argv[1:] if args is None else args))
+    if selection is None:
+        return
+    provider, channel, legacy = selection
 
+    repos = load_registered_repos()
+    if not repos:
+        return
+    payload = read_bounded_json(sys.stdin.buffer)
 
-def load_registered_roots () -> list[Path] | None:
-    """Repo paths registered in repos.yaml; None = fail open (capture all)."""
-    config_path = Path(os.environ.get(CONFIG_ENV) or DEFAULT_CONFIG_PATH)
-    try:
-        lines = config_path.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return None
-    roots: list[Path] = []
-    for line in lines:
-        match = _PATH_LINE.match(line)
-        if not match:
-            continue
-        raw = _unquote(match.group(1))
-        if raw:
-            roots.append(Path(raw).resolve())
-    return roots or None
+    if channel == "file":
+        for capture in file_captures(provider, payload, repos, legacy=legacy):
+            try:
+                append_file_event(capture.repo, capture.event)
+            except Exception:
+                continue
+        return
+
+    if channel == "activity":
+        record = activity_record(provider, payload, repos)
+        if record is not None:
+            publish_activity(record, durable=False, repos=repos)
+        return
+
+    checks = load_hook_checks(repos)
+    record = check_record(provider, payload, repos, checks)
+    if record is not None:
+        publish_activity(record, durable=True, repos=repos)
 
 
 def main () -> None:
-    # CFT-10: read BYTES and decode UTF-8 explicitly - Windows text-mode
-    # stdin uses the locale codepage (cp1252) and would garble non-ASCII
-    # paths in the payload.
-    payload = json.loads(sys.stdin.buffer.read().decode("utf-8"))
-
-    tool_name = payload.get("tool_name", "")
-    # v0.1.5.0 CFT-2: non-empty str or "?" - mirrors the server-side coercion
-    # (a non-string value in a hand-crafted payload must never reach the
-    # line; same both-ends discipline as the RV17/RV30 session_id guard).
-    if not isinstance(tool_name, str) or not tool_name:
-        tool_name = "?"
-    file_path = (payload.get("tool_input") or {}).get("file_path")
-    if not file_path:
-        return
-
-    edited = Path(file_path)
-    repo_root = find_repo_root(edited.parent if edited.parent != edited else edited)
-    if repo_root is None:
-        cwd = payload.get("cwd")
-        repo_root = find_repo_root(Path(cwd)) if cwd else None
-    if repo_root is None:
-        return
-
-    registered = load_registered_roots()
-    if registered is not None and repo_root.resolve() not in registered:
-        return
-
     try:
-        relative = edited.resolve().relative_to(repo_root.resolve())
-    except ValueError:
-        return
-
-    # v0.1.5.0 D1 (RV17/RV30): session attribution - non-empty str or None,
-    # never any other type (a non-string bind would wedge server ingest).
-    # EVENT_VERSION stays 1: the key is optional, compatible both directions.
-    session_id = payload.get("session_id")
-    if not isinstance(session_id, str) or not session_id:
-        session_id = None
-
-    # v0.1.6.0 D2 (A.1): branch context - same non-empty-str-or-None guard
-    # class (v0.1.5.0 RV17/RV30); EVENT_VERSION stays 1 again (third
-    # repetition of the additive-optional-key compatibility call).
-    branch = read_branch(repo_root)
-    if not isinstance(branch, str) or not branch:
-        branch = None
-
-    event = {
-        "v": EVENT_VERSION,
-        "ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "tool": tool_name,
-        "file": relative.as_posix(),
-        "session_id": session_id,
-        "branch": branch,
-    }
-
-    tracking_dir = repo_root / TRACKING_DIR
-    tracking_dir.mkdir(parents=True, exist_ok=True)
-    with open(tracking_dir / EVENTS_FILE, "a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+        run()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception:
-        pass
-    sys.exit(0)
+    main()
+    raise SystemExit(0)

@@ -1,7 +1,7 @@
-"""Git module (PLAN v0.1.0.0 F.1) - STRICTLY READ-ONLY.
+"""Git module - the repository-wide, strictly read-only subprocess boundary.
 
-Allowed commands: status, diff, log, show, rev-parse (user-approved D5).
-NO mutation command, ever.
+Only ``status``, ``diff``, ``log``, and ``show`` may reach the Git executable.
+The allowlist is enforced immediately before every subprocess invocation.
 
 Failure isolation (F41/F42): every call site tolerates transient git
 failures (e.g. index.lock held while the user is mid-commit) - callers keep
@@ -12,6 +12,10 @@ background task dies.
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
+
+
+ALLOWED_GIT_VERBS = frozenset({"status", "diff", "log", "show"})
 
 
 class GitError(Exception):
@@ -19,6 +23,9 @@ class GitError(Exception):
 
 
 def _run (repo: Path, *args: str) -> str:
+    if not args or args[0] not in ALLOWED_GIT_VERBS:
+        verb = args[0] if args else "<missing>"
+        raise GitError(f"Git verb {verb!r} is outside the read-only allowlist")
     try:
         proc = subprocess.run(
             ["git", "-C", str(repo), *args],
@@ -27,7 +34,7 @@ def _run (repo: Path, *args: str) -> str:
             # v0.2.6.0 R-BD: the server is windowless pythonw - an
             # unflagged console child FLASHES a conhost window on every
             # git poll (the "blinking windows" bug).
-            creationflags=subprocess.CREATE_NO_WINDOW,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise GitError(str(exc))
@@ -36,10 +43,99 @@ def _run (repo: Path, *args: str) -> str:
     return proc.stdout
 
 
+def _now_z () -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _status_path (record: str, fields_before_path: int) -> str:
+    parts = record.split(" ", fields_before_path)
+    if len(parts) != fields_before_path + 1 or not parts[-1]:
+        raise GitError("Malformed porcelain-v2 status path record")
+    return parts[-1].replace("\\", "/")
+
+
+def parse_status_porcelain_v2 (out: str, observed_at: str | None = None) -> dict[str, Any]:
+    """Parse one complete ``status --porcelain=v2 -z --branch`` snapshot.
+
+    Rename/copy records contain a second NUL-delimited source path. Both source
+    and destination are retained so readiness can conservatively intersect the
+    complete dirty-path set with plan declarations and captured events.
+    """
+    records = out.split("\0")
+    if records and records[-1] == "":
+        records.pop()
+
+    branch_head: str | None = None
+    branch_oid: str | None = None
+    dirty_paths: list[str] = []
+    count = 0
+    index = 0
+    while index < len(records):
+        record = records[index]
+        index += 1
+        if not record:
+            continue
+        if record.startswith("# branch.oid "):
+            branch_oid = record[len("# branch.oid "):].strip()
+            continue
+        if record.startswith("# branch.head "):
+            branch_head = record[len("# branch.head "):].strip()
+            continue
+        if record.startswith("# "):
+            continue
+
+        kind = record[0]
+        if kind == "1":
+            dirty_paths.append(_status_path(record, 8))
+        elif kind == "2":
+            dirty_paths.append(_status_path(record, 9))
+            if index >= len(records) or not records[index]:
+                raise GitError("Malformed porcelain-v2 rename/copy record")
+            dirty_paths.append(records[index].replace("\\", "/"))
+            index += 1
+        elif kind == "u":
+            dirty_paths.append(_status_path(record, 10))
+        elif kind in {"?", "!"}:
+            if len(record) < 3 or record[1] != " ":
+                raise GitError("Malformed porcelain-v2 untracked/ignored record")
+            dirty_paths.append(record[2:].replace("\\", "/"))
+        else:
+            raise GitError(f"Unknown porcelain-v2 status record {kind!r}")
+        count += 1
+
+    if branch_head in {None, "(unknown)"}:
+        branch = None
+    elif branch_head == "(detached)":
+        branch = branch_oid[:8] if branch_oid and branch_oid != "(initial)" else None
+    else:
+        branch = branch_head
+
+    # Preserve record order while removing the duplicate path a tool may report
+    # for unusual copy/rename combinations.
+    paths = list(dict.fromkeys(dirty_paths))
+    return {
+        "clean": count == 0,
+        "count": count,
+        "branch": branch,
+        "dirty_paths": paths,
+        "paths_complete": True,
+        "status_valid": True,
+        "observed_at": observed_at or _now_z(),
+    }
+
+
+def repo_status (repo: Path) -> dict[str, Any]:
+    """Return a complete, machine-readable working-tree snapshot."""
+    out = _run(
+        repo, "status", "--porcelain=v2", "-z", "--branch",
+        "--untracked-files=all",
+    )
+    return parse_status_porcelain_v2(out)
+
+
 def uncommitted_count (repo: Path) -> int:
-    """`git status --porcelain` entry count; 0 -> CLEAN."""
-    out = _run(repo, "status", "--porcelain")
-    return sum(1 for line in out.splitlines() if line.strip())
+    """Compatibility wrapper over the complete status snapshot."""
+    return int(repo_status(repo)["count"])
 
 
 def file_diff (repo: Path, file_path: str) -> str:
@@ -68,17 +164,15 @@ def file_state (repo: Path, file_path: str) -> str:
 
 
 def head_hash (repo: Path) -> str:
-    return _run(repo, "rev-parse", "HEAD").strip()
+    return _run(repo, "show", "-s", "--format=%H", "HEAD").strip()
 
 
 def current_branch (repo: Path) -> str:
-    """v0.1.6.0 D2 (B.2): current branch via rev-parse --abbrev-ref HEAD
-    (read-only, blessed above). Detached HEAD reports "HEAD" - fall back
-    to the short hash so the UI still shows WHERE the repo sits."""
-    name = _run(repo, "rev-parse", "--abbrev-ref", "HEAD").strip()
-    if name == "HEAD":
-        return head_hash(repo)[:8]
-    return name
+    """Compatibility wrapper over porcelain-v2 branch metadata."""
+    branch = repo_status(repo)["branch"]
+    if not branch:
+        raise GitError("Current branch is unavailable")
+    return str(branch)
 
 
 def _to_utc_z (iso_with_offset: str) -> str:
@@ -110,10 +204,53 @@ def commit_info (repo: Path, ref: str = "HEAD") -> dict:
     }
 
 
-def new_commits_since (repo: Path, known_hashes: set[str], limit: int = 20) -> list[dict]:
-    """Newest-first hashes from `git log`, filtered to unknown ones, oldest first."""
-    out = _run(repo, "log", f"-{limit}", "--format=%H")
-    hashes = [h.strip() for h in out.splitlines() if h.strip()]
-    fresh = [h for h in hashes if h not in known_hashes]
+def _commit_hash_pages (repo: Path, revision: str,
+                        page_size: int):
+    """Yield one stable revision's history in bounded topological pages."""
+    offset = 0
+    while True:
+        out = _run(
+            repo, "log", "--topo-order", f"--max-count={page_size}",
+            f"--skip={offset}", "--format=%H", revision,
+        )
+        page = [value.strip() for value in out.splitlines() if value.strip()]
+        yield page
+        if len(page) < page_size:
+            return
+        offset += len(page)
+
+
+def new_commits_since (repo: Path, known_hashes: set[str], limit: int = 20,
+                       head: str | None = None) -> list[dict]:
+    """Walk a stable HEAD through a known boundary, then return oldest first.
+
+    An empty database deliberately seeds only one recent page. Once a persisted
+    boundary exists, its exact ``boundary..HEAD`` range is re-read so a merged
+    sibling listed after the boundary in topological output cannot be omitted.
+    """
+    page_size = min(max(1, limit), 2_000)
+    head_ref = head or head_hash(repo)
+    fresh: list[str] = []
+    boundary: str | None = None
+    for page in _commit_hash_pages(repo, head_ref, page_size):
+        for commit_hash in page:
+            if commit_hash in known_hashes:
+                boundary = commit_hash
+                break
+            fresh.append(commit_hash)
+        if not known_hashes or boundary is not None:
+            break
+
+    if boundary is not None:
+        fresh = []
+        revision = f"{boundary}..{head_ref}"
+        for page in _commit_hash_pages(repo, revision, page_size):
+            fresh.extend(
+                commit_hash for commit_hash in page
+                if commit_hash not in known_hashes
+            )
+
+    # Defensive de-duplication also protects a scan from unusual replacement refs.
+    fresh = list(dict.fromkeys(fresh))
     fresh.reverse()  # oldest first so linking happens in commit order
     return [commit_info(repo, h) for h in fresh]

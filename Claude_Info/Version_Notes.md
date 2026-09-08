@@ -1,5 +1,40 @@
 # Version Notes
 
+## v0.3.0.0 — Verification Cockpit & Agent Flight Recorder (2026-09-08)
+
+**Key Highlights**
+
+- Added the route-lazy Mission view as the second of six canonical views: Now,
+  verification rail, evidence queue, provider-aware session flight recorder,
+  deterministic replay, paging, assignment dialog, and an equivalent exact-data
+  table. Mission remains outside attract rotation.
+- Added one backend readiness engine for eight requirement states and seven plan
+  states, with raw-plan/check revisions, implementation-sensitive freshness,
+  trailing review streak reset, conservative blockers, exact dirty-path matching,
+  and direct-unswept commit proof.
+- Added metadata-only Claude Code and Codex adapters for supported file, lifecycle,
+  subagent, tool, and check activity. Central atomic inbox ingestion is idempotent,
+  server-down-safe, bounded, provider-scoped, and fail-closed to registered repos.
+- Added immutable check-attempt pairing and evidence assignment, a trusted
+  `Config/checks.json` registry, optional plan `<verification>` blocks, and the
+  validated `Scripts/record_evidence.py` manual recorder.
+- Added bounded `/api/mission`, `/api/activity`, and `/api/sessions` contracts,
+  evidence assignment, additive WebSocket invalidations, provider-aware legacy
+  events, and independent provider/inbox health facts.
+- Preserved the privacy boundary: no prompt, response, command, patch, source,
+  transcript, environment value, stdout/stderr, or error text is persisted or
+  exposed. Plans and sessions use composite identities to prevent cross-binding.
+- Rebuilt the isolated demo with all seven Mission states, Claude/Codex root and
+  subagent sessions, stale/failing/reset/unassigned evidence, empty API shapes, and
+  ready-versus-directly-committed proof. Static status is triple-gated and skips Git.
+- Added a focused committed Python regression suite. Final current-tree validation
+  passed 113/113 tests, complete Python compilation, the frontend production build,
+  and lazy Mission chunk verification; this is not a general browser/E2E suite.
+- Git remains strictly read-only (`status`, `diff`, `log`, `show`). Mission and
+  evidence recording do not execute checks or perform repository/branch mutations.
+- Full scope and rollout guidance are in
+  [TrackingMonitor_v0.3.0.0_Release_Notes.md](../TrackingMonitor_v0.3.0.0_Release_Notes.md).
+
 ## v0.2.12.0 — Clarity at Every Size (2026-09-06)
 
 **Key Highlights**
@@ -13,7 +48,7 @@
 - Added one 10-second foreground-action deadline, abort/stale-generation protection, exclusive heavy-work coordinators, truthful retry states, a two-stage prepared digest, and safe delayed Blob URL cleanup for all generated downloads.
 - Production verification passed: 40/40 view/viewport geometry, 16/16 interaction, 10/10 semantics, 37/37 action inventory, 4/4 dialogs, 8/8 navigation, 3/3 reduced motion, 12/12 performance, 7/7 generated-document checks, 4/4 downloads, 3/3 forms, 2/2 City target checks, and 27/27 focused source/unit checks. Measured CLS stayed below 0.014.
 - Initial JavaScript fell from 519,299 raw / 169,031 gzip bytes to 339,958 / 108,076; Overview, City, and Mermaid remain lazy. No product dependency, schema, endpoint, Git behavior, storage-key, service-worker, or Chronicle-runtime change was introduced.
-- Full as-built evidence and scope are recorded in [TrackingMonitor_v0.2.12.0_Release_Notes.md](../TrackingMonitor_v0.2.12.0_Release_Notes.md). The local release record is complete; the live tracker was not restarted and publication remains a separate user action.
+- Full as-built evidence and scope are archived in [TrackingMonitor_v0.2.12.0_Release_Notes.md](../Docs/Release_Notes/Archive/TrackingMonitor_v0.2.12.0_Release_Notes.md). The local release record is complete; the live tracker was not restarted and publication remains a separate user action.
 
 ## v0.2.11.0 — The Provenance Ledger (2026-08-18)
 

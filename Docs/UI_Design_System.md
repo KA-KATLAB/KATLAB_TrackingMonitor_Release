@@ -112,7 +112,7 @@ Use these values only for global layers. Descendants use local stacking within t
 
 Repo scopes are a labelled selection group with `aria-pressed`. The workspace control is visibly “All repos” and named “Scope: all repos.” A configured repo retains its exact visible id and is named “Scope: repo <id>”; a repo literally named `ALL` remains distinguishable.
 
-The five top-level views are Changes, Overview, History, City, and Chronicle. Put them in a `nav` landmark and mark the active link/control with `aria-current="page"`. Do not claim tab semantics without a complete tab/tabpanel model.
+The six top-level views are Changes, Mission, Overview, History, City, and Chronicle. Put them in a `nav` landmark and mark the active link/control with `aria-current="page"`. Do not claim tab semantics without a complete tab/tabpanel model.
 
 Below 1024px, replace the 18rem task sidebar with a labelled Tasks button and modal drawer. Keep repo scope, current view, Tasks, Attention, and More reachable. More owns secondary utilities once each; no responsive mode may show the same utility twice.
 
@@ -260,6 +260,31 @@ Use one SectionHeading and one Surface vocabulary. Chart canvases and informativ
 - New-tab actions are real anchors with `target="_blank" rel="noopener"`.
 - The generated MkDocs theme/content under `Chronicle/runtime/` is outside this design scope and is never hand-edited.
 
+### 6.6 Mission
+
+- Compose the view in this order: Now, plan scope, Verification Rail, Evidence
+  Queue, Session Flight Recorder, and Exact Data.
+- Spotlight a plan only when the current data proves one unique active plan or the
+  operator explicitly selects an exact repository + relative-plan pair.
+- Render backend readiness verbatim. The UI may format state labels but never
+  infer, upgrade, or suppress a readiness state or blocker.
+- Keep plan cards, requirements, evidence, sessions, timeline events, assignment
+  choices, and exact-data rows at 50 mounted items or fewer. Use REST offsets for
+  activity/session paging.
+- Identify a session by provider + session ID everywhere. Missing agent or parent
+  facts remain explicit; attach activity without an agent ID to the labelled
+  Session root lane and never invent hierarchy.
+- Order flight activity by timestamp then database ID. Playback moves only through
+  that deterministic order; reduced motion removes autoplay and retains direct
+  range/table selection.
+- The timeline is an enhancement over the same bounded rows shown in a labelled,
+  keyboard-operable Exact Data table.
+- Assignment uses the shared modal foundation, lists only currently eligible
+  direct-link plan targets, and reports completion through the shared polite status
+  channel.
+- Timeline and table width overflow stays inside labelled local scrollers. Every
+  outer grid/flex boundary remains shrinkable at 360px and 200% zoom.
+
 ## 7. Data and visualization accessibility
 
 - Every Chart.js canvas sits in a labelled figure with a concise text summary and an operable exact-payload table.
@@ -403,7 +428,7 @@ For long content, do preserve the full path in selectable/wrapping text or an op
 
 Before accepting a UI change, verify:
 
-- all five views, repo scope, Tasks, Attention, and utilities remain reachable at 360, 390, 768, 1024, and 1440px;
+- all six views, repo scope, Tasks, Attention, and utilities remain reachable at 360, 390, 768, 1024, and 1440px;
 - no document-level horizontal overflow; every local scroller is labelled;
 - keyboard order, Escape, focus trap/return, destination focus, and Back/Forward behavior;
 - 44px coarse and 24px fine-pointer targets, immediate pressed state, and 16px phone form values;

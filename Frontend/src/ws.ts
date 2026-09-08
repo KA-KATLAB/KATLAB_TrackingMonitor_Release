@@ -3,7 +3,8 @@
 // disconnected (server restart) must not stay invisible.
 
 export interface WsMessage {
-  type: "event_resolved" | "task_updated" | "repo_status_changed" | "commit_detected" | "warning";
+  type: "event_resolved" | "task_updated" | "repo_status_changed" | "commit_detected" | "warning"
+    | "activity_recorded" | "evidence_updated" | "readiness_updated";
   id: string;
   data: Record<string, unknown>;
 }

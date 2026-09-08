@@ -1,7 +1,8 @@
 """WebSocket live push (PLAN v0.1.0.0 G.2).
 
-Message shape per UM standard: {type, id, data}. Types: event_resolved,
-task_updated, repo_status_changed, commit_detected, warning (F47).
+Message shape per UM standard: {type, id, data}. Existing message types remain
+supported; v0.3.0.0 adds activity_recorded, evidence_updated, and
+readiness_updated as invalidation signals for authoritative REST resync.
 """
 
 import json

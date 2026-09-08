@@ -50,3 +50,20 @@ The hybrid-C resolver (see [Architecture_Notes.md](Architecture_Notes.md) §2) n
 - **Normative spec: [Docs/Plan_Format_Spec.md](../Docs/Plan_Format_Spec.md)** (task blocks, column-0 rule, required/optional matrix, encodings, glob semantics)
 - Propagated to monitored repos via the **[Installation Guideline](../Docs/Installation_Guideline.md)**
 - **DECISION (user, 2026-07-07): NO backward compatibility.** Existing plans are FORMAT REFERENCE ONLY — the resolver parses the NEW enhanced format exclusively; tracking starts with new-format plans
+
+## 5. Verification extension — v0.3.0.0
+
+- A plan may add one column-zero `<verification>` block after its task blocks.
+- `review:cdd@N` and `review:cft@N` are implicit manual-only streaks; any finding
+  resets the trailing clean count. Ordinary IDs must exist in `Config/checks.json`.
+- Evidence binds the raw-byte plan revision and, for ordinary checks, the trusted
+  check-definition revision. Any later plan/check edit makes older evidence stale.
+- Record review evidence only after the reviewed plan/source is final. Use
+  `Scripts/record_evidence.py`; it validates repository, contained plan path,
+  declared check, outcome, and evidence-source policy before publishing.
+- Mission is evidence observability, not execution or approval. A green requirement
+  means only that the declared proof is fresh; it never commits or changes branches.
+
+See [Plan_Format_Spec.md](../Docs/Plan_Format_Spec.md) for syntax and
+[Verification_Evidence_Spec.md](../Docs/Verification_Evidence_Spec.md) for binding,
+freshness, pairing, and assignment rules.

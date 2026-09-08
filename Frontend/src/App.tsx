@@ -25,7 +25,26 @@ import { playChime, playFanfare, playTick, setSoundEnabled, soundWanted } from "
 import { copyCommitDraft } from "./draft";
 import type { StatsData } from "./charts";
 import { useReveal } from "./reveal";
-import { EFFORT_GAP_MAX_MIN, MODE_BADGE, MODE_COLOR, ODOMETER_MILESTONES, RELEASE_RX, SWEPT_COLOR, UNCOMMITTED_AGE_H, prefersReducedMotion, prefix3, sessionColor, skipActiveViewTransitions, subscribeReducedMotion, usePrefersReducedMotion, withViewTransition } from "./theme";
+import {
+  EFFORT_GAP_MAX_MIN,
+  MODE_BADGE,
+  MODE_COLOR,
+  ODOMETER_MILESTONES,
+  RELEASE_RX,
+  SWEPT_COLOR,
+  UNCOMMITTED_AGE_H,
+  eventSessionIdentity,
+  prefersReducedMotion,
+  prefix3,
+  sameSessionIdentity,
+  sessionColor,
+  sessionIdentityKey,
+  skipActiveViewTransitions,
+  subscribeReducedMotion,
+  usePrefersReducedMotion,
+  withViewTransition,
+} from "./theme";
+import type { EventSessionIdentity } from "./theme";
 import { Pet, moodOf, wardrobeOf } from "./pet";
 import { ComboMeter } from "./comboMeter";
 import { FlowChip } from "./flowChip";
@@ -33,6 +52,8 @@ import { ChronicleView } from "./chronicleView";
 import { FocusMode } from "./focusMode";
 import { HealthButton, HealthModal } from "./healthPanel";
 import { connectWs } from "./ws";
+import { normalizeMissionEntry } from "./missionModel";
+import type { MissionEntryState } from "./missionModel";
 import {
   formatRouteUrl,
   parseRouteSearch,
@@ -67,7 +88,7 @@ const ATTRACT_CYCLE_MS = 25_000;
 const ATTRACT_VIEWS: ("city" | "overview" | "chronicle")[] = ["city", "overview", "chronicle"];
 
 type ActiveDialog =
-  | { kind: "timeline"; session: string }
+  | { kind: "timeline"; session: EventSessionIdentity }
   | { kind: "file-story"; repo: string; file: string }
   | { kind: "focus"; scope: string | undefined }
   | { kind: "health" }
@@ -172,12 +193,13 @@ function defaultOverviewUi (): OverviewUiState {
 interface EntrySnapshot {
   scrollTop: number;
   taskFilter: string | null;
-  sessionFilter: string | null;
+  sessionFilter: EventSessionIdentity | null;
   groupMode: "task" | "folder";
   sidebarMode: SidebarMode;
   history: HistoryUiState;
   overview: OverviewUiState;
   assignment: AssignmentUiState;
+  mission: MissionEntryState;
   pages: Record<string, number>;
 }
 
@@ -274,6 +296,11 @@ const LazyCityView = lazyView(
   "City",
   () => import("./city"),
   (module) => module.CityView,
+);
+const LazyMissionView = lazyView(
+  "Mission",
+  () => import("./MissionView"),
+  (module) => module.MissionView,
 );
 
 function LazyViewStatus ({ name }: { name: string }): JSX.Element {
@@ -396,11 +423,12 @@ export default function App () {
   const legendReturnToMoreRef = useRef(false);
   const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
   const [taskFilter, setTaskFilter] = useState<string | null>(null); // X4: structured task identity key
-  const [sessionFilter, setSessionFilter] = useState<string | null>(null); // v0.1.5.0 D1 (RV3: App-level)
+  const [sessionFilter, setSessionFilter] = useState<EventSessionIdentity | null>(null);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("active");
   const [historyUi, setHistoryUi] = useState<HistoryUiState>(DEFAULT_HISTORY_UI);
   const [overviewUi, setOverviewUi] = useState<OverviewUiState>(defaultOverviewUi);
   const [assignmentUi, setAssignmentUi] = useState<AssignmentUiState>(DEFAULT_ASSIGNMENT_UI);
+  const [missionUi, setMissionUi] = useState<MissionEntryState>(() => normalizeMissionEntry(null));
   const [pagePositions, setPagePositions] = useState<Record<string, number>>({});
   const rememberPage = useCallback((key: string, page: number) => {
     setPagePositions((previous) => previous[key] === page
@@ -460,6 +488,7 @@ export default function App () {
   const [groupMode, setGroupMode] = useState<"task" | "folder">("task");
   const [, setTick] = useState(0);
   const [statsNonce, setStatsNonce] = useState(0); // R12: bumped only on a real sync
+  const [missionNonce, setMissionNonce] = useState(0);
   const currentScopeKey = scopeKey(scope);
   const [statsState, setStatsState] = useState<{
     key: string;
@@ -617,13 +646,19 @@ export default function App () {
     // CFT-9: debounce sync bursts - each sync is 3 REST calls incl. git
     // status per repo; a multi-file Claude turn pushes many WS messages.
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let missionTimer: ReturnType<typeof setTimeout> | undefined;
     const debouncedSync = () => {
       syncGenerationRef.current += 1;
       clearTimeout(timer);
       timer = setTimeout(() => void sync(), 300);
     };
+    const debouncedMissionRefresh = () => {
+      clearTimeout(missionTimer);
+      missionTimer = setTimeout(() => setMissionNonce((value) => value + 1), 150);
+    };
     // WS live push; onSync re-snapshots on every (re)connect (F29).
     const close = connectWs((msg) => {
+      debouncedMissionRefresh();
       if (msg.type === "event_resolved" || msg.type === "commit_detected") debouncedSync();
       if (msg.type === "task_updated" || msg.type === "warning") debouncedSync();
       if (msg.type === "event_resolved") {
@@ -762,9 +797,13 @@ export default function App () {
           }
         }
       }
-    }, sync);
+    }, () => {
+      setMissionNonce((value) => value + 1);
+      void sync();
+    });
     return () => {
       clearTimeout(timer);
+      clearTimeout(missionTimer);
       close();
     };
   }, [announceStatus, sync]);
@@ -879,6 +918,7 @@ export default function App () {
     historyUi,
     overviewUi,
     assignmentUi,
+    missionUi,
     pagePositions,
   });
   snapshotUiRef.current = {
@@ -889,6 +929,7 @@ export default function App () {
     historyUi,
     overviewUi,
     assignmentUi,
+    missionUi,
     pagePositions,
   };
 
@@ -897,7 +938,7 @@ export default function App () {
     return {
       scrollTop: mainRef.current?.scrollTop ?? 0,
       taskFilter: current.taskFilter,
-      sessionFilter: current.sessionFilter,
+      sessionFilter: current.sessionFilter ? { ...current.sessionFilter } : null,
       groupMode: current.groupMode,
       sidebarMode: current.sidebarMode,
       history: { ...current.historyUi },
@@ -912,6 +953,7 @@ export default function App () {
         bulkChoice: current.assignmentUi.bulkChoice,
         choices: { ...current.assignmentUi.choices },
       },
+      mission: normalizeMissionEntry(current.missionUi),
       pages: { ...current.pagePositions },
     };
   }, []);
@@ -939,7 +981,8 @@ export default function App () {
 
   useEffect(() => {
     saveCurrentEntry();
-  }, [assignmentUi, groupMode, historyUi, overviewUi, pagePositions, saveCurrentEntry, sessionFilter, sidebarMode, taskFilter]);
+  }, [assignmentUi, groupMode, historyUi, missionUi, overviewUi, pagePositions,
+    saveCurrentEntry, sessionFilter, sidebarMode, taskFilter]);
 
   const navigate = useCallback((
     intent: Partial<AppRoute>,
@@ -974,7 +1017,9 @@ export default function App () {
               ? ui.taskFilter
               : null
           : ui.taskFilter;
-      const nextSessionFilter = scopeChanged ? null : ui.sessionFilter;
+      const nextSessionFilter = scopeChanged || !ui.sessionFilter
+        ? null
+        : { ...ui.sessionFilter };
       const nextGroupMode = options.groupMode ?? ui.groupMode;
       const nextPages = currentRoute.view === target.view ? { ...ui.pagePositions } : {};
       const nextHistory = currentRoute.view === "history" && target.view === "history"
@@ -993,6 +1038,12 @@ export default function App () {
       const nextAssignment = currentRoute.view === "changes" && target.view === "changes"
         ? clampAssignmentUi(ui.assignmentUi, eventsRef.current, tasksRef.current, target.scope)
         : { ...DEFAULT_ASSIGNMENT_UI, selectedIds: [], choices: {} };
+      const nextMission = currentRoute.view === "mission" && target.view === "mission"
+        ? normalizeMissionEntry(
+            ui.missionUi,
+            target.scope.kind === "repo" ? target.scope.id : undefined,
+          )
+        : normalizeMissionEntry(null);
 
       if (routeChanged) {
         saveCurrentEntry();
@@ -1008,6 +1059,7 @@ export default function App () {
             history: nextHistory,
             overview: nextOverview,
             assignment: nextAssignment,
+            mission: nextMission,
             pages: nextPages,
           });
           window.history.pushState(
@@ -1045,6 +1097,7 @@ export default function App () {
       if (routeChanged) setHistoryUi(nextHistory);
       if (routeChanged) setOverviewUi(nextOverview);
       if (routeChanged) setAssignmentUi(nextAssignment);
+      if (routeChanged) setMissionUi(nextMission);
       setPendingScroll(options.pendingScroll ?? null);
       setActiveDialog(null);
       setPanelOpen(false);
@@ -1274,7 +1327,7 @@ export default function App () {
     const timer = window.setInterval(() => {
       if (!attractOn || prefersReducedMotion() || activeDialog !== null
           || releases.length > 0 || panelOpen || moreOpen || taskDrawerOpen
-          || showLegend || document.hidden || view === "chronicle"
+          || showLegend || document.hidden || view === "chronicle" || view === "mission"
           || hasActiveInteraction()) return;
       if (Date.now() - lastInputRef.current >= ATTRACT_IDLE_MS) {
         const snapshot = currentRouteRef.current;
@@ -1346,9 +1399,11 @@ export default function App () {
         ? snapshot.taskFilter
         : null;
       const validSessionFilter = snapshot?.sessionFilter
-        && eventsRef.current.some((event) => event.session_id === snapshot.sessionFilter
+        && eventsRef.current.some((event) => sameSessionIdentity(
+          eventSessionIdentity(event), snapshot.sessionFilter,
+        )
           && (target.scope.kind === "all" || event.repo_id === target.scope.id))
-        ? snapshot.sessionFilter
+        ? { ...snapshot.sessionFilter }
         : null;
       const historyRepos = reposRef.current.filter((repo) => !repo.offline
         && (target.scope.kind === "all" || repo.id === target.scope.id));
@@ -1381,6 +1436,10 @@ export default function App () {
         eventsRef.current,
         tasksRef.current,
         target.scope,
+      );
+      const missionState = normalizeMissionEntry(
+        snapshot?.mission,
+        target.scope.kind === "repo" ? target.scope.id : undefined,
       );
       const generation = ++routeGenerationRef.current;
       const scopeChanged = !scopeEquals(currentRouteRef.current.scope, target.scope);
@@ -1418,6 +1477,7 @@ export default function App () {
         setHistoryUi(historyState);
         setOverviewUi(overviewState);
         setAssignmentUi(assignmentState);
+        setMissionUi(missionState);
         setPagePositions({ ...(snapshot?.pages ?? {}) });
         setActiveDialog(null);
         setPanelOpen(false);
@@ -1638,6 +1698,7 @@ export default function App () {
   // "jump to pick queue" uses the RV23 deferred scroll.
   const paletteEntries: PaletteEntry[] = [
     { id: paletteEntryId("view", "changes"), section: "Views", label: "Changes", run: () => navigate({ view: "changes" }, { indirect: true }) },
+    { id: paletteEntryId("view", "mission"), section: "Views", label: "Mission", disabledReason: scopeUnavailableReason, run: () => navigate({ view: "mission" }, { indirect: true }) },
     { id: paletteEntryId("view", "overview"), section: "Views", label: "Overview", disabledReason: scopeUnavailableReason, run: () => navigate({ view: "overview" }, { indirect: true }) },
     { id: paletteEntryId("view", "history"), section: "Views", label: "History", disabledReason: scopeUnavailableReason, run: () => navigate({ view: "history" }, { indirect: true }) },
     { id: paletteEntryId("view", "city"), section: "Views", label: "City", run: () => navigate({ view: "city" }, { indirect: true }) },
@@ -1700,8 +1761,9 @@ export default function App () {
     { id: paletteEntryId("action", "toggle-attract"), section: "Actions", label: `Attract mode: turn ${attractOn ? "off" : "on"}`,
       run: () => toggleAttract() },
     ...(sessionFilter ? [{
-      id: paletteEntryId("dialog", "timeline", sessionFilter),
-      section: "Actions", label: "View session timeline", opensDialog: true,
+      id: paletteEntryId("dialog", "timeline",
+        sessionIdentityKey(sessionFilter.provider, sessionFilter.sessionId)),
+      section: "Actions", label: `View ${sessionFilter.provider} session timeline`, opensDialog: true,
       run: () => openDialog({ kind: "timeline", session: sessionFilter }),
     } as PaletteEntry] : []),
     { id: paletteEntryId("dialog", "wrapped"), section: "Actions", label: "View weekly wrapped",
@@ -2154,11 +2216,21 @@ export default function App () {
               taskFilter={taskFilter} onClearFilter={() => setTaskFilter(null)} onPicked={sync}
               onStatus={announceStatus}
               sessionFilter={sessionFilter} onClearSessionFilter={() => setSessionFilter(null)}
-              onSessionClick={(id) => setSessionFilter(sessionFilter === id ? null : id)}
-              onOpenTimeline={(id) => openDialog({ kind: "timeline", session: id })}
+              onSessionClick={(identity) => setSessionFilter((current) =>
+                sameSessionIdentity(current, identity) ? null : identity)}
+              onOpenTimeline={(identity) => openDialog({ kind: "timeline", session: identity })}
               onOpenFileStory={(repo, file) => openDialog({ kind: "file-story", repo, file })}
               groupMode={groupMode} onGroupModeChange={setGroupMode}
               assignmentState={assignmentUi} onAssignmentStateChange={setAssignmentUi} />
+          )}
+          {membershipReady && view === "mission" && (
+            <LazyViewBoundary key={`mission:${entryIdRef.current}`} name="Mission">
+              <Suspense fallback={<LazyViewStatus name="Mission" />}>
+                <LazyMissionView scope={scopeApiId(scope)} invalidationNonce={missionNonce}
+                  entryState={missionUi} onEntryStateChange={setMissionUi}
+                  onStatus={announceStatus} />
+              </Suspense>
+            </LazyViewBoundary>
           )}
           {membershipReady && view === "overview" && (
             <LazyViewBoundary key={`overview:${entryIdRef.current}`} name="Overview">
@@ -2289,6 +2361,7 @@ function RepoScopeRail ({
 
 const VIEW_LABELS: Record<View, string> = {
   changes: "Changes",
+  mission: "Mission",
   overview: "Overview",
   history: "History",
   city: "City",
@@ -2308,7 +2381,7 @@ function ViewNavigation ({
     <nav aria-label="Primary views" className="ui-horizontal-rail mt-1 overflow-x-auto pb-1">
       <div className="flex w-max gap-1">
         {(Object.keys(VIEW_LABELS) as View[]).map((choice) => {
-          const scoped = choice === "overview" || choice === "history";
+          const scoped = choice === "mission" || choice === "overview" || choice === "history";
           return (
             <button
               key={choice}
@@ -2699,17 +2772,21 @@ function AttentionBell ({ entryKey, repos, events, tasks, violationOf, open, onT
 // id in the tooltip. NULL session (pre-upgrade rows) -> no dot (honest).
 // Clickable ONLY where a handler is passed (Changes task groups — RV4);
 // History + pick-queue dots stay informational.
-function SessionDot ({ id, onClick }: { id: string | null; onClick?: () => void }) {
-  if (!id) return null;
-  const style = { backgroundColor: sessionColor(id) };
+function SessionDot ({ identity, onClick }: {
+  identity: EventSessionIdentity | null;
+  onClick?: () => void;
+}) {
+  if (!identity) return null;
+  const { provider, sessionId } = identity;
+  const style = { backgroundColor: sessionColor(provider, sessionId) };
   if (!onClick) {
-    return <span title={`session ${id.slice(0, 8)}`} style={style}
+    return <span title={`${provider} session ${sessionId.slice(0, 8)}`} style={style}
       className="inline-block h-2 w-2 shrink-0 rounded-full" />;
   }
   return (
     <button type="button"
-      aria-label={`Filter by session ${id.slice(0, 8)}`}
-      title={`session ${id.slice(0, 8)} — click to filter by this session`}
+      aria-label={`Filter by ${provider} session ${sessionId.slice(0, 8)}`}
+      title={`${provider} session ${sessionId.slice(0, 8)} — click to filter by this session`}
       onClick={onClick}
       className="flex h-4 w-4 shrink-0 items-center justify-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
       <span className="h-2 w-2 rounded-full" style={style} />
@@ -3052,9 +3129,9 @@ function ChangesView ({ events, tasks, repos, effortByTask, taskFilter, onClearF
     scopeKeyValue: string;
     taskFilter: string | null;
     onClearFilter: () => void; onPicked: () => void;
-    sessionFilter: string | null; onClearSessionFilter: () => void;
-    onSessionClick: (id: string) => void;
-    onOpenTimeline: (id: string) => void; // v0.1.6.0 D3 (C.3)
+    sessionFilter: EventSessionIdentity | null; onClearSessionFilter: () => void;
+    onSessionClick: (identity: EventSessionIdentity) => void;
+    onOpenTimeline: (identity: EventSessionIdentity) => void; // v0.1.6.0 D3 (C.3)
     onOpenFileStory: (repo: string, file: string) => void; // v0.1.7.0 D2 (B.2)
     // D6 (v0.1.4.0): "by task | by folder" — swaps ONLY the grouped section.
     // v0.1.5.0 D.2 (RV3): state lifted to App for the palette action.
@@ -3068,7 +3145,10 @@ function ChangesView ({ events, tasks, repos, effortByTask, taskFilter, onClearF
   // ONLY to the by-task grouped section — pick queue + tree exempt (P11/R7).
   const attributed = events.filter((e) =>
     e.mode !== "AMBIGUOUS" && e.mode !== "UNKNOWN" &&
-    (!sessionFilter || e.session_id === sessionFilter));
+    (!sessionFilter || sameSessionIdentity(eventSessionIdentity(e), sessionFilter)));
+  const sessionFilterKey = sessionFilter
+    ? sessionIdentityKey(sessionFilter.provider, sessionFilter.sessionId)
+    : null;
   const byTask = useMemo(() => {
     const groups = new Map<string, TrackedEvent[]>();
     for (const e of attributed) {
@@ -3077,7 +3157,7 @@ function ChangesView ({ events, tasks, repos, effortByTask, taskFilter, onClearF
     }
     return groups;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events, sessionFilter]);
+  }, [events, sessionFilterKey]);
   const taskByKey = useMemo(
     () => new Map(tasks.map((t) => [taskIdentity(t.repo, t.task_ref), t])),
     [tasks],
@@ -3095,7 +3175,7 @@ function ChangesView ({ events, tasks, repos, effortByTask, taskFilter, onClearF
   const groupEntries = [...byTask.entries()]
     .filter(([key]) => !taskFilter || key === taskFilter); // X4 (manual picks exempt, P11)
   const groupPager = useRememberedBoundedPage("changes-task-groups", {
-    identity: ["changes-task-groups", scopeKeyValue, taskFilter, sessionFilter, groupMode],
+    identity: ["changes-task-groups", scopeKeyValue, taskFilter, sessionFilterKey, groupMode],
     totalItems: groupEntries.length,
     pageSize: 50,
   });
@@ -3121,7 +3201,7 @@ function ChangesView ({ events, tasks, repos, effortByTask, taskFilter, onClearF
       <h2 data-view-heading tabIndex={-1} className="sr-only">Changes</h2>
       {navItems.length > 0 && (
         <SectionNav items={navItems}
-          contextKey={JSON.stringify([scopeKeyValue, taskFilter, sessionFilter, groupMode])}
+          contextKey={JSON.stringify([scopeKeyValue, taskFilter, sessionFilterKey, groupMode])}
           onActivate={(itemIndex) => {
             if (itemIndex < 0) return;
             flushSync(() => groupPager.setPage(Math.floor(itemIndex / 50) + 1));
@@ -3169,8 +3249,10 @@ function ChangesView ({ events, tasks, repos, effortByTask, taskFilter, onClearF
                   <>
                     <span className="flex items-center gap-1.5 rounded bg-slate-800 px-2 py-0.5 text-slate-200">
                       <span className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: sessionColor(sessionFilter) }} />
-                      session: {sessionFilter.slice(0, 8)}
+                        style={{ backgroundColor: sessionColor(
+                          sessionFilter.provider, sessionFilter.sessionId,
+                        ) }} />
+                      {sessionFilter.provider} session: {sessionFilter.sessionId.slice(0, 8)}
                     </span>
                     {/* v0.1.6.0 D3 (C.3): the timeline opener lives on the chip */}
                     <button onClick={() => onOpenTimeline(sessionFilter)}
@@ -3356,7 +3438,7 @@ function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet, onSessio
   { refLabel: string; repoId: string; group: TrackedEvent[]; why?: string;
     repos: Repo[]; planFileSet?: Set<string>;
     scopeKeyValue: string; groupIdentity: string;
-    onSessionClick?: (id: string) => void;
+    onSessionClick?: (identity: EventSessionIdentity) => void;
     onOpenFileStory?: (repo: string, file: string) => void; // v0.1.7.0 D2
     effort?: { minutes: number; sessions: number };
     onStatus: (message: string) => void }) {
@@ -3705,7 +3787,7 @@ function PickRow ({ event, tasks, onPicked, onStatus, choice, onChoiceChange,
       </label>
       <ModeBadge mode={event.mode} />
       <span className="min-w-0 max-w-full break-all font-mono text-xs">{event.file}</span>
-      <SessionDot id={event.session_id} /> {/* informational — RV4 */}
+      <SessionDot identity={eventSessionIdentity(event)} /> {/* informational — RV4 */}
       <span className="text-[11px] text-slate-400" title={event.ts}>
         {event.repo_id} · {fmtRel(event.ts)}
       </span>
@@ -3752,7 +3834,7 @@ function PickRow ({ event, tasks, onPicked, onStatus, choice, onChoiceChange,
 // caller passes onSessionClick (Changes task groups — RV4).
 function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onStatus }:
   { event: TrackedEvent; repos: Repo[]; showRef?: boolean;
-    onSessionClick?: (id: string) => void;
+    onSessionClick?: (identity: EventSessionIdentity) => void;
     // v0.1.7.0 D2 (B.2): passed ONLY from Changes task groups (the
     // v0.1.5.0 RV4 zone precedent) — History/queue file names stay plain.
     onOpenFileStory?: (repo: string, file: string) => void;
@@ -3767,6 +3849,7 @@ function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onS
   // v0.1.6.0 D2 (C.2, RV14): differs-suffix - only when BOTH branches are
   // known AND differ (the different-branch signal, never same-branch noise).
   const repoBranch = repos.find((r) => r.id === event.repo_id)?.branch;
+  const sessionIdentity = eventSessionIdentity(event);
   useEffect(() => () => {
     diffGenerationRef.current += 1;
     diffControllerRef.current?.abort();
@@ -3829,9 +3912,9 @@ function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onS
             {event.task_ref}
           </span>
         )}
-        <SessionDot id={event.session_id}
-          onClick={onSessionClick && event.session_id
-            ? () => onSessionClick(event.session_id!) : undefined} />
+        <SessionDot identity={sessionIdentity}
+          onClick={onSessionClick && sessionIdentity
+            ? () => onSessionClick(sessionIdentity) : undefined} />
         {event.branch && repoBranch && event.branch !== repoBranch && (
           <span className="text-[11px] text-amber-300/80"
             title="captured on a different branch than the repo is on now">

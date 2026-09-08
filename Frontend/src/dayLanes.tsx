@@ -17,8 +17,8 @@ import type { ActionDeadline, TrackedEvent } from "./api";
 import { DisclosureTable } from "./accessibleData";
 import { RAMP, rampBucket } from "./calendarHeatmap";
 import { fmtMinutes, fmtTs } from "./format";
-import { EFFORT_GAP_MAX_MIN, EFFORT_TAIL_MIN, MODE_BADGE, MODE_COLOR,
-  sessionColor, usePrefersReducedMotion } from "./theme";
+import { EFFORT_GAP_MAX_MIN, EFFORT_TAIL_MIN, eventSessionIdentity,
+  MODE_BADGE, MODE_COLOR, sessionColor, usePrefersReducedMotion } from "./theme";
 import { SectionHeading, Surface } from "./ui";
 
 const LANE_H = 26, GAP_Y = 8, LEFT = 76, TOP = 18, HOUR_W = 34;
@@ -535,13 +535,18 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
                         <rect x={x(b.start)} y={yTop}
                           width={Math.max(2, x(b.rawEnd + tailMs) - x(b.start))}
                           height={LANE_H} rx={3} fill="#14b8a6" opacity={0.35} />
-                        {b.events.map((e) => (
-                          <circle key={e.id} cx={x(new Date(e.ts).getTime())}
-                            cy={yTop + LANE_H / 2} r={2.5}
-                            fill={e.session_id ? sessionColor(e.session_id) : "#94a3b8"}>
-                            <title>{`${fmtTs(e.ts)} — ${e.file}`}</title>
-                          </circle>
-                        ))}
+                        {b.events.map((e) => {
+                          const identity = eventSessionIdentity(e);
+                          return (
+                            <circle key={e.id} cx={x(new Date(e.ts).getTime())}
+                              cy={yTop + LANE_H / 2} r={2.5}
+                              fill={identity
+                                ? sessionColor(identity.provider, identity.sessionId)
+                                : "#94a3b8"}>
+                              <title>{`${fmtTs(e.ts)} — ${e.file}`}</title>
+                            </circle>
+                          );
+                        })}
                       </g>
                     );
                   })}

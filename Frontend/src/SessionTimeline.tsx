@@ -10,6 +10,7 @@ import {
   MODE_COLOR,
   sessionColor,
 } from "./theme";
+import type { EventSessionIdentity } from "./theme";
 import { CollectionPager, useBoundedPage } from "./ui";
 
 const API_PAGE = 500;
@@ -20,7 +21,7 @@ export function SessionTimeline ({
   onClose,
   onStatus,
 }: {
-  session: string;
+  session: EventSessionIdentity;
   onClose: () => void;
   onStatus: (message: string) => void;
 }): JSX.Element {
@@ -42,7 +43,8 @@ export function SessionTimeline ({
         const all: TrackedEvent[] = [];
         for (let pageIndex = 0; pageIndex < MAX_PAGES; pageIndex++) {
           const page = await api.events({
-            session,
+            provider: session.provider,
+            session: session.sessionId,
             limit: API_PAGE,
             offset: pageIndex * API_PAGE,
           }, action.signal);
@@ -75,7 +77,7 @@ export function SessionTimeline ({
       action.controller.abort();
       action.clear();
     };
-  }, [onStatus, retryNonce, session]);
+  }, [onStatus, retryNonce, session.provider, session.sessionId]);
 
   const retry = (): void => {
     if (busy || retryPendingRef.current) return;
@@ -85,7 +87,7 @@ export function SessionTimeline ({
   };
 
   const pager = useBoundedPage({
-    identity: ["session-timeline", session],
+    identity: ["session-timeline", session.provider, session.sessionId],
     totalItems: rows?.length ?? 0,
     pageSize: 50,
   });
@@ -115,9 +117,11 @@ export function SessionTimeline ({
           <span
             aria-hidden="true"
             className="h-3 w-3 shrink-0 rounded-full"
-            style={{ backgroundColor: sessionColor(session) }}
+            style={{ backgroundColor: sessionColor(session.provider, session.sessionId) }}
           />
-          <span className="break-all font-mono">session {session.slice(0, 8)}</span>
+          <span className="break-all font-mono">
+            {session.provider} session {session.sessionId.slice(0, 8)}
+          </span>
         </span>
       }
       description={rows

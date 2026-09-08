@@ -11,7 +11,13 @@ import type { Repo, Task, TrackedEvent } from "./api";
 import type { PreparedDownload } from "./download";
 import { fmtMinutes } from "./format";
 import { scopeFileToken } from "./navigation";
-import { MODE_BADGE, MODE_COLOR, sessionColor } from "./theme";
+import {
+  eventSessionIdentity,
+  MODE_BADGE,
+  MODE_COLOR,
+  sessionColor,
+  sessionIdentityKey,
+} from "./theme";
 import { getBoundedPageWindow } from "./ui";
 
 const PAGE = 500, MAX_PAGES = 3; // explicit cap — truncation is footnoted, never silent
@@ -99,7 +105,12 @@ export async function prepareDigest (scope: string | undefined, repos: Repo[],
   const picksNow = uncommitted.filter((e) =>
     e.mode === "AMBIGUOUS" || e.mode === "UNKNOWN").length;
   const clean = repos.filter((r) => r.clean).length;
-  const sessions = new Set(todays.map((e) => e.session_id).filter(Boolean)).size;
+  const sessions = new Set(todays.flatMap((event) => {
+    const identity = eventSessionIdentity(event);
+    return identity
+      ? [sessionIdentityKey(identity.provider, identity.sessionId)]
+      : [];
+  })).size;
 
   const whyByRef = new Map(tasks.map((t) => [JSON.stringify([t.repo, t.task_ref]), t.why]));
   const repoIds = [...new Set(todays.map((e) => e.repo_id))];
@@ -118,6 +129,7 @@ export async function prepareDigest (scope: string | undefined, repos: Repo[],
       for (const [file, eventsForFile] of files) {
         // Preserve the existing representative-event choice and source order.
         const representative = eventsForFile[eventsForFile.length - 1];
+        const representativeSession = eventSessionIdentity(representative);
         summaries.push({
           repoId,
           taskRef: ref,
@@ -127,9 +139,11 @@ export async function prepareDigest (scope: string | undefined, repos: Repo[],
           modeLabel: MODE_BADGE[representative.mode].label,
           modeTip: MODE_BADGE[representative.mode].tip,
           modeColor: MODE_COLOR[representative.mode],
-          sessionShort: representative.session_id?.slice(0, 8) ?? null,
-          sessionDotColor: representative.session_id
-            ? sessionColor(representative.session_id)
+          sessionShort: representativeSession
+            ? `${representativeSession.provider}:${representativeSession.sessionId.slice(0, 8)}`
+            : null,
+          sessionDotColor: representativeSession
+            ? sessionColor(representativeSession.provider, representativeSession.sessionId)
             : null,
         });
       }
