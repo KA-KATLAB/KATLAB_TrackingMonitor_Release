@@ -79,6 +79,18 @@ The high-level flow is:
 - Update comments and documentation when an invariant or public behavior changes; avoid historical essays in source comments.
 - For releases, keep `Backend/app/version.py`, the root release-notes file, `Claude_Info/Version_Notes.md`, and the release-notes archive convention consistent.
 
+## Impeccable-informed UI/UX discipline
+
+- For every UI task, first classify it as review/diagnosis, refinement, new surface, or redesign. Review/diagnosis is report-only; redesign needs explicit current user approval; a new surface needs a direction contract in its active plan.
+- The React shell is Operate-first; generated Chronicle content is Read; City, Focus Mode, Wrapped, Kat, and celebrations are bounded Experience moments.
+- [`Docs/UI_Design_System.md`](Docs/UI_Design_System.md) and the local source hierarchy always outrank external design guidance. Preserve KATLAB identity, scope, stack, accessibility, bounded rendering, and reduced motion.
+- Select only relevant advisory lenses from [Codex_Info/Impeccable_Design_Guidance.md](Codex_Info/Impeccable_Design_Guidance.md); its 23 labels are not installed commands or mandatory tooling.
+- For material new UI, define the user job, hierarchy, first viewport, real data/proof, key states, responsive behavior, preserved boundaries, and finish evidence before implementation.
+- Keep human critique, technical audit, deterministic checks, and rendered inspection separate. A clean scan is evidence, never proof.
+- Inspect the built path at relevant states and the 360/390/768/1024/1440px checkpoints, plus keyboard, coarse pointer, 200% zoom, safe areas, long/empty/error/stale data, and reduced motion.
+- Fix blockers, misleading/inaccessible paths, and missing states before flow/hierarchy, visuals/motion, and optional polish.
+- Measure before optimizing; extract shared UI only from repeated same-intent patterns. Do not install, vendor, execute, or imply approval of Impeccable tooling without a separate user-authorized workflow.
+
 ## Verification
 
 Match checks to the affected surface:
