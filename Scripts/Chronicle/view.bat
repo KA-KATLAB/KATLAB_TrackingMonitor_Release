@@ -1,34 +1,27 @@
 @echo off
-REM KATLAB Chronicle - build once + open OFFLINE (PLAN v0.2.4.0 C.1).
-REM No server, no port: T1 (use_directory_urls false) makes file://
-REM links resolve and T2 (UMD mermaid, vendored by install.bat) keeps
-REM diagrams rendering offline. Build is --strict (D8): warnings fail.
-REM v0.2.6.0 CFT-4: build into site.view, NEVER the default site\ -
-REM since the one-port merge site\ is the dir the tracker SERVES at
-REM /chronicle/, and an in-place --clean build would gut it mid-serve
-REM (and race the loop's atomic swap). site.view keeps this script
-REM truly zero-server-involvement.
-
-cd /d "%~dp0"
-set "CFG=%~dp0..\..\Chronicle\runtime\mkdocs.yml"
-set "OUT=%~dp0..\..\Chronicle\runtime\site.view"
-
-python -m mkdocs --version >nul 2>&1
-if errorlevel 1 (
-    echo [ABORT] MkDocs is not installed - run install.bat first.
-    exit /b 1
+setlocal
+if not "%~1"=="" (
+    >&2 echo Usage: view.bat
+    exit /b 2
 )
-if not exist "%CFG%" (
-    echo [ABORT] no generated site yet - run generate.bat first.
-    exit /b 1
-)
+if defined KATLAB_TRACKER_CONFIG goto production_disabled
+if "%KATLAB_TRACKER_DEMO%"=="1" goto production_disabled
+if not defined KATLAB_CHRONICLE_PYTHON goto launch
+set "_KCP=%KATLAB_CHRONICLE_PYTHON%"
+if "%_KCP:~1,2%"==":\" goto launch
+if "%_KCP:~1,2%"==":/" goto launch
+if "%_KCP:~0,2%"=="\\" goto launch
+>&2 echo [ABORT] KATLAB_CHRONICLE_PYTHON must be an absolute path.
+exit /b 1
 
-echo Building (--strict)...
-python -m mkdocs build --strict -f "%CFG%" -d "%OUT%"
-if errorlevel 1 (
-    echo.
-    echo BUILD FAILED - not opening.
-    exit /b 1
-)
+:production_disabled
+>&2 echo [ABORT] Production Chronicle is disabled in demo or explicit config mode.
+exit /b 1
 
-start "" "%OUT%\index.html"
+:launch
+if defined KATLAB_CHRONICLE_PYTHON (
+    "%KATLAB_CHRONICLE_PYTHON%" -B "%~dp0generate.py" --view
+) else (
+    python -B "%~dp0generate.py" --view
+)
+exit /b %errorlevel%

@@ -4,7 +4,7 @@ Current source of truth is the implementation plus normative contracts in `Docs/
 Historical notes reference `Ref/system_architecture.mermaid` and
 `Ref/hybrid_C_resolution_flow.mermaid`, but `Ref/` is absent in this checkout.
 
-## 1. System Architecture (v0.3.0.1)
+## 1. System Architecture (v0.3.0.3)
 
 ### 1.1 Capture — user-scope provider hooks, every session
 
@@ -85,6 +85,40 @@ Historical notes reference `Ref/system_architecture.mermaid` and
 - All-scope Mission reads rebuild authoritative readiness globally. Repo-scoped reads
   and live invalidations recompute only affected repositories and atomically replace
   those cached plan slices; summary counts are then derived from the merged cache.
+
+### 1.7 Chronicle and dependency-security boundary (v0.3.0.3)
+
+- The backend loads one deeply immutable `ConfigSnapshot`. Demo or explicit-config
+  launches skip optional production Chronicle setup before its file or process I/O;
+  production maps supported binds to numeric loopback and resolves one separate
+  Chronicle Python whose native identity is rechecked immediately before launch.
+- The backend owns the optional Chronicle child and a fresh per-start signing key.
+  It publishes a canonical, bounded capability at the fixed ignored runtime leaf
+  using a protected current-user/SYSTEM DACL. The writer closes before a compatible
+  read-only owner handle is retained; shutdown and proved-dead-parent recovery delete
+  only the same identity, bytes, and descriptor. This is trusted same-owner local
+  coordination, not protection from malicious code running as that owner.
+- Chronicle requests use canonical numeric-loopback targets, fresh nonces, and an
+  HMAC-authenticated response bound to the session, status, duplicate-preserving
+  headers, and body. Proof verification precedes strict JSON/schema acceptance;
+  request and model sessions have cumulative bounds and absolute deadlines.
+- `safe_io.py` is the native authority for no-follow handle identity, bounded source
+  capture, coherent inventories, exact cleanup, loop/writer leases, and atomic file
+  or site promotion. Only a canonical proved-dead lease owner is reclaimed; legacy,
+  live, changing, or ambiguous residue is preserved. Failed builds keep the prior
+  site and remain pending across the next unchanged tick and process restart.
+- Chronicle mirrors the bounded documentation universe, including `AGENTS.md` and
+  `Codex_Info/`. Strict local view validates the generated configuration and its
+  referenced local Mermaid/Bootswatch assets before building existing sources.
+  Ordinary builds may use the documented pinned CDN fallback and are not offline proof.
+- Vendor storage contains only verified raw Mermaid 11.17.2 and Bootswatch 5.3.3
+  source bytes. Generation removes Bootswatch's one remote-font import, verifies the
+  derivative, and writes that derivative only into runtime documentation.
+- Scribe remains deliberately disabled without launching Claude: Python exits 3 for
+  valid arguments or 2 for invalid syntax; BAT always exits 3.
+  External bootstrap/guardian/watchdog, sealed
+  runtime provenance, Job-tree control, host upgrades, VM attestation, live restart,
+  GitHub activation, and release publication remain deferred and are not claimed.
 
 ## 2. Hybrid-C Resolution (the "why" attribution)
 

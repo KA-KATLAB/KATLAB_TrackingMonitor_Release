@@ -1,5 +1,39 @@
 # Version Notes
 
+## v0.3.0.3 — Dependency Security & Working Chronicle (2026-09-14)
+
+**Key Highlights**
+
+- Skipped v0.3.0.2 and remediated the seven targeted frontend dependency nodes:
+  Vite 6.4.3 and Mermaid 11.17.2, with transitive DOMPurify 3.4.15,
+  esbuild 0.25.12, browserslist 4.28.9, baseline-browser-mapping 2.11.23,
+  and nanoid 3.3.19.
+- `npm ci --ignore-scripts`, full and production `npm audit`, and the production
+  frontend build passed. Both audits reported zero vulnerabilities. The build's
+  remaining greater-than-500-kB lazy-chunk warning is non-fatal and documented.
+- Hardened the working Chronicle integration: one deeply
+  immutable configuration snapshot, separate native-bound Chronicle interpreter,
+  private current-user/SYSTEM capability, per-start key/session, signed numeric-
+  loopback HTTP responses, strict consumer schemas, cumulative bounds, and absolute
+  deadlines. Demo and explicit-config launches still skip production Chronicle I/O.
+- Chronicle now captures the bounded documentation universe, including `AGENTS.md`
+  and `Codex_Info/`; preserves story pages; uses exact loop/writer leases; builds into
+  a validated candidate; preserves the prior site on failure; and retries a failed
+  build after an unchanged tick or restart.
+- Local strict view builds existing sources before opening the tracker and requires
+  validated local Mermaid and sanitized Bootswatch assets. Raw pinned vendor sources
+  are hash-verified before atomic promotion; Bootswatch's remote-font import is removed
+  and the local derivative is independently verified. Ordinary builds retain the
+  documented pinned-CDN fallback and are not described as offline evidence.
+- Dependabot covers three manifests: npm in `Frontend` and pip in both `Backend` and
+  `Scripts/Chronicle`. It suppresses routine version PRs and groups security updates;
+  the checked-in configuration does not enable GitHub settings or auto-merge.
+- Scribe remains intentionally disabled without launching Claude: Python exits 3
+  for valid arguments or 2 for invalid syntax, while BAT always exits 3.
+  External bootstrap/guardian/watchdog, sealed runtime and Job-tree infrastructure,
+  host upgrades, VM attestation, live restart, GitHub activation, and release
+  publication remain deferred. No such activation or completed-CFT claim is made here.
+
 ## v0.3.0.1 — System Health Version-Skew Hotfix (2026-09-08)
 
 **Key Highlights**

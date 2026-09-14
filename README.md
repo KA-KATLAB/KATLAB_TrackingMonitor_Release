@@ -5,7 +5,7 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current version: **v0.3.0.1 — System Health Version-Skew Hotfix**
+Current version: **v0.3.0.3 — Dependency Security Hardening**
 
 ## What v0.3 adds
 
@@ -79,6 +79,30 @@ The main UI is `http://127.0.0.1:8100`; Mission is
 `http://127.0.0.1:8100/?view=mission`. Demo uses port 8101 and generates all seven
 Mission states under ignored `Demo/runtime/`, with no real-repository Git probe.
 
+## Chronicle
+
+Chronicle uses the running tracker's configured loopback origin and an owned,
+signed-response capability; there is no separate server or unsigned fallback.
+Demo and explicit-config instances do not access production Chronicle state.
+
+- Python: absolute `KATLAB_CHRONICLE_PYTHON`, otherwise the first PATH Python.
+  Chronicle dependencies are separate from Backend's `.venv`.
+- Install dependencies and pinned assets: `Scripts/Chronicle/install.bat`.
+  `install.bat --mermaid-only` fetches only Mermaid, without pip.
+- Generate/build with the tracker running: `Scripts/Chronicle/generate.bat`.
+- Strict offline build, then open: `Scripts/Chronicle/view.bat`. Both verified
+  assets must already be selected in generated configuration; after installing
+  assets, regenerate first. Normal generation's CDN fallback is online-only.
+- Parity check: run `Scripts/Chronicle/generate.py --verify` with Chronicle's
+  Python. Scribe is disabled: Python exits 3 for valid arguments or 2 for invalid
+  syntax; its batch entrypoint always exits 3. Existing stories remain.
+
+For an upgrade with a legacy plain-text `.chronicle_loop.lock`, first confirm
+all old tracker/Chronicle processes are stopped, then inspect/remove only that
+legacy file under `Chronicle/runtime/`. Live or ambiguous structured locks and
+capabilities must not be deleted to bypass a refusal. See the
+[repository guide](Codex_Info/Repository_Guide.md) for recovery and trust limits.
+
 ## Onboard providers and repositories
 
 1. From this repository, render and manually merge the user-scope Claude and/or
@@ -101,7 +125,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current release notes](TrackingMonitor_v0.3.0.1_Release_Notes.md)
+- [Current release notes](TrackingMonitor_v0.3.0.3_Release_Notes.md)
 
 ## Guarantees
 

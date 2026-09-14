@@ -24,7 +24,7 @@ When prose and running code disagree, do not silently choose one. Establish whet
 | `Hook/katlab_tracking_hook.py` | Fail-safe Claude/Codex entry point and channel router |
 | `Hook/katlab_activity.py` | Strict registries, safe paths, atomic activity transport, durable JSONL append |
 | `Hook/provider_adapters.py` | Provider payload projection into metadata-only records |
-| `Backend/app/config.py` | YAML loading, authoring validation, offline-repo handling |
+| `Backend/app/config.py` | YAML validation, offline-repo handling, and deeply immutable startup snapshot |
 | `Backend/app/db.py` | SQLite migrations and event/task/plan/evidence/commit queries |
 | `Backend/app/activity.py` | Strict central-inbox validation, recovery, admission, and ingestion |
 | `Backend/app/readiness.py` | Authoritative requirement and seven-state Mission evaluation |
@@ -36,6 +36,7 @@ When prose and running code disagree, do not silently choose one. Establish whet
 | `Backend/app/api/routes.py` | REST endpoints and envelope behavior |
 | `Backend/app/api/ws.py` | WebSocket clients and broadcasts |
 | `Backend/app/main.py` | FastAPI lifecycle, static UI, badges, Chronicle serving/child lifecycle |
+| `Backend/app/chronicle_auth.py` | Revocable signer state and bounded HMAC response proofs for the owned Chronicle child |
 | `Backend/app/version.py` | Canonical application version |
 | `Frontend/src/api.ts` | REST types and client; backend contract mirror |
 | `Frontend/src/ws.ts` | WebSocket connection/reconnect boundary |
@@ -46,9 +47,11 @@ When prose and running code disagree, do not silently choose one. Establish whet
 | `Frontend/src/theme.ts` | Shared modes, colors, timing thresholds, and cross-feature helpers |
 | `Frontend/src/*.tsx` | Focused cards, views, modals, visualizations, and interaction modules |
 | `Docs/UI_Design_System.md` | Normative frontend design, accessibility, responsive, motion, and bounded-rendering contract |
-| `Scripts/Chronicle/generate.py` | REST-fed Chronicle model, atomic generation/build, loop lifecycle |
+| `Scripts/Chronicle/runtime.py` | Chronicle interpreter binding, private capability lifecycle, and authenticated loopback client |
+| `Scripts/Chronicle/safe_io.py` | Native no-follow roots, coherent source/runtime snapshots, leases, swaps, and pinned asset authority |
+| `Scripts/Chronicle/generate.py` | Signed Chronicle model capture, generated mirrors, atomic build, loop, verify, and view modes |
 | `Scripts/Chronicle/pages.py` | Generated Markdown/config/CSS/JS renderers |
-| `Scripts/Chronicle/scribe.py` | Bounded headless-Claude story generation |
+| `Scripts/Chronicle/scribe.py` | Intentionally disabled Scribe CLI and inert import-compatibility hook |
 | `Scripts/record_evidence.py` | Validated explicit manual check/review evidence publisher |
 | `Scripts/render_hook_config.py` | Read-only provider preflight and merge-ready hook renderer |
 | `Scripts/*.bat` | Windows start/stop/restart lifecycle |
@@ -70,7 +73,8 @@ When prose and running code disagree, do not silently choose one. Establish whet
 7. Read-only Git checks provide dirty state, diffs, branch, HEAD, and new commit metadata.
 8. One backend readiness engine derives evidence freshness, blockers, and Mission state.
 9. REST provides snapshots; additive WebSocket signals trigger bounded REST resynchronization.
-10. React renders six views. Chronicle periodically reads REST and atomically replaces its built site.
+10. React renders six views. An owned Chronicle child consumes bounded,
+    HMAC-proven REST snapshots and promotes a validated replacement site.
 
 ## 4. Core contracts
 
@@ -102,6 +106,9 @@ When prose and running code disagree, do not silently choose one. Establish whet
 - Bad YAML, invalid/duplicate IDs, and duplicate normalized paths are authoring failures and must fail fast.
 - Missing repository paths are environmental drift: mark those repos offline and keep the server alive.
 - `Config/repos.yaml` is loaded once; configuration changes require restart.
+- Backend passes one deeply immutable `ConfigSnapshot`: frozen configuration,
+  tuples and read-only mappings plus the canonical file path, native identity,
+  and content SHA-256 all refer to the same startup read.
 - The hook regex requires each repo `path:` to be single-line and single-quoted.
 - `KATLAB_TRACKER_CONFIG`, `KATLAB_TRACKER_DB`, and
   `KATLAB_TRACKER_ACTIVITY_DIR` isolate demo/test instances.
@@ -166,25 +173,89 @@ Plan-before-catch-up prevents permanent `UNKNOWN` attribution. The dedicated Git
 
 ### 4.8 Chronicle and generated content
 
-- Chronicle consumes the running server's REST API; it does not read the DB directly.
-- All remote reads complete before writes begin.
-- Writes are UTF-8, atomic, and write-only-if-changed where specified.
-- Build into a replacement directory and swap atomically so the served site stays whole on failure.
-- Edit `generate.py`, `pages.py`, or source docs; never edit `Chronicle/runtime/` output.
-- The Scribe's daily quota, retry, validation, data-as-untrusted-content, and authorship-footer rules are cost and honesty boundaries.
-- Demo mode must remain isolated and must not spawn the Chronicle loop.
+- Production Chronicle is optional and owned by the Backend lifespan. Demo mode
+  or an explicit config override rejects Chronicle before production file I/O.
+  Incomplete optional-startup cleanup remains in a retained ledger for shutdown
+  retry with signing revoked; persistent cleanup failures are reported and preserved.
+- Chronicle selects an absolute `KATLAB_CHRONICLE_PYTHON` or the first PATH
+  Python once, binds and rechecks its native identity, and probes its reviewed
+  dependencies before mutation or launch. This interpreter is deliberately
+  separate from Backend's `.venv`.
+- The fixed `Chronicle/runtime/.chronicle_capability.json` is a bounded canonical
+  private record for the current Windows user and SYSTEM. It binds one random
+  response key and session to the exact live parent PID/creation time and numeric
+  loopback origin. This protects the local protocol from ordinary accidental
+  access; it does not isolate hostile code running as the same owner.
+- `chronicle_auth.py` signs only eligible bounded REST responses while the owned
+  child remains live. `runtime.py` verifies a fresh nonce/HMAC proof before JSON,
+  applies canonical target, byte/request and absolute-time bounds, and has no
+  unsigned or arbitrary-URL fallback. Chronicle never reads the database.
+- Optional Chronicle models support at most 256 repositories and 250-character
+  ASCII repository IDs (so the final changelog `.html` leaf fits Windows). They retain
+  limits of 4,096 requests, 16 MiB per response, 128 MiB per session, and 120
+  seconds per session; fetched history, history events, and day events each have
+  a cumulative 10,000-row cap. Over-budget models refuse without changing Backend
+  config/API admission or replacing the prior site. Native reserved-name and
+  case-collision checks still apply to otherwise accepted IDs.
+- Source mirroring is limited to root `README.md`, `LICENSE`, `AGENTS.md`, current
+  root release notes, one-level `Claude_Info/*.md` and `Codex_Info/*.md`, recursive
+  `Docs/**/*.md`, and optional one-level `temp/Ref/*.mermaid`. `CLAUDE.md` is not
+  source authority; missing or empty diagrams omit Architecture navigation.
+- `safe_io.py` owns retained native no-follow reads, bounded coherent inventories,
+  exact writes/removals, pinned asset validation, and directory swaps. Separate
+  singleton-loop and short writer leases reclaim only an exact proved-dead
+  PID/creation owner. Legacy text locks remain blocked: during deployment, only
+  after confirming old tracker and Chronicle processes are stopped, an operator
+  may inspect and remove the exact legacy lock under `Chronicle/runtime/`.
+- All authenticated model and source reads complete before generated-content
+  writes. Generated Markdown and final HTML destinations are preflighted for
+  flattening, Windows case/native-path limits, and MkDocs README/index collisions.
+  Writes are UTF-8, atomic and write-only-if-changed;
+  story pages are not swept by the mechanical generator.
+- Strict MkDocs builds use a unique candidate and native swap. Build failure leaves
+  the served site untouched. Promotion restores the old site when possible; its
+  two renames can briefly return 404. If promotion and restoration both fail, the
+  surviving prior-site backup is retained and its recovery path is reported rather
+  than claimed as still served. Failed builds remain pending across unchanged ticks
+  and process restart.
+- `--view` requires exact validated local Mermaid and sanitized, import-free
+  Bootswatch assets plus a matching local-only generated config before its strict
+  build and browser open. A fresh signed tracker probe is required before build
+  and again before browser open; a bare TCP listener is insufficient.
+  Ordinary builds may use the documented pinned CDN
+  fallback; that path is online-only and is not offline evidence. Theme-provided
+  CDN Highlight.js is disabled.
+- Scribe is intentionally disabled: its Python CLI writes the disabled notice to
+  stderr and exits `3` for valid supported syntax; invalid Python syntax exits `2`
+  with usage. `scribe.bat` ignores its arguments and always exits `3` disabled. No
+  path launches model, process or network work, and retained `auto_tick` is inert.
+  Re-enabling Scribe requires a separately reviewed integration.
+- External bootstrap/guardian/watchdog, sealed runtime provenance, Job-tree
+  activation/rollback, hostile same-owner isolation, host upgrades and VM
+  attestation are explicitly deferred. Do not infer those guarantees from the
+  current bounded local implementation.
+- Edit Chronicle sources under `Scripts/Chronicle/`; never hand-edit generated
+  `Chronicle/runtime/` output.
 
 ## 5. Working workflows
 
 ### 5.1 Fix or feature
 
-1. Confirm the target behavior, affected layer, and active plan.
-2. Read the nearest code plus relevant normative/history sections.
-3. Set exactly one plan task to `in-progress` and verify its `<files>` coverage.
-4. Make the smallest complete change, including contract mirrors and empty/error paths.
-5. Run focused checks, then the layer-level check from the matrix below.
-6. Update durable documentation only where behavior or an invariant changed.
-7. Mark the task `done` and report the ignored plan change separately.
+1. Brainstorm scope and decisions with the user; for a defect, reproduce it and
+   establish the root cause before proposing a fix.
+2. Read the nearest code and relevant normative/history sources, then write or
+   update the enhanced-format plan with exact tasks, files and verification.
+3. Complete five consecutive clean CDD passes over the frozen plan and coupled
+   source flows. Every finding is fixed in the plan and resets the streak.
+4. Set exactly one plan task `in-progress`, verify its `<files>` coverage, and
+   implement the smallest complete change including mirrors and failure paths.
+5. Complete five consecutive clean CFT passes over the actual merged result and
+   runtime flows. Every finding is fixed and resets the streak.
+6. Run the focused and layer/full verification required by the plan; distinguish
+   executed evidence from deferred or operator-only checks.
+7. Update durable documentation where behavior changed, record final evidence and
+   limitations in the plan, mark the task `done`, and report the ignored plan
+   update separately.
 
 ### 5.2 Release work
 
@@ -214,7 +285,7 @@ Plan-before-catch-up prevents permanent `UNKNOWN` attribution. The dedicated Git
 | Hook | Isolated temp Git repos and config; malformed input, allowlist, path normalization, and exit-success behavior |
 | Watcher/commit logic | Controlled temp repo/demo; startup ordering, replay offset, transient Git failure, commit-before-sweep behavior |
 | API/WebSocket | Endpoint status/envelope/pagination/filter cases and message-triggered resync behavior |
-| Chronicle | Generate/build against a running isolated tracker, then `python Scripts/Chronicle/generate.py --verify` |
+| Chronicle | Use the selected Chronicle Python and an owned isolated signed tracker; exercise generation, strict candidate build/swap/failure preservation, offline-view closure where relevant, then run `Scripts/Chronicle/generate.py --verify` |
 | Scripts/config | Fresh-path reasoning, Windows quoting, configured-port behavior, and no persistent console regression |
 | Documentation | Links, paths, version claims, terminology, encoding, and consistency across normative copies |
 
@@ -227,6 +298,8 @@ Do not run every check for every edit. Choose the smallest set that can falsify 
 - `Tests/` is a committed focused Python regression suite for v0.3 capture,
   ingestion, plans, evidence, readiness, API, Git allowlisting, and demo behavior;
   it is not a general-purpose browser/end-to-end suite.
-- Product Python dependencies are in `Backend/requirements.txt`; Chronicle has a separate pinned set in `Scripts/Chronicle/requirements.txt`.
+- Product Python dependencies are in `Backend/requirements.txt`; Chronicle has a
+  separate dependency set and selected interpreter in `Scripts/Chronicle/requirements.txt`
+  and `KATLAB_CHRONICLE_PYTHON`/PATH respectively.
 - The primary launcher is `Scripts/start_tracking_monitor.bat`; demo uses `Scripts/Demo/start_demo.bat`.
 - Runtime state and generated output are intentionally gitignored.

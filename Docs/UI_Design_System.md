@@ -13,7 +13,7 @@ This document is the normative UI contract for the React application. It governs
 
 The advisory research source was `nextlevelbuilder/ui-ux-pro-max-skill` at commit `f3ac195224eac1eb0dfe1a3059c2a6add78ffbe3`, reviewed on 2026-09-03. It is provenance, not a dependency. Do not run its installer, vendor its files, add its companion skills, or copy generated CSS into this repository. A later upstream revision requires a fresh applicability, version, license, security, and stack audit.
 
-The supported frontend remains React 18.3, ReactDOM 18.3, Tailwind 3.4, TypeScript 5.6, Vite 5.4, Chart.js 4.5, and Mermaid 11. Do not import React 19, Tailwind 4, Next.js, native/mobile, or GSAP guidance into this stack.
+The supported frontend remains React 18.3, ReactDOM 18.3, Tailwind 3.4, TypeScript 5 (currently locked to 5.9), Vite 6.4, Chart.js 4.5, and Mermaid 11. Do not import React 19, Tailwind 4, Next.js, native/mobile, or GSAP guidance into this stack.
 
 ## 2. Foundations
 

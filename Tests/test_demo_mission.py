@@ -222,11 +222,13 @@ class DemoMissionTests(unittest.TestCase):
         diff.assert_not_called()
 
         from Backend.app import main as main_module
-        with patch.object(main_module.subprocess, "run") as run, \
-             patch.object(main_module.subprocess, "Popen") as popen:
-            self.assertEqual(main_module.spawn_chronicle_loop(), (None, None))
-            run.assert_not_called()
-            popen.assert_not_called()
+        from Backend.app.chronicle_auth import SignerState
+        from Scripts.Chronicle import runtime as chronicle_runtime
+        with patch.object(
+                chronicle_runtime, "start_chronicle",
+                side_effect=AssertionError("demo started production Chronicle")) as start:
+            self.assertIsNone(main_module.spawn_chronicle_loop(None, SignerState()))
+            start.assert_not_called()
 
     def test_reset_and_restart_are_reproducible (self) -> None:
         workspace = Path(self.temp.name) / "restart-workspace"

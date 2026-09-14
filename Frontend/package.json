@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "chart.js": "^4.5.1",
-    "mermaid": "^11.16.0",
+    "mermaid": "^11.17.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -22,6 +22,6 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",
-    "vite": "^5.4.11"
+    "vite": "^6.4.3"
   }
 }

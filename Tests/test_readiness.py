@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 import uuid
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -417,9 +418,11 @@ class ReadinessTests(unittest.TestCase):
         invalid_status = {**self.status, "status_valid": False, "paths_complete": False}
         self.assertIn("REPO_STATUS_UNKNOWN",
                       [row["code"] for row in self.evaluate(invalid_status)["blockers"]])
-        self.repo.offline = True
-        self.assertIn("REPO_OFFLINE", [row["code"] for row in self.evaluate()["blockers"]])
-        self.repo.offline = False
+        offline_repo = replace(self.repo, offline=True)
+        offline = readiness.evaluate_plan(
+            offline_repo, PLAN, self.status, self.definitions,
+        )
+        self.assertIn("REPO_OFFLINE", [row["code"] for row in offline["blockers"]])
 
         warned = _plan(("in-progress",), ("backend-test",), "<verification\n")
         parsed = parse_plan_bytes(warned, "synthetic")

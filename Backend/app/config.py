@@ -1,4 +1,4 @@
-"""Config loading + two-tier validation (PLAN v0.1.0.0 C.1).
+"""Stable, immutable config loading + two-tier validation.
 
 Error policy (F44):
 - ENVIRONMENTAL issues (missing repo path - drive drift between the Dev and
@@ -13,14 +13,19 @@ import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
+from types import MappingProxyType
+from typing import Mapping, Sequence
 
 import yaml
 from yaml.constructor import ConstructorError
 from yaml.nodes import MappingNode
 
+from Scripts.Chronicle.safe_io import FileIdentity
+
 ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 CHECK_ID_PATTERN = re.compile(r"^[a-z][a-z0-9-]*(?::[a-z][a-z0-9-]*)?$")
-DEFAULT_PLAN_GLOBS = ["temp/Plan/PLAN_*.txt"]
+DEFAULT_PLAN_GLOBS = ("temp/Plan/PLAN_*.txt",)
+CONFIG_MAX_BYTES = 1_048_576
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ACTIVITY_ROOT = REPO_ROOT / "data"
 ACTIVITY_DIR_ENV = "KATLAB_TRACKER_ACTIVITY_DIR"
@@ -64,14 +69,70 @@ _UniqueKeyLoader.add_constructor(
 )
 
 
-@dataclass
+def _immutable_value (value: object, active: set[int] | None = None) -> object:
+    """Detach nested configuration values into the closed immutable shapes."""
+    if value is None or isinstance(value, (bool, int, float, str, bytes)):
+        return value
+    if active is None:
+        active = set()
+    if isinstance(value, Mapping):
+        if id(value) in active:
+            raise ConfigAuthoringError("Configuration contains a container cycle")
+        active.add(id(value))
+        try:
+            frozen = {}
+            for key, item in value.items():
+                if not isinstance(key, str):
+                    raise ConfigAuthoringError(
+                        "Configuration mapping keys must be strings"
+                    )
+                frozen[key] = _immutable_value(item, active)
+            return MappingProxyType(frozen)
+        finally:
+            active.remove(id(value))
+    if isinstance(value, (list, tuple)):
+        if id(value) in active:
+            raise ConfigAuthoringError("Configuration contains a container cycle")
+        active.add(id(value))
+        try:
+            return tuple(_immutable_value(item, active) for item in value)
+        finally:
+            active.remove(id(value))
+    raise ConfigAuthoringError("Configuration contains a mutable or unsupported value")
+
+
+def _typed_tuple (value: object, item_type: type, field_name: str, *,
+                  exact_type: bool = False) -> tuple:
+    """Detach one declared sequence while rejecting nested/wrong-type members."""
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise ConfigAuthoringError(f"{field_name} must be a sequence")
+    detached = tuple(value)
+    valid = ((lambda item: type(item) is item_type) if exact_type
+             else (lambda item: isinstance(item, item_type)))
+    if not all(valid(item) for item in detached):
+        raise ConfigAuthoringError(f"{field_name} contains an invalid value")
+    return detached
+
+
+@dataclass(frozen=True)
 class RepoConfig:
     id: str
     name: str
     path: Path
-    plan_globs: list[str] = field(default_factory=lambda: list(DEFAULT_PLAN_GLOBS))
+    plan_globs: tuple[str, ...] = field(default_factory=lambda: DEFAULT_PLAN_GLOBS)
     offline: bool = False
-    demo_status: dict | None = None
+    demo_status: Mapping[str, object] | None = None
+
+    def __post_init__ (self) -> None:
+        if (not isinstance(self.id, str) or not isinstance(self.name, str)
+                or not isinstance(self.path, Path) or type(self.offline) is not bool):
+            raise ConfigAuthoringError("RepoConfig fields have invalid types")
+        object.__setattr__(self, "plan_globs", _typed_tuple(
+            self.plan_globs, str, "RepoConfig.plan_globs"))
+        if self.demo_status is not None:
+            if not isinstance(self.demo_status, Mapping):
+                raise ConfigAuthoringError("RepoConfig.demo_status must be a mapping")
+            object.__setattr__(self, "demo_status", _immutable_value(self.demo_status))
 
     @property
     def tracking_dir (self) -> Path:
@@ -82,11 +143,16 @@ class RepoConfig:
         return self.tracking_dir / "events.jsonl"
 
 
-@dataclass
+@dataclass(frozen=True)
 class ServerConfig:
     host: str = "127.0.0.1"
     port: int = 8100
     status_poll_seconds: int = 30
+
+    def __post_init__ (self) -> None:
+        if (not isinstance(self.host, str) or type(self.port) is not int
+                or type(self.status_poll_seconds) is not int):
+            raise ConfigAuthoringError("ServerConfig fields have invalid types")
 
 
 @dataclass(frozen=True)
@@ -100,17 +166,55 @@ class CheckDefinition:
     evidence_sources: tuple[str, ...]
     revision: str
 
+    def __post_init__ (self) -> None:
+        if not all(isinstance(value, str) for value in (
+                self.id, self.label, self.cwd, self.revision)):
+            raise ConfigAuthoringError("CheckDefinition scalar fields have invalid types")
+        object.__setattr__(self, "repo_ids", _typed_tuple(
+            self.repo_ids, str, "CheckDefinition.repo_ids"))
+        object.__setattr__(self, "commands", _typed_tuple(
+            self.commands, str, "CheckDefinition.commands"))
+        object.__setattr__(self, "accepted_exit_codes", _typed_tuple(
+            self.accepted_exit_codes, int,
+            "CheckDefinition.accepted_exit_codes", exact_type=True))
+        object.__setattr__(self, "evidence_sources", _typed_tuple(
+            self.evidence_sources, str, "CheckDefinition.evidence_sources"))
 
-@dataclass
+
+@dataclass(frozen=True)
 class AppConfig:
     server: ServerConfig
-    repos: list[RepoConfig]
+    repos: tuple[RepoConfig, ...]
     activity_root: Path = field(default_factory=lambda: _activity_root())
     checks: tuple[CheckDefinition, ...] = ()
 
+    def __post_init__ (self) -> None:
+        if not isinstance(self.server, ServerConfig) or not isinstance(
+                self.activity_root, Path):
+            raise ConfigAuthoringError("AppConfig scalar fields have invalid types")
+        object.__setattr__(self, "repos", _typed_tuple(
+            self.repos, RepoConfig, "AppConfig.repos"))
+        object.__setattr__(self, "checks", _typed_tuple(
+            self.checks, CheckDefinition, "AppConfig.checks"))
+
     @property
-    def checks_by_id (self) -> dict[str, CheckDefinition]:
-        return {check.id: check for check in self.checks}
+    def checks_by_id (self) -> Mapping[str, CheckDefinition]:
+        return MappingProxyType({check.id: check for check in self.checks})
+
+
+@dataclass(frozen=True)
+class ConfigSnapshot:
+    config: AppConfig
+    canonical_path: str
+    file_identity: FileIdentity
+    content_sha256: str
+
+    def __post_init__ (self) -> None:
+        if (not isinstance(self.config, AppConfig)
+                or not isinstance(self.canonical_path, str)
+                or not isinstance(self.file_identity, FileIdentity)
+                or not isinstance(self.content_sha256, str)):
+            raise ConfigAuthoringError("ConfigSnapshot fields have invalid types")
 
 
 def _activity_root () -> Path:
@@ -125,7 +229,7 @@ def _activity_root () -> Path:
     return DEFAULT_ACTIVITY_ROOT.resolve(strict=False)
 
 
-def _validate_activity_root (root: Path, repos: list[RepoConfig]) -> None:
+def _validate_activity_root (root: Path, repos: Sequence[RepoConfig]) -> None:
     for repo in repos:
         repo_root = repo.path.resolve(strict=False)
         for candidate, parent in ((root, repo_root), (repo_root, root)):
@@ -138,9 +242,9 @@ def _validate_activity_root (root: Path, repos: list[RepoConfig]) -> None:
             )
 
 
-def _normalized_plan_globs (value: object) -> list[str]:
+def _normalized_plan_globs (value: object) -> tuple[str, ...]:
     if value is None or value == []:
-        return list(DEFAULT_PLAN_GLOBS)
+        return DEFAULT_PLAN_GLOBS
     if not isinstance(value, list) or not 1 <= len(value) <= 32:
         raise ConfigAuthoringError("plan_globs must be a list of 1..32 patterns")
     normalized: list[str] = []
@@ -158,7 +262,7 @@ def _normalized_plan_globs (value: object) -> list[str]:
         normalized.append(pattern)
     if len(set(normalized)) != len(normalized):
         raise ConfigAuthoringError("plan_globs patterns must be unique")
-    return normalized
+    return tuple(normalized)
 
 
 def _load_server_config (value: object) -> ServerConfig:
@@ -187,7 +291,7 @@ def _load_server_config (value: object) -> ServerConfig:
     return ServerConfig(host=host, port=port, status_poll_seconds=poll)
 
 
-def _load_demo_status (entry: dict, path: Path) -> dict | None:
+def _load_demo_status (entry: dict, path: Path) -> Mapping[str, object] | None:
     raw = entry.get("static_status")
     if raw is None:
         return None
@@ -237,12 +341,12 @@ def _load_demo_status (entry: dict, path: Path) -> dict | None:
     if (normalized_paths != sorted(set(normalized_paths))
             or count != len(normalized_paths) or clean != (count == 0)):
         raise ConfigAuthoringError("static_status count/clean/dirty_paths disagree")
-    return {
+    return MappingProxyType({
         "clean": clean,
         "count": count,
         "branch": branch,
-        "dirty_paths": normalized_paths,
-    }
+        "dirty_paths": tuple(normalized_paths),
+    })
 
 
 def _normalized_check_command (value: object) -> str | None:
@@ -366,15 +470,10 @@ def load_check_registry (path: Path, known_repo_ids: set[str]) -> tuple[CheckDef
     return tuple(checks)
 
 
-def load_config (config_path: Path) -> AppConfig:
+def _parse_config_bytes (config_path: Path, raw_bytes: bytes) -> AppConfig:
     try:
-        raw = yaml.load(
-            config_path.read_text(encoding="utf-8"), Loader=_UniqueKeyLoader,
-        )
-    except FileNotFoundError as exc:
-        raise ConfigAuthoringError(f"Config file not found: {config_path}") from exc
-    except OSError as exc:
-        raise ConfigAuthoringError(f"Config file cannot be read: {config_path}") from exc
+        text = raw_bytes.decode("utf-8")
+        raw = yaml.load(text, Loader=_UniqueKeyLoader)
     except (UnicodeError, yaml.YAMLError) as exc:
         raise ConfigAuthoringError(f"Config is not valid YAML: {exc}")
 
@@ -443,17 +542,16 @@ def load_config (config_path: Path) -> AppConfig:
             )
         seen_paths.add(normalized)
 
+        offline = (demo_status is None
+                   and not (repo_path.exists() and (repo_path / ".git").exists()))
         repo = RepoConfig(
             id=repo_id,
             name=str(entry.get("name", repo_id)),
             path=repo_path,
             plan_globs=_normalized_plan_globs(entry.get("plan_globs")),
+            offline=offline,
             demo_status=demo_status,
         )
-        # Environmental tier (F14): missing path -> offline, never crash.
-        if (demo_status is None
-                and not (repo.path.exists() and (repo.path / ".git").exists())):
-            repo.offline = True
         repos.append(repo)
 
     activity_root = _activity_root()
@@ -462,3 +560,27 @@ def load_config (config_path: Path) -> AppConfig:
     return AppConfig(
         server=server, repos=repos, activity_root=activity_root, checks=checks,
     )
+
+
+def load_config_snapshot (config_path: Path) -> ConfigSnapshot:
+    """Acquire once through the native no-follow authority, then freeze all data."""
+    from Scripts.Chronicle.safe_io import SafeIOError, read_bound_file
+
+    try:
+        bound = read_bound_file(config_path, max_bytes=CONFIG_MAX_BYTES)
+    except SafeIOError as exc:
+        raise ConfigAuthoringError(
+            f"Config file cannot be acquired: {config_path}"
+        ) from exc
+    config = _parse_config_bytes(config_path, bound.data)
+    return ConfigSnapshot(
+        config=config,
+        canonical_path=bound.canonical_path,
+        file_identity=bound.identity,
+        content_sha256=bound.sha256,
+    )
+
+
+def load_config (config_path: Path) -> AppConfig:
+    """Compatibility projection for callers that need only immutable config data."""
+    return load_config_snapshot(config_path).config

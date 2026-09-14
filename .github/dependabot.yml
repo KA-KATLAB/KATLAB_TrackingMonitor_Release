@@ -1,0 +1,33 @@
+# Configure update PR behavior only; repository security settings remain separate.
+# The release mirror must keep security-update PR creation disabled in its settings.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /Frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      frontend-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /Backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      backend-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /Scripts/Chronicle
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      chronicle-security:
+        applies-to: security-updates
+        patterns: ["*"]

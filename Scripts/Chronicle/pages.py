@@ -42,7 +42,7 @@ def fmt_minutes (minutes: int) -> str:
 
 
 def flatten_plan_path (plan_file: str) -> str:
-    """RV8: full repo-relative path, separators -> __ (collision-free)."""
+    """Preserve legacy flattened URLs; callers must reject path collisions."""
     return plan_file.replace("/", "__").replace("\\", "__")
 
 
@@ -230,11 +230,9 @@ def on_post_page (output, **kwargs):
 
 def build_extra_css () -> str:
     """IMPL-3 (user 2026-08-06 'quick CSS enhance'): the KATLAB
-    product look over Bootswatch dark (T5). DARK ONLY. Fonts follow
-    the house fonts-with-fallback precedent: the @import fails
-    silently offline and the system stacks take over."""
+    product look over Bootswatch dark (T5). DARK ONLY. System fonts
+    keep generated documents independent of external font services."""
     return """/* KATLAB Chronicle - product-look stylesheet (generated - do not edit) */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Azeret+Mono:wght@400;600&display=swap');
 
 :root {
   --k-bg: #020617;        /* slate-950 - the app body */
@@ -245,8 +243,8 @@ def build_extra_css () -> str:
   --k-muted: #64748b;     /* slate-500 */
   --k-teal: #2dd4bf;
   --k-teal-soft: #5eead4;
-  --k-sans: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
-  --k-mono: 'Azeret Mono', Consolas, 'Courier New', monospace;
+  --k-sans: 'Segoe UI', system-ui, sans-serif;
+  --k-mono: Consolas, 'Courier New', monospace;
 }
 
 html { scroll-behavior: smooth; }
@@ -425,8 +423,8 @@ footer { color: var(--k-muted); border-top: 1px solid var(--k-border); margin-to
 
 def build_refresh_js () -> str:
     """PLAN v0.2.6.0 B.1: the freshness poller (livereload retired).
-    RV5: no-op off http/https (view.bat's file:// console stays
-    silent). RV25a: non-200 / missing Last-Modified is SKIPPED, never
+    RV5: no-op off http/https (direct file previews stay silent).
+    RV25a: non-200 / missing Last-Modified is SKIPPED, never
     a change - a mid-swap 404 must not reload INTO the 404 page.
     Root derived from this script's own src (a page-relative fetch
     would hit the PAGE's dir index, not the site index)."""
@@ -496,14 +494,16 @@ def build_mkdocs_yml (nav: list, mermaid_js: str, bootswatch_css: str,
         f"site_name: {yq('KATLAB Chronicle')}",
         f"site_description: {yq('Auto-written devlog, plans and reason-grouped changelog')}",
         f"site_url: {yq(site_url)}",  # D4: panzoom requirement
-        "use_directory_urls: false",  # T1: file:// view.bat works
+        "use_directory_urls: false",  # Stable explicit .html URLs.
         "hooks:",
         f"  - {yq('fix_windows_paths.py')}",  # IMPL-1: backslash fix
         "theme:",
         "  name: mkdocs",
         "  nav_style: dark",
         "  navigation_depth: 3",
-        "  highlightjs: true",
+        # The stock theme otherwise injects cdnjs Highlight.js CSS/JS.  Code
+        # remains readable without it and --view must have no remote UI load.
+        "  highlightjs: false",
         "  hljs_style: github-dark",
         "extra_css:",
         f"  - {yq(bootswatch_css)}",  # T5: CSS-layer dark swap

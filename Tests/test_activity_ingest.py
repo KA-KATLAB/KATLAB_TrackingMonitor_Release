@@ -411,10 +411,15 @@ class ActivityIngestTests(unittest.TestCase):
                     load_config(config_path)
 
     def test_config_read_failures_use_the_authoring_error_boundary (self) -> None:
+        from Scripts.Chronicle.safe_io import SafeIOError
+
         config_path = self.root / "repos.yaml"
-        with patch.object(Path, "read_text", side_effect=PermissionError("synthetic")):
+        with patch(
+                "Scripts.Chronicle.safe_io.read_bound_file",
+                side_effect=SafeIOError("synthetic")):
             with self.assertRaises(ConfigAuthoringError):
                 load_config(config_path)
+        with patch.object(Path, "read_text", side_effect=PermissionError("synthetic")):
             with self.assertRaises(ConfigAuthoringError):
                 load_check_registry(self.root / "checks.json", set())
 
