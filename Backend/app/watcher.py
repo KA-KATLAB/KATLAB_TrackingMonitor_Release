@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import sqlite3
+import threading
 import time
 from collections import deque
 from datetime import datetime, timezone
@@ -45,6 +46,11 @@ class Tracker:
         self.config = config
         self.status: dict[str, dict] = {}          # repo_id -> {clean, count, offline}
         self.dirty_paths: dict[str, list[str]] = {}  # private complete-path snapshots
+        self._paired_status: dict[str, tuple[dict, tuple[str, ...]]] = {}
+        self.plan_reconciliation: dict[str, tuple[int, bool, str | None]] = {
+            repo.id: (0, False, None) for repo in config.repos
+        }
+        self.forecast_gate = threading.Lock()
         self.warnings: dict[str, deque] = {}       # repo_id -> recent warnings (F47)
         self.known_commits: dict[str, set[str]] = {}
         self.reconciled_heads: dict[str, str | None] = {}
@@ -102,6 +108,7 @@ class Tracker:
                     "status_valid": False, "observed_at": _now_z(),
                 }
                 self.dirty_paths[repo.id] = []
+            self._publish_status_pair(repo.id)
             self.warnings.setdefault(repo.id, deque(maxlen=50))
             self.known_commits[repo.id] = set()
             self.reconciled_heads[repo.id] = None
@@ -227,8 +234,14 @@ class Tracker:
 
     def _parse_all_plans_with_retry (self, repo: RepoConfig) -> bool:
         """Retry one failed reconciliation once after the debounce window."""
+        generation = self.plan_reconciliation[repo.id][0]
+        run_generation = generation + (1 if generation % 2 == 0 else 2)
+        self.plan_reconciliation[repo.id] = (run_generation, False, None)
         for attempt in range(PLAN_RECONCILE_ATTEMPTS):
             if self._parse_all_plans(repo):
+                self.plan_reconciliation[repo.id] = (
+                    run_generation + 1, True, _now_z(),
+                )
                 return True
             if attempt + 1 < PLAN_RECONCILE_ATTEMPTS:
                 time.sleep(PLAN_STABILITY_DELAY_SECONDS)
@@ -349,6 +362,20 @@ class Tracker:
 
     # --- git status + commits ---------------------------------------------
 
+    def _publish_status_pair (self, repo_id: str) -> None:
+        """Atomically expose one private status/path observation to readers."""
+        self._paired_status[repo_id] = (
+            dict(self.status[repo_id]), tuple(self.dirty_paths.get(repo_id, [])),
+        )
+
+    def paired_status (self, repo_id: str) -> tuple[dict, tuple[str, ...]]:
+        pair = self._paired_status.get(repo_id)
+        if pair is None:
+            # Manually constructed Trackers in tests have no startup snapshot.
+            return (dict(self.status.get(repo_id, {})),
+                    tuple(self.dirty_paths.get(repo_id, [])))
+        return pair
+
     def _refresh_status (self, repo: RepoConfig) -> bool:
         """Refresh one complete snapshot; failure retains display but invalidates trust."""
         previous = self.status[repo.id]
@@ -371,6 +398,7 @@ class Tracker:
             )
             self.dirty_paths[repo.id] = current_paths
             self.status[repo.id] = current
+            self._publish_status_pair(repo.id)
             return changed
         try:
             observed = dict(git_module.repo_status(repo.path))
@@ -383,6 +411,7 @@ class Tracker:
                 "status_valid": False,
                 "observed_at": _now_z(),
             }
+            self._publish_status_pair(repo.id)
             return bool(previous.get("status_valid", False))
         current_paths = list(observed.pop("dirty_paths"))
         self.dirty_paths[repo.id] = current_paths
@@ -395,6 +424,7 @@ class Tracker:
             )
         )
         self.status[repo.id] = current
+        self._publish_status_pair(repo.id)
         return changed
 
     def _catch_up_commits (self, repo: RepoConfig) -> bool:
@@ -475,6 +505,24 @@ class Tracker:
             "generated_at": self.missions["generated_at"],
             "summary": {"total": len(plans), "states": states},
             "plans": plans,
+        }
+
+    def mission_projection (self, repo_id: str | None,
+                            captured: dict[str, tuple[dict, tuple[str, ...]]]) -> dict:
+        """Evaluate this request's paired status values without shared cache."""
+        private_status = {
+            current_id: {**status, "dirty_paths": paths}
+            for current_id, (status, paths) in captured.items()
+        }
+        result = readiness.evaluate_all(
+            self.config, private_status,
+            repo_ids=None if repo_id is None else {repo_id},
+        )
+        return {
+            "scope": {
+                "kind": "all" if repo_id is None else "repo", "repo": repo_id,
+            },
+            **result,
         }
 
     async def _push_readiness_update (self, repo_ids: set[str]) -> None:

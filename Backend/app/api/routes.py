@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
-from .. import db, git_module, provider_health
+from .. import db, forecast, git_module, provider_health
 from ..version import __version__
 
 router = APIRouter(prefix="/api")
@@ -204,7 +204,60 @@ def mission (request: Request, repo: str | None = None):
     for item in targets:
         if not item.offline:
             tracker._refresh_status(item)
-    return envelope(tracker.mission_snapshot(repo))
+    captured = {item.id: tracker.paired_status(item.id) for item in targets}
+    selected = targets[:4]
+    scope = {
+        "total_repos": len(targets),
+        "returned_repos": len(selected),
+        "truncated": len(selected) < len(targets),
+    }
+    try:
+        prepared = [
+            forecast.prepare_repo(
+                item.id, captured[item.id][0], captured[item.id][1],
+                offline=item.offline,
+                source="demo" if item.demo_status is not None else "working_tree",
+            )
+            for item in selected
+        ]
+        base = tracker.mission_projection(repo, captured)
+        batch = forecast.ForecastBatch(scope, prepared)
+        if not any(item.eligible for item in prepared):
+            return envelope({**base, **batch.finish()})
+        if not tracker.forecast_gate.acquire(blocking=False):
+            for index, item in enumerate(prepared):
+                if item.eligible:
+                    batch.mark_unavailable(index, "busy")
+            return envelope({**base, **batch.finish()})
+        try:
+            captured_guards = {}
+            for index, item in enumerate(prepared):
+                if not item.eligible:
+                    continue
+                guard = tracker.plan_reconciliation.get(item.repo)
+                if (guard is None or guard[0] % 2 != 0 or not guard[1]):
+                    batch.mark_unavailable(index, "plan_context_unavailable")
+                    continue
+                captured_guards[index] = guard
+
+            contexts = db.capture_forecast_contexts({
+                prepared[index].repo: bool(prepared[index].paths)
+                for index in captured_guards
+            }) if captured_guards else {}
+            for index, guard in captured_guards.items():
+                batch.build_ready(index, contexts[prepared[index].repo], guard[2])
+
+            # Serialize before the final guard check, then reprice any row
+            # invalidated by a concurrent multi-plan reconciliation.
+            batch.finish()
+            for index, guard in captured_guards.items():
+                if tracker.plan_reconciliation.get(prepared[index].repo) != guard:
+                    batch.mark_unavailable(index, "plan_context_unavailable")
+            return envelope({**base, **batch.finish()})
+        finally:
+            tracker.forecast_gate.release()
+    except forecast.ForecastPayloadError:
+        raise HTTPException(503, "forecast unavailable") from None
 
 
 @router.get("/activity")

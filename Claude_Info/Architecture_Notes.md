@@ -4,7 +4,7 @@ Current source of truth is the implementation plus normative contracts in `Docs/
 Historical notes reference `Ref/system_architecture.mermaid` and
 `Ref/hybrid_C_resolution_flow.mermaid`, but `Ref/` is absent in this checkout.
 
-## 1. System Architecture (v0.3.0.3)
+## 1. System Architecture (v0.3.1.0)
 
 ### 1.1 Capture — user-scope provider hooks, every session
 
@@ -41,7 +41,7 @@ Historical notes reference `Ref/system_architecture.mermaid` and
 
 - **Responsive shell**: repo scope, six-view navigation, status rail, Attention, and utilities remain reachable at phone, tablet, and desktop widths; Tasks is a modal drawer below 1024px and a persistent sidebar from 1024px.
 - **Changes**: changes grouped by task — why + files + diff viewer + **AMBIGUOUS queue** (manual pick), with bounded semantic collections.
-- **Mission**: plan readiness, requirement rail, blocker/evidence queue, provider-aware session flight recorder, replay, and exact-data table; all decisions come from the backend.
+- **Mission**: plan readiness, read-only Attribution Forecast, requirement rail, blocker/evidence queue, provider-aware session flight recorder, replay, and exact-data table; all decisions come from the backend.
 - **Overview**: Now (KPIs, plans, momentum) → Trends (three Chart.js charts, calendar, day lanes, coupling, punch card) → Explore (goals, identity, churn, trophies, records, provenance) → Relationships (lazy Mermaid). Attribution is a horizontal bar, not the retired doughnut.
 - **History**: commit → tasks → events, with independent API fetch depth and visible 50-row paging; commits remain counted separately.
 - **City and Chronicle**: City is a paged six-district SVG view with complete-model calculations and an exact-data alternative. Chronicle remains a same-origin iframe whose React host owns sizing/fallback only.
@@ -82,9 +82,12 @@ Historical notes reference `Ref/system_architecture.mermaid` and
   seeds only one bounded page. A failed or moving-HEAD scan leaves events unlinked,
   and sweep authority is valid only while HEAD still equals that reconciled snapshot.
   Demo static status is triple-gated and receives no Git probe or Git watcher.
-- All-scope Mission reads rebuild authoritative readiness globally. Repo-scoped reads
-  and live invalidations recompute only affected repositories and atomically replace
-  those cached plan slices; summary counts are then derived from the merged cache.
+- `/api/mission` computes a route-local readiness projection from captured
+  paired status values outside Forecast's short plan/task read transaction.
+  Forecast independently captures its plan/task rows in one SQLite snapshot
+  and checks a per-repository reconciliation guard before publishing them.
+  The shared Mission cache remains for snapshot/live invalidation callers; repo-
+  scoped invalidations recompute affected slices and merge their summary counts.
 
 ### 1.7 Chronicle and dependency-security boundary (v0.3.0.3)
 
@@ -118,7 +121,31 @@ Historical notes reference `Ref/system_architecture.mermaid` and
   valid arguments or 2 for invalid syntax; BAT always exits 3.
   External bootstrap/guardian/watchdog, sealed
   runtime provenance, Job-tree control, host upgrades, VM attestation, live restart,
-  GitHub activation, and release publication remain deferred and are not claimed.
+  GitHub activation, and release publication were deferred at v0.3.0.3. Consult
+  the current release notes for later operational and publication status.
+
+### 1.8 Attribution Forecast (v0.3.1.0)
+
+- `GET /api/mission` adds `forecast_scope` and `forecast` without a new route,
+  schema migration, hook, Git verb, or WebSocket event. It uses a captured
+  dirty-status/plan context and the existing resolver to preview five automatic
+  attribution modes. It never writes a manual pick or persists forecast rows.
+- Forecast validates paths and patterns before resolver work. Literal patterns
+  use exact equality only on this projection; wildcard patterns use the bounded
+  deterministic matcher. Existing event-ingest matching remains unchanged.
+- Admission is cumulative across at most four repositories: 2,000 paths,
+  100,000 projected resolver visits, 10 million projected matcher work units,
+  and 2 MiB for the additive JSON projection. Per-repository task, path, and
+  task-JSON limits also apply. Over-budget, malformed, or unstable contexts
+  return a reasoned unavailable state, never partial attribution rows.
+- Mission renders Forecast after Plan scope, with a complete-count summary and
+  50-row local paging. Ambiguous rows disclose at most ten candidate task refs.
+  The UI treats missing or malformed additive fields as unavailable, not as a
+  zero-path success state.
+- Windows start scripts use `Scripts/launch_hidden.py` to launch `pythonw`
+  without a persistent console and capture logs. Restarts call the start script
+  in the same setup session; successful spawn alone does not establish HTTP
+  readiness. Demo output belongs in `Demo/runtime/demo.log`.
 
 ## 2. Hybrid-C Resolution (the "why" attribution)
 

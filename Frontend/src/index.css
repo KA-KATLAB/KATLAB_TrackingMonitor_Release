@@ -43,10 +43,26 @@ html {
 
 body {
   margin: 0;
-  min-width: 320px;
   color: rgb(var(--ui-text));
   background-color: rgb(var(--ui-canvas));
   line-height: 1.5;
+}
+
+@media (max-width: 320px) {
+  .app-header-primary {
+    flex-wrap: wrap;
+  }
+
+  .app-header-primary > h1 {
+    flex: 0 0 100%;
+  }
+
+  .app-header-actions {
+    min-width: 0;
+    flex: 1 1 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
 }
 
 button,

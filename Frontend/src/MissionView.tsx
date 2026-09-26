@@ -15,12 +15,17 @@ import type {
   ActionDeadline,
   ActivityItem,
   ActivityPage,
+  ForecastMode,
+  ForecastRepo,
+  ForecastTaskIdentity,
   MissionPlan,
   MissionPayload,
   SessionPage,
 } from "./api";
 import { DialogShell } from "./dialog";
 import { fmtRel, fmtTs } from "./format";
+import { decodeForecast, forecastCandidateKey } from "./forecastDecoder";
+import type { ForecastDecodeResult } from "./forecastDecoder";
 import {
   AlertIcon,
   MissionIcon,
@@ -48,6 +53,7 @@ import type {
   MissionEntryState,
 } from "./missionModel";
 import {
+  MODE_COLOR,
   sameSessionIdentity,
   sessionIdentityKey,
   usePrefersReducedMotion,
@@ -88,6 +94,194 @@ const TONE_CLASS = {
   danger: "border-rose-700 bg-rose-950/30 text-rose-200",
 } as const;
 
+const FORECAST_MODES: readonly ForecastMode[] = [
+  "B", "A_SCOPED", "A_GLOBAL", "AMBIGUOUS", "UNKNOWN",
+];
+const FORECAST_LABEL: Record<ForecastMode, string> = {
+  B: "Declared",
+  A_SCOPED: "Active among matches",
+  A_GLOBAL: "Undeclared fallback",
+  AMBIGUOUS: "Ambiguous",
+  UNKNOWN: "Unknown",
+};
+const FORECAST_UNAVAILABLE: Record<NonNullable<ForecastRepo["reason"]>, string> = {
+  offline: "This repository is offline; its working tree was not observed.",
+  status_unavailable: "Current repository status is unavailable. Retry after status recovers.",
+  too_many_paths: "This snapshot has more than 1,000 dirty paths and exceeds the forecast limit.",
+  too_much_work: "This snapshot exceeds the forecast's bounded work or response limit.",
+  plan_context_unavailable: "The last complete plan context is unavailable. Retry after plan synchronization.",
+  busy: "Another forecast is in progress. Retry shortly.",
+};
+
+function ForecastIdentity ({ identity }: { identity: ForecastTaskIdentity }): JSX.Element {
+  return (
+    <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-2 text-xs">
+      <dt className="text-ui-muted">Plan file</dt>
+      <dd className="min-w-0 break-all font-mono text-ui-text">{identity.plan_file}</dd>
+      <dt className="text-ui-muted">Task ID</dt>
+      <dd className="min-w-0 break-all font-mono text-ui-text">{identity.task_id}</dd>
+    </dl>
+  );
+}
+
+function ForecastPanel ({ result, repoId, loading, error, onRetry, retryBusy }: {
+  result: ForecastDecodeResult | null;
+  repoId: string | null;
+  loading: boolean;
+  error: boolean;
+  onRetry: () => void;
+  retryBusy: boolean;
+}): JSX.Element {
+  const row = result?.tag === "ready"
+    ? result.forecast.find((entry) => entry.repo === repoId) ?? null
+    : null;
+  const pager = useBoundedPage({
+    identity: ["mission-forecast", repoId],
+    totalItems: row?.state === "ready" ? row.items.length : 0,
+    pageSize: 50,
+  });
+  const observedLabel = row?.source === "demo" ? "Demo status observed" : "Git observed";
+  return (
+    <Surface>
+      <SectionHeading title="Attribution forecast"
+        description="Read-only preview of captured dirty paths and their possible task attribution." />
+      <p className="text-xs text-ui-muted">
+        Based on the last completed plan sync. Plan edits appear after the watcher syncs them.
+      </p>
+      {error ? (
+        <div className="mt-3"><ErrorNotice message="Attribution forecast is unavailable because Mission did not load."
+          onRetry={onRetry} busy={retryBusy} /></div>
+      ) : loading || !result ? (
+        <p className="mt-3 text-sm text-ui-muted">Loading forecast...</p>
+      ) : result.tag === "old-server" ? (
+        <p className="mt-3 text-sm text-amber-200">Restart the tracker to enable Attribution forecast.</p>
+      ) : result.tag === "unavailable" ? (
+        <div className="mt-3"><ErrorNotice message="Attribution forecast data is unavailable. Mission readiness remains visible."
+          onRetry={onRetry} busy={retryBusy} /></div>
+      ) : !repoId ? (
+        <p className="mt-3 text-sm text-ui-muted">
+          Select an exact plan or repository to inspect its forecast.
+        </p>
+      ) : !row ? (
+        <p className="mt-3 text-sm text-ui-muted">
+          {result.forecast_scope.truncated
+            ? "This repository is outside the first four workspace forecasts. Select its exact repository scope to inspect it."
+            : "No forecast is available for this repository."}
+        </p>
+      ) : (
+        <div className="mt-3 min-w-0 space-y-3">
+          {result.forecast_scope.truncated && (
+            <p className="text-xs text-amber-200">
+              {result.forecast_scope.returned_repos} of {result.forecast_scope.total_repos} repositories previewed.
+              Select an exact repository scope for an omitted repository.
+            </p>
+          )}
+          <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+            <p className="min-w-0 break-all font-mono text-sm font-semibold text-ui-text">{row.repo}</p>
+            <span className={cx("rounded-full border px-2 py-0.5 text-xs font-semibold",
+              row.state === "ready" ? TONE_CLASS.live : TONE_CLASS.warning)}>
+              {row.state === "ready" ? "Preview ready" : "Preview unavailable"}
+            </span>
+          </div>
+          <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+            <dt>{observedLabel}</dt>
+            <dd className="min-w-0 break-all font-mono">{row.observed_at ? fmtTs(row.observed_at) : "unavailable"}</dd>
+            <dt>Plan context at</dt>
+            <dd className="min-w-0 break-all font-mono">{row.plan_context_at ? fmtTs(row.plan_context_at) : "unavailable"}</dd>
+            <dt>Branch</dt>
+            <dd className="min-w-0 break-all font-mono">{row.branch ?? "not reported"}</dd>
+          </dl>
+          {row.state === "unavailable" ? (
+            <div className="rounded-panel border border-amber-700 bg-amber-950/30 p-3 text-sm text-amber-100">
+              <p>{FORECAST_UNAVAILABLE[row.reason!]}</p>
+              {row.reason === "busy" && (
+                <ControlButton onClick={onRetry} busy={retryBusy} className="mt-2">
+                  <RefreshIcon /> {retryBusy ? "Refreshing" : "Retry"}
+                </ControlButton>
+              )}
+            </div>
+          ) : (
+            <>
+              {row.plan_context_state === "warning" && (
+                <p className="rounded-panel border border-amber-700 bg-amber-950/30 p-3 text-sm text-amber-100">
+                  Plan parser warnings are present. This forecast uses the last completed plan sync.
+                </p>
+              )}
+              <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-5" aria-label="Forecast mode totals">
+                {FORECAST_MODES.map((mode) => (
+                  <div key={mode} className="min-w-0 rounded-control border border-ui-border p-2">
+                    <span className="flex items-center gap-2 text-xs text-ui-muted">
+                      <span aria-hidden="true" className="size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: MODE_COLOR[mode] }} />
+                      {FORECAST_LABEL[mode]}
+                    </span>
+                    <span className="mt-1 block text-lg font-semibold tabular-nums text-ui-text">
+                      {row.mode_counts![mode]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-ui-muted">
+                {row.total_paths} {row.source === "demo" ? "demo" : "Git-visible"} dirty {row.total_paths === 1 ? "path" : "paths"} in this snapshot.
+                Ambiguous and unknown paths need a decision before attribution.
+              </p>
+              <div id="mission-forecast-paths" className="min-w-0 space-y-2" role="region"
+                aria-label="Attribution forecast paths">
+                {row.items.slice(pager.start, pager.end).map((entry) => (
+                  <article key={entry.file} className="min-w-0 rounded-control border border-ui-border p-3">
+                    <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                      <p className="min-w-0 break-all font-mono text-sm text-ui-text">{entry.file}</p>
+                      <span className="shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold"
+                        style={{ borderColor: MODE_COLOR[entry.mode], color: MODE_COLOR[entry.mode] }}>
+                        {FORECAST_LABEL[entry.mode]}
+                      </span>
+                    </div>
+                    {entry.target && <div className="mt-2"><ForecastIdentity identity={entry.target} /></div>}
+                    {entry.mode === "AMBIGUOUS" && (
+                      <div className="mt-2">
+                        <p className="text-xs font-semibold text-amber-200">
+                          Needs a decision. {entry.candidate_count} matching tasks.
+                        </p>
+                        <ol className="mt-1 space-y-1" aria-label={`Candidates for ${entry.file}`}>
+                          {entry.candidates.map((candidate) => (
+                            <li key={forecastCandidateKey(candidate)}
+                              className="min-w-0 rounded-control bg-ui-canvas/50 p-2">
+                              <ForecastIdentity identity={candidate} />
+                            </li>
+                          ))}
+                        </ol>
+                        {entry.candidates_truncated && (
+                          <p className="mt-1 text-xs text-amber-200"
+                            aria-label={`10 of ${entry.candidate_count} shown`}>
+                            10 of {entry.candidate_count} shown. Review the current plan files for all matches.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {entry.mode === "UNKNOWN" && (
+                      <p className="mt-2 text-xs text-rose-200">Needs a decision; no task is forecast.</p>
+                    )}
+                  </article>
+                ))}
+                {row.items.length === 0 && (
+                  <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted">
+                    No dirty paths in this snapshot.
+                  </p>
+                )}
+              </div>
+              {row.items.length > 50 && (
+                <CollectionPager collectionLabel="Attribution forecast paths"
+                  controlsId="mission-forecast-paths" page={pager}
+                  onPageChange={pager.setPage} />
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </Surface>
+  );
+}
+
 export interface MissionViewProps {
   scope: string | undefined;
   invalidationNonce: number;
@@ -115,7 +309,7 @@ function StateBadge ({ plan }: { plan: MissionPlan }): JSX.Element {
   const state = missionPresentation(plan.state);
   return (
     <span className={cx(
-      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold",
+      "inline-flex min-w-0 max-w-full flex-wrap items-center justify-center gap-1 break-all rounded-full border px-2 py-0.5 text-center text-xs font-semibold",
       TONE_CLASS[state.tone],
     )}>
       <span aria-hidden="true">{state.marker}</span>
@@ -451,6 +645,12 @@ export function MissionView ({ scope, invalidationNonce, entryState,
   const refreshSequenceRef = useRef(0);
   const refreshRunRef = useRef<MissionRefreshRun | null>(null);
   const [mission, setMission] = useState<MissionPayload | null>(null);
+  const [forecastState, setForecastState] = useState<{
+    scope: string | undefined;
+    nonce: number;
+    token: number;
+    result: ForecastDecodeResult;
+  } | null>(null);
   const [missionError, setMissionError] = useState("");
   const [missionBusy, setMissionBusy] = useState(true);
   const [sessions, setSessions] = useState<SessionPage>(EMPTY_SESSIONS);
@@ -554,8 +754,14 @@ export function MissionView ({ scope, invalidationNonce, entryState,
     setMissionBusy(true);
     setMissionError("");
     setMission(null);
+    setForecastState(null);
     void api.mission(scope, owner.controller.signal).then((payload) => {
-      if (!owner.controller.signal.aborted) setMission(payload);
+      if (!owner.controller.signal.aborted) {
+        const result = decodeForecast(payload);
+        setMission(payload);
+        setForecastState({ scope, nonce: invalidationNonce, token: refreshToken, result });
+        if (result.tag === "unavailable") failed = true;
+      }
     }, (errorValue) => {
       const timedOut = owner.timedOut();
       if (isAbortError(errorValue) && !timedOut) return;
@@ -578,6 +784,11 @@ export function MissionView ({ scope, invalidationNonce, entryState,
     );
     return explicit ?? spotlightPlan(mission.plans);
   }, [entryState.planKey, mission]);
+  const forecastResult = forecastState && forecastState.scope === scope
+    && forecastState.nonce === invalidationNonce
+    && forecastState.token === refreshToken
+    ? forecastState.result : null;
+  const forecastRepoId = scope ?? selectedPlan?.repo ?? null;
 
   useEffect(() => {
     if (!mission) return;
@@ -854,6 +1065,10 @@ export function MissionView ({ scope, invalidationNonce, entryState,
         </Surface>
       )}
 
+      <ForecastPanel result={forecastResult} repoId={forecastRepoId}
+        loading={missionBusy} error={Boolean(missionError)}
+        onRetry={refresh} retryBusy={refreshBusy} />
+
       <Surface>
         <SectionHeading title="Verification rail"
           description="Current backend-evaluated gate state, freshness, and clean-review streak." />
@@ -903,6 +1118,7 @@ export function MissionView ({ scope, invalidationNonce, entryState,
           actions={
             <SegmentedControl<EvidenceFilter>
               label="Evidence filter"
+              className="max-w-full flex-wrap"
               value={entryState.evidenceFilter}
               onChange={(evidenceFilter) => patchEntry({ evidenceFilter })}
               options={[

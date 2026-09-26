@@ -31,7 +31,6 @@ if not exist ".venv\Scripts\python.exe" (
     )
 )
 set "PY=.venv\Scripts\python.exe"
-set "PYW=.venv\Scripts\pythonw.exe"
 
 echo [2/4] Installing backend requirements...
 "%PY%" -m pip install -q -r Backend\requirements.txt
@@ -63,20 +62,21 @@ if not exist "Frontend\dist\index.html" (
 )
 
 echo [4/4] Starting HIDDEN (logs: data\logs\)...
-REM RV27: data/ is gitignored WHOLE - without this mkdir the >> below
-REM fails on the missing dir and pythonw never starts.
+REM Create the ignored log directory before rotating the previous session.
 if not exist "data\logs" mkdir "data\logs"
 REM RV6 rotation (one previous session kept); RV16: a failure is
 REM non-fatal (a crash-window orphan may hold chronicle.log briefly).
 if exist "data\logs\tracker.log" move /y "data\logs\tracker.log" "data\logs\tracker.prev.log" >nul 2>&1
 if exist "data\logs\chronicle.log" move /y "data\logs\chronicle.log" "data\logs\chronicle.prev.log" >nul 2>&1
-REM RV1 - the EXACT silent-launch form: `start` alone EATS redirection
-REM (pythonw would crash on its invalid bare handles); a plain call
-REM WAITS forever (batch cmd waits even for GUI apps); the cmd /c
-REM wrapper owns the redirect and dies with this console - pythonw
-REM (GUI subsystem, never console-attached) survives with the handles.
-start "" /b cmd /c ""%PYW%" -m Backend.app.main >> "data\logs\tracker.log" 2>&1"
+REM The short-lived helper owns redirection; no persistent CMD wrapper.
+"%PY%" Scripts\launch_hidden.py tracker
+if errorlevel 1 (
+    echo [ABORT] Could not launch the tracker - see errors above.
+    pause
+    exit /b 1
+)
 "%SystemRoot%\System32\timeout.exe" /t 3 /nobreak >nul
-echo started - UI http://127.0.0.1:%PORT% - Chronicle /chronicle/ - logs data\logs\
+echo Launch requested - UI http://127.0.0.1:%PORT% - Chronicle /chronicle/ - logs data\logs\
 start "" "http://127.0.0.1:%PORT%"
 endlocal
+exit /b 0

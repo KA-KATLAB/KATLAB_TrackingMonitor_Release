@@ -1853,11 +1853,11 @@ export default function App () {
         Skip to main content
       </a>
       <header className="ui-safe-header shrink-0 border-b border-ui-border bg-ui-surface px-4 pb-2">
-        <div className="flex min-w-0 items-center gap-2 py-1.5">
+        <div className="app-header-primary flex min-w-0 items-center gap-2 py-1.5">
           <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-sky-300 sm:text-lg">
             KATLAB Tracking Monitor
           </h1>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="app-header-actions flex shrink-0 items-center gap-1.5">
             <ControlButton onClick={openTaskDrawer} className="lg:hidden">
               <TasksIcon />
               <span>Tasks</span>

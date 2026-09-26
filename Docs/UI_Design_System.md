@@ -262,12 +262,30 @@ Use one SectionHeading and one Surface vocabulary. Chart canvases and informativ
 
 ### 6.6 Mission
 
-- Compose the view in this order: Now, plan scope, Verification Rail, Evidence
-  Queue, Session Flight Recorder, and Exact Data.
+- Compose the view in this order: Now, plan scope, Attribution Forecast,
+  Verification Rail, Evidence Queue, Session Flight Recorder, and Exact Data.
 - Spotlight a plan only when the current data proves one unique active plan or the
   operator explicitly selects an exact repository + relative-plan pair.
 - Render backend readiness verbatim. The UI may format state labels but never
   infer, upgrade, or suppress a readiness state or blocker.
+- Attribution Forecast is a separate read-only preview from the last completed
+  plan sync. Show the exact repo, Git/demo observation time, plan-context time,
+  five mode totals, and actual dirty paths. Say that plan edits appear only after
+  watcher sync. Never imply a refresh starts reconciliation or the preview
+  establishes readiness. A plan warning stays visibly degraded.
+- Select forecast only from an exact repo scope or the selected plan's repo;
+  otherwise ask for selection. Show truncated workspace scope and direct the
+  operator to exact repo scope for omitted repos. Loading, clean, temporary
+  busy/Retry, offline, unavailable, old-server, malformed-forecast, and
+  transport-error states remain distinct. Malformed additive forecast data
+  must not blank Now, plan scope, or Verification Rail.
+- Locally page the complete forecast at 50 mounted path rows. Wrap long paths,
+  stack at narrow widths, and contain any overflow in a labelled local scroller.
+  Show separate visible/accessibly named plan_file and task_id for each target
+  and candidate. When candidate_count exceeds ten, say "10 of N shown" both
+  visibly and accessibly. There is no candidate-selection action. Keyboard,
+  200% zoom, reduced-motion, coarse-pointer, and the shared polite status
+  channel remain usable without color-only distinctions or animation.
 - Keep plan cards, requirements, evidence, sessions, timeline events, assignment
   choices, and exact-data rows at 50 mounted items or fewer. Use REST offsets for
   activity/session paging.
@@ -288,7 +306,12 @@ Use one SectionHeading and one Surface vocabulary. Chart canvases and informativ
 ## 7. Data and visualization accessibility
 
 - Every Chart.js canvas sits in a labelled figure with a concise text summary and an operable exact-payload table.
-- Attribution modes use the shared six-item order, labels, values, and colors in a horizontal bar.
+- Event/history attribution charts and badges use the shared six-item order,
+  labels, values, and colors, including MANUAL. The Mission Attribution Forecast
+  is a separate five-mode presentation: B "Declared", A_SCOPED "Active among
+  matches", A_GLOBAL "Undeclared fallback", AMBIGUOUS "Ambiguous", UNKNOWN
+  "Unknown". Reuse mode colors/badge styling without implying manual assignment
+  or displaying a MANUAL forecast mode.
 - Identity uses a horizontal bar when non-zero extension/remainder slices exceed five; a donut is permitted at five or fewer.
 - Calendar modes share one non-zero calendar alternative. Lanes/clock share one fetched-event alternative.
 - Punch exposes non-zero cells. Coupling always keeps an accessible list. Churn and City keep HTML actions.

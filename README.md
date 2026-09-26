@@ -5,7 +5,7 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current version: **v0.3.0.3 — Dependency Security Hardening**
+Current version: **v0.3.1.0 — Attribution Forecast**
 
 ## What v0.3 adds
 
@@ -79,6 +79,17 @@ The main UI is `http://127.0.0.1:8100`; Mission is
 `http://127.0.0.1:8100/?view=mission`. Demo uses port 8101 and generates all seven
 Mission states under ignored `Demo/runtime/`, with no real-repository Git probe.
 
+Start scripts show setup progress, then launch the backend without a persistent
+CMD window through `Scripts/launch_hidden.py`. Logs remain in
+`data/logs/tracker.log` (Chronicle: `data/logs/chronicle.log`) or
+`Demo/runtime/demo.log` for the demo. Launch errors stay visible; "Launch requested"
+means process creation, not verified server readiness. A double-clicked setup
+window closes on success; an existing interactive terminal remains open by design.
+Restart scripts reuse that setup session and propagate the start result; they do
+not open an extra persistent CMD shell.
+The launcher fix applies on the next normal restart, not to an already-running
+instance's old CMD wrapper.
+
 ## Chronicle
 
 Chronicle uses the running tracker's configured loopback origin and an owned,
@@ -125,7 +136,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current release notes](TrackingMonitor_v0.3.0.3_Release_Notes.md)
+- [Current release notes](TrackingMonitor_v0.3.1.0_Release_Notes.md)
 
 ## Guarantees
 

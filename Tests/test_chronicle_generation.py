@@ -773,6 +773,54 @@ class ChronicleGenerationTests(unittest.TestCase):
             self.assertIsNotNone(index)
             self.assertGreater(len(index.data), 0)
 
+    @unittest.skipUnless(sys.platform == "win32", "safe build transaction is Windows-only")
+    def test_actual_bounded_document_universe_strict_builds_without_network (self) -> None:
+        from Scripts.Chronicle import runtime as native_runtime
+        from Scripts.Chronicle import safe_io as native_safe_io
+
+        module = self.load_copy()
+        module.safe_io = native_safe_io
+        module.capture_vendor_assets = lambda: {
+            native_safe_io.MERMAID_NAME: b"/* isolated local Mermaid fixture */\n",
+            native_safe_io.BOOTSWATCH_NAME: b"/* isolated local theme fixture */\n",
+        }
+        snapshot = native_safe_io.capture_chronicle_sources(ROOT)
+        mirror, diagrams = module.project_source_snapshot(snapshot)
+        model = {
+            "repos": [], "tasks": [],
+            "stats_all": {"activity_calendar": []},
+            "stats_by": {}, "history_by": {},
+            "day_triples": {}, "day_events": {},
+            "mirror": mirror, "diagrams": diagrams,
+            "source_snapshot_digest": snapshot.snapshot_digest,
+            "origin": "http://127.0.0.1:8100",
+        }
+        with mock.patch.dict(os.environ, {
+                "KATLAB_TRACKER_CONFIG": "", "KATLAB_TRACKER_DEMO": ""}):
+            interpreter = native_runtime.select_chronicle_python()
+            native_runtime.probe_chronicle_python(interpreter)
+        runtime_path = self.root / "actual-document-runtime"
+        with native_safe_io.bind_root(runtime_path, create=True) as root:
+            written, _removed = module.build_and_write(model, {}, root)
+            self.assertGreater(written, 0)
+            config = native_safe_io.read_existing_file(
+                root, "mkdocs.yml", max_bytes=16_777_216)
+            self.assertIsNotNone(config)
+            self.assertNotIn(native_safe_io.MERMAID_URL.encode(), config.data)
+            self.assertNotIn(native_safe_io.BOOTSWATCH_URL.encode(), config.data)
+            site_path = root.path / "site.actual-document"
+            command = interpreter.argv(
+                "-I", "-B", "-m", "mkdocs", "build", "--strict",
+                "--config-file", str(root.path / "mkdocs.yml"),
+                "--site-dir", str(site_path),
+            )
+            returncode, detail = module._run_mkdocs(command, str(root.path))
+            self.assertEqual(returncode, 0, detail)
+            index = native_safe_io.read_existing_file(
+                root, "site.actual-document/index.html", max_bytes=16_777_216)
+            self.assertIsNotNone(index)
+            self.assertGreater(len(index.data), 0)
+
     def test_build_dirty_latch_retries_unchanged_and_is_pending_after_reload (self) -> None:
         module = self.load_copy()
         calls = []

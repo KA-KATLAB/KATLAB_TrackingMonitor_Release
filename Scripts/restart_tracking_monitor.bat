@@ -5,4 +5,6 @@ REM data\logs\ - no persistent window), exactly like double-clicking
 REM the start script.
 
 call "%~dp0stop_tracking_monitor.bat"
-start "" "%~dp0start_tracking_monitor.bat"
+REM CALL reuses this setup session; bare START of a BAT leaves a CMD /K window.
+call "%~dp0start_tracking_monitor.bat"
+exit /b %errorlevel%

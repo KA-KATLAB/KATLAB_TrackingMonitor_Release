@@ -5,6 +5,7 @@ import json
 import os
 import sqlite3
 import threading
+from dataclasses import dataclass
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -293,6 +294,110 @@ def get_tasks (repo_id: str | None = None) -> list[sqlite3.Row]:
             (repo_id,),
         ).fetchall()
     return conn.execute("SELECT * FROM tasks ORDER BY repo_id, plan_file, task_id").fetchall()
+
+
+@dataclass(frozen=True)
+class ForecastContext:
+    """A bounded copy from one short SQLite read snapshot."""
+
+    plans: tuple[dict, ...] = ()
+    tasks: tuple[dict, ...] | None = None
+    reason: str | None = None
+
+
+def _forecast_plan_rows (conn: sqlite3.Connection, repo_id: str) -> ForecastContext:
+    from .forecast import validate_plan_row
+
+    cursor = conn.execute(
+        "SELECT CASE WHEN typeof(plan_file) = 'text' "
+        "AND length(CAST(plan_file AS BLOB)) BETWEEN 1 AND 2048 "
+        "THEN plan_file ELSE NULL END AS plan_file, "
+        "CASE WHEN typeof(parse_state) = 'text' "
+        "AND parse_state IN ('valid', 'warning', 'fatal') "
+        "THEN parse_state ELSE NULL END AS parse_state "
+        "FROM plan_snapshots WHERE repo_id = ? ORDER BY plan_file LIMIT 257",
+        (repo_id,),
+    )
+    rows: list[dict] = []
+    while (row := cursor.fetchone()) is not None:
+        if len(rows) == 256:
+            return ForecastContext(reason="too_much_work")
+        value = dict(row)
+        if not validate_plan_row(value):
+            return ForecastContext(reason="plan_context_unavailable")
+        rows.append(value)
+        if row["parse_state"] == "fatal":
+            return ForecastContext(reason="plan_context_unavailable")
+    return ForecastContext(plans=tuple(rows))
+
+
+def _forecast_task_rows (conn: sqlite3.Connection, repo_id: str,
+                         plans: tuple[dict, ...]) -> ForecastContext:
+    from .forecast import validate_task_row
+
+    cursor = conn.execute(
+        "SELECT CASE WHEN typeof(plan_file) = 'text' "
+        "AND length(CAST(plan_file AS BLOB)) BETWEEN 1 AND 2048 "
+        "THEN plan_file ELSE NULL END AS plan_file, "
+        "CASE WHEN typeof(task_id) = 'text' "
+        "AND length(CAST(task_id AS BLOB)) BETWEEN 1 AND 128 "
+        "THEN task_id ELSE NULL END AS task_id, "
+        "CASE WHEN typeof(status) = 'text' "
+        "AND length(CAST(status AS BLOB)) BETWEEN 1 AND 16 "
+        "THEN status ELSE NULL END AS status, "
+        "CASE WHEN typeof(files_json) = 'text' "
+        "AND length(CAST(files_json AS BLOB)) <= 8192 "
+        "THEN files_json ELSE NULL END AS files_json, "
+        "CASE WHEN typeof(files_json) = 'text' "
+        "AND length(CAST(files_json AS BLOB)) <= 8192 "
+        "THEN length(CAST(files_json AS BLOB)) ELSE NULL END AS files_bytes "
+        "FROM tasks WHERE repo_id = ? ORDER BY plan_file, task_id LIMIT 257",
+        (repo_id,),
+    )
+    rows: list[dict] = []
+    json_bytes = 0
+    plan_files = {plan["plan_file"] for plan in plans}
+    while (row := cursor.fetchone()) is not None:
+        if len(rows) == 256:
+            return ForecastContext(reason="too_much_work")
+        if any(row[key] is None for key in (
+                "plan_file", "task_id", "status", "files_json", "files_bytes")):
+            return ForecastContext(reason="plan_context_unavailable")
+        json_bytes += row["files_bytes"]
+        if json_bytes > 256 * 1024:
+            return ForecastContext(reason="too_much_work")
+        validated, reason = validate_task_row({key: row[key] for key in (
+            "plan_file", "task_id", "status", "files_json")}, plan_files)
+        if reason is not None:
+            return ForecastContext(reason=reason)
+        assert validated is not None
+        rows.append(validated)
+    return ForecastContext(plans=plans, tasks=tuple(rows))
+
+
+def capture_forecast_contexts (task_needed: dict[str, bool]
+                               ) -> dict[str, ForecastContext]:
+    """Copy up to four repositories' current plans/tasks in one read transaction.
+
+    The caller performs attribution only after this transaction is closed.
+    A read-snapshot entry failure is request-wide; a later query failure is
+    isolated to its repository and does not expose partially copied rows.
+    """
+    conn = get_conn()
+    conn.execute("BEGIN")
+    contexts: dict[str, ForecastContext] = {}
+    try:
+        for repo_id, needs_tasks in task_needed.items():
+            try:
+                context = _forecast_plan_rows(conn, repo_id)
+                if context.reason is None and needs_tasks:
+                    context = _forecast_task_rows(conn, repo_id, context.plans)
+                contexts[repo_id] = context
+            except sqlite3.Error:
+                contexts[repo_id] = ForecastContext(reason="plan_context_unavailable")
+    finally:
+        conn.rollback()
+    return contexts
 
 
 # --- events (F13: insert + offset in ONE transaction) ------------------------

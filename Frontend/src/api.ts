@@ -144,11 +144,46 @@ export interface MissionPlan {
   warnings: MissionReason[];
   unresolved_count: number;
 }
+export type ForecastMode = "B" | "A_SCOPED" | "A_GLOBAL" | "AMBIGUOUS" | "UNKNOWN";
+export type ForecastReason = "offline" | "status_unavailable" | "too_many_paths"
+  | "too_much_work" | "plan_context_unavailable" | "busy";
+export interface ForecastTaskIdentity {
+  plan_file: string;
+  task_id: string;
+}
+export interface ForecastItem {
+  file: string;
+  mode: ForecastMode;
+  target: ForecastTaskIdentity | null;
+  candidate_count: number;
+  candidates: ForecastTaskIdentity[];
+  candidates_truncated: boolean;
+}
+export interface ForecastRepo {
+  repo: string;
+  source: "working_tree" | "demo";
+  state: "ready" | "unavailable";
+  reason: ForecastReason | null;
+  observed_at: string | null;
+  plan_context_at: string | null;
+  plan_context_state: "valid" | "warning" | null;
+  branch: string | null;
+  total_paths: number | null;
+  mode_counts: Record<ForecastMode, number> | null;
+  items: ForecastItem[];
+}
+export interface ForecastScope {
+  total_repos: number;
+  returned_repos: number;
+  truncated: boolean;
+}
 export interface MissionPayload {
   scope: { kind: "all" | "repo"; repo: string | null };
   generated_at: string;
   summary: { total: number; states: Record<MissionState, number> };
   plans: MissionPlan[];
+  forecast_scope?: ForecastScope;
+  forecast?: ForecastRepo[];
 }
 
 export type ActivityProvider = "claude" | "codex" | "manual";

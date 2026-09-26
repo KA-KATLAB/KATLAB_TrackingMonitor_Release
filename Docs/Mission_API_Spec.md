@@ -1,4 +1,4 @@
-# Mission API contract — v0.3.0.0
+# Mission API contract
 
 All REST responses use the existing envelope:
 
@@ -33,7 +33,9 @@ Data root:
   scope: {kind: "all"|"repo", repo: string|null},
   generated_at: string,
   summary: {total: integer, states: {<all seven mission states>: integer}},
-  plans: MissionPlan[]
+  plans: MissionPlan[],
+  forecast_scope: ForecastScope,
+  forecast: ForecastRepo[]
 }
 ```
 
@@ -72,6 +74,73 @@ assignment choices aligned with backend validation. Requirement state is one of
 
 `Reason` is `{code:string,message:string,check_id:string|null,count:integer|null}`.
 Readiness and reasons are computed only by the backend.
+
+### Attribution forecast
+
+The two additive fields occur only in `/api/mission`. Older servers omit both;
+clients must treat a half-present or malformed pair as forecast-only unavailable
+without discarding a valid base Mission response. The forecast is a read-only,
+eventually consistent preview from the last completed plan sync, not a task
+assignment, readiness result, or proof of unsynced plan-file contents. Refresh
+refetches the current snapshot; it does not start reconciliation. No extra Git
+operation, database write, WebSocket, or background poll is introduced.
+
+```text
+ForecastScope = {total_repos: integer, returned_repos: integer,
+                 truncated: boolean}
+ForecastRepo = {
+  repo: string, source: "working_tree"|"demo",
+  state: "ready"|"unavailable",
+  reason: null|"offline"|"status_unavailable"|"too_many_paths"
+             |"too_much_work"|"plan_context_unavailable"|"busy",
+  observed_at: UTC-Z timestamp|null,
+  plan_context_at: UTC-Z timestamp|null,
+  plan_context_state: "valid"|"warning"|null,
+  branch: string|null, total_paths: integer|null,
+  mode_counts: {B: integer, A_SCOPED: integer, A_GLOBAL: integer,
+                AMBIGUOUS: integer, UNKNOWN: integer}|null,
+  items: [{file: string, mode: keyof mode_counts,
+           target: {plan_file:string,task_id:string}|null,
+           candidate_count: integer,
+           candidates: [{plan_file:string,task_id:string}],
+           candidates_truncated: boolean}]
+}
+```
+
+Workspace scope returns the first four configured repos in order, including
+offline and zero-plan repos. `total_repos` is the full configured count;
+`truncated` is true exactly when `returned_repos < total_repos`. Exact repo
+scope returns one repo and `1/1/false`. An empty workspace returns `0/0/false`.
+Use exact repo scope for an omitted repository. Forecast-only reasons are closed
+and ordered: offline, untrusted status, too many or malformed paths/work,
+temporary `busy`, then unavailable plan context. Unavailable always has null
+counts/context and no items; offline/untrusted status also has null observation
+and branch. Ready includes valid observation and completed-sync UTC-Z times,
+one item per unique dirty path, and five exact counts summing to `total_paths`.
+Warning plan context is still ready but must be visibly identified as degraded.
+
+`B`, `A_SCOPED`, and `A_GLOBAL` have one structured target. `AMBIGUOUS` has
+no target, an exact `candidate_count`, and at most the first ten structured
+candidate identities; `candidates_truncated` says when the remainder is hidden.
+`UNKNOWN` has neither target nor candidates. `A_GLOBAL` means undeclared
+fallback, not a confident declaration. There is no `MANUAL` forecast mode or
+candidate-selection action. Preserve plan_file and task_id as separate fields;
+their concatenated display text is not a unique identity.
+
+The incremental forecast caps are four repos/workspace, 1000 paths/repo,
+2000 paths/request, 256 current plans and tasks/repo, 256 KiB task JSON/repo,
+100000 projected resolver visits/repo and request, 10 million projected
+matcher work units/repo and request, and 2 MiB for the additive serialized
+fields. A literal pattern (no `*` or `?`) charges its UTF-8 byte length plus
+one per dirty path and uses exact equality. A wildcard pattern charges the
+product of its UTF-8 byte length plus one and each path's UTF-8 byte length
+plus one, then uses the bounded deterministic matcher. Both charges are
+reserved before resolution; over-budget contexts fail closed without partial
+rows. A generic HTTP 503 `forecast unavailable` is reserved for an additive skeleton
+that cannot fit or a final size invariant failure; ordinary per-repo failures
+remain within HTTP 200 Mission data. Forecast path/identity validation uses
+normalized repo-relative lexical paths and explicit UTF-8 byte caps. No source,
+diff, prompt, command, log, absolute monitored path, or raw Git error is sent.
 
 ## `GET /api/activity`
 

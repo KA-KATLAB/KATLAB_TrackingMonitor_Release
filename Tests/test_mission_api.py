@@ -3,9 +3,12 @@
 import json
 import sqlite3
 import tempfile
+import threading
 import unittest
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from fastapi import FastAPI
@@ -178,6 +181,308 @@ class MissionApiTests(unittest.TestCase):
         self.assertEqual(self.client.get(
             "/api/mission", params={"repo": "missing"},
         ).status_code, 404)
+
+    def test_forecast_uses_paired_paths_and_completed_plan_sync (self) -> None:
+        repo_id = "Repo_A"
+        self.tracker.status[repo_id]["clean"] = False
+        self.tracker.status[repo_id]["count"] = 1  # Git records need not equal paths.
+        self.tracker.dirty_paths[repo_id] = ["src/first.py", "src/second.py"]
+        self.tracker._publish_status_pair(repo_id)
+        self.tracker.plan_reconciliation[repo_id] = (
+            2, True, "2026-09-07T01:30:00Z",
+        )
+        self.tracker.plan_reconciliation["Repo_B"] = (
+            2, True, "2026-09-07T01:30:00Z",
+        )
+
+        data = self.client.get("/api/mission").json()["data"]
+        self.assertEqual(data["forecast_scope"], {
+            "total_repos": 2, "returned_repos": 2, "truncated": False,
+        })
+        first, second = data["forecast"]
+        self.assertEqual([first["repo"], second["repo"]], ["Repo_A", "Repo_B"])
+        self.assertEqual(first["state"], "ready")
+        self.assertEqual(first["source"], "working_tree")
+        self.assertEqual(first["plan_context_at"], "2026-09-07T01:30:00Z")
+        self.assertEqual(first["total_paths"], 2)
+        self.assertEqual(first["mode_counts"]["B"], 2)
+        self.assertEqual([item["file"] for item in first["items"]],
+                         ["src/first.py", "src/second.py"])
+        self.assertEqual(first["items"][0]["target"], {
+            "plan_file": PLAN, "task_id": "D.2",
+        })
+        self.assertEqual(second["state"], "ready")
+        self.assertEqual(second["total_paths"], 0)
+        self.assertEqual(second["items"], [])
+        self.assertEqual(self.tracker.missions["generated_at"], None)
+
+        scoped = self.client.get(
+            "/api/mission", params={"repo": "Repo_A"},
+        ).json()["data"]
+        self.assertEqual(scoped["forecast_scope"], {
+            "total_repos": 1, "returned_repos": 1, "truncated": False,
+        })
+        self.assertEqual(len(scoped["forecast"]), 1)
+        self.assertEqual(scoped["forecast"][0]["repo"], "Repo_A")
+
+    def test_forecast_status_and_plan_guards_fail_closed (self) -> None:
+        repo_id = "Repo_A"
+        self.tracker.status[repo_id]["clean"] = False
+        self.tracker.dirty_paths[repo_id] = ["src/first.py"]
+        self.tracker._publish_status_pair(repo_id)
+
+        without_sync = self.client.get(
+            "/api/mission", params={"repo": repo_id},
+        ).json()["data"]
+        row = without_sync["forecast"][0]
+        self.assertEqual(row["reason"], "plan_context_unavailable")
+        self.assertIsNone(row["total_paths"])
+        self.assertEqual(row["items"], [])
+        self.assertEqual(without_sync["plans"][0]["plan_file"], PLAN)
+
+        self.tracker.plan_reconciliation[repo_id] = (
+            2, True, "2026-09-07T01:30:00Z",
+        )
+        self.tracker.status[repo_id].update({
+            "status_valid": False, "paths_complete": False,
+            "observed_at": "2026-09-07T04:00:00Z", "branch": "stale",
+        })
+        self.tracker._publish_status_pair(repo_id)
+        failed = self.client.get(
+            "/api/mission", params={"repo": repo_id},
+        ).json()["data"]["forecast"][0]
+        self.assertEqual(failed["reason"], "status_unavailable")
+        self.assertIsNone(failed["observed_at"])
+        self.assertIsNone(failed["branch"])
+
+        self.tracker.status[repo_id].update({
+            "status_valid": True, "paths_complete": True,
+            "observed_at": "2026-09-07T04:01:00Z", "branch": "main",
+        })
+        self.tracker._publish_status_pair(repo_id)
+        recovered = self.client.get(
+            "/api/mission", params={"repo": repo_id},
+        ).json()["data"]["forecast"][0]
+        self.assertEqual(recovered["state"], "ready")
+        self.assertEqual(recovered["observed_at"], "2026-09-07T04:01:00Z")
+
+        self.tracker.plan_reconciliation[repo_id] = (
+            4, True, "2026-02-30T01:30:00Z",
+        )
+        bad_context_time = self.client.get(
+            "/api/mission", params={"repo": repo_id},
+        ).json()["data"]["forecast"][0]
+        self.assertEqual(bad_context_time["reason"],
+                         "plan_context_unavailable")
+        self.assertEqual(bad_context_time["observed_at"],
+                         "2026-09-07T04:01:00Z")
+
+        self.tracker.status[repo_id]["observed_at"] = "2026-02-30T04:01:00Z"
+        self.tracker._publish_status_pair(repo_id)
+        bad_status_time = self.client.get(
+            "/api/mission", params={"repo": repo_id},
+        ).json()["data"]["forecast"][0]
+        self.assertEqual(bad_status_time["reason"], "status_unavailable")
+        self.assertIsNone(bad_status_time["observed_at"])
+
+    def test_forecast_busy_does_not_read_context_or_hide_mission (self) -> None:
+        self.tracker.plan_reconciliation["Repo_A"] = (
+            2, True, "2026-09-07T01:30:00Z",
+        )
+        self.assertTrue(self.tracker.forecast_gate.acquire(blocking=False))
+        try:
+            with patch.object(db, "capture_forecast_contexts") as capture:
+                response = self.client.get(
+                    "/api/mission", params={"repo": "Repo_A"},
+                )
+                capture.assert_not_called()
+        finally:
+            self.tracker.forecast_gate.release()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertEqual(data["forecast"][0]["reason"], "busy")
+        self.assertEqual(data["plans"][0]["plan_file"], PLAN)
+        retry = self.client.get(
+            "/api/mission", params={"repo": "Repo_A"},
+        ).json()["data"]["forecast"][0]
+        self.assertEqual(retry["state"], "ready")
+
+    def test_forecast_generation_change_quarantines_completed_rows (self) -> None:
+        repo_id = "Repo_A"
+        self.tracker.status[repo_id]["clean"] = False
+        self.tracker.dirty_paths[repo_id] = ["src/first.py"]
+        self.tracker._publish_status_pair(repo_id)
+        self.tracker.plan_reconciliation[repo_id] = (
+            2, True, "2026-09-07T01:30:00Z",
+        )
+        original = routes.forecast.ForecastBatch.build_ready
+
+        def interleave (batch, index, context, completed_at):
+            original(batch, index, context, completed_at)
+            self.tracker.plan_reconciliation[repo_id] = (3, False, None)
+
+        with patch.object(routes.forecast.ForecastBatch,
+                          "build_ready", interleave):
+            data = self.client.get(
+                "/api/mission", params={"repo": repo_id},
+            ).json()["data"]
+        self.assertEqual(data["plans"][0]["plan_file"], PLAN)
+        self.assertEqual(data["forecast"][0]["reason"],
+                         "plan_context_unavailable")
+        self.assertEqual(data["forecast"][0]["items"], [])
+
+    def test_plan_reconciliation_guard_tracks_whole_runs (self) -> None:
+        repo = self.repos[0]
+        self.assertEqual(self.tracker.plan_reconciliation[repo.id],
+                         (0, False, None))
+        with patch.object(self.tracker, "_parse_all_plans",
+                          side_effect=[False, True]), \
+                patch("Backend.app.watcher.time.sleep"):
+            self.assertTrue(self.tracker._parse_all_plans_with_retry(repo))
+        generation, healthy, completed_at = self.tracker.plan_reconciliation[repo.id]
+        self.assertEqual(generation, 2)
+        self.assertTrue(healthy)
+        self.assertTrue(completed_at.endswith("Z"))
+
+        with patch.object(self.tracker, "_parse_all_plans",
+                          side_effect=[False, False]), \
+                patch("Backend.app.watcher.time.sleep"):
+            self.assertFalse(self.tracker._parse_all_plans_with_retry(repo))
+        self.assertEqual(self.tracker.plan_reconciliation[repo.id],
+                         (3, False, None))
+
+        with patch.object(self.tracker, "_parse_all_plans", return_value=True):
+            self.assertTrue(self.tracker._parse_all_plans_with_retry(repo))
+        recovered = self.tracker.plan_reconciliation[repo.id]
+        self.assertEqual(recovered[0], 6)
+        self.assertTrue(recovered[1])
+        self.assertTrue(recovered[2].endswith("Z"))
+
+    def test_forecast_gate_releases_on_query_exception (self) -> None:
+        self.tracker.plan_reconciliation["Repo_A"] = (
+            2, True, "2026-09-07T01:30:00Z",
+        )
+        with patch.object(db, "capture_forecast_contexts",
+                          side_effect=sqlite3.OperationalError("synthetic")):
+            with self.assertRaises(sqlite3.OperationalError):
+                self.client.get("/api/mission", params={"repo": "Repo_A"})
+        self.assertFalse(self.tracker.forecast_gate.locked())
+
+    def test_forecast_workspace_cap_includes_offline_repos (self) -> None:
+        extra = [
+            RepoConfig(f"Offline_{number}", f"Offline {number}",
+                       self.root / f"missing-{number}", offline=True)
+            for number in range(3)
+        ]
+        self.tracker.config = AppConfig(
+            self.config.server, [*self.repos, *extra],
+            self.config.activity_root, self.config.checks,
+        )
+        data = self.client.get("/api/mission").json()["data"]
+        self.assertEqual(data["forecast_scope"], {
+            "total_repos": 5, "returned_repos": 4, "truncated": True,
+        })
+        self.assertEqual([row["repo"] for row in data["forecast"]],
+                         ["Repo_A", "Repo_B", "Offline_0", "Offline_1"])
+        self.assertEqual(data["forecast"][2]["reason"], "offline")
+        self.assertIsNone(data["forecast"][2]["observed_at"])
+
+        omitted = self.client.get(
+            "/api/mission", params={"repo": "Offline_2"},
+        ).json()["data"]
+        self.assertEqual(omitted["forecast_scope"], {
+            "total_repos": 1, "returned_repos": 1, "truncated": False,
+        })
+        self.assertEqual(omitted["forecast"][0]["repo"], "Offline_2")
+        self.assertEqual(omitted["forecast"][0]["reason"], "offline")
+
+    def test_forecast_gate_contender_and_wal_writer_after_snapshot (self) -> None:
+        self.db_connection.execute("PRAGMA journal_mode=WAL")
+        repo_id = "Repo_A"
+        self.tracker.status[repo_id]["clean"] = False
+        self.tracker.dirty_paths[repo_id] = ["src/first.py"]
+        self.tracker._publish_status_pair(repo_id)
+        self.tracker.plan_reconciliation[repo_id] = (
+            2, True, "2026-09-07T01:30:00Z",
+        )
+        request = SimpleNamespace(app=SimpleNamespace(
+            state=SimpleNamespace(tracker=self.tracker),
+        ))
+        entered = threading.Event()
+        release = threading.Event()
+        original = routes.forecast.ForecastBatch.build_ready
+
+        def blocked (batch, index, context, completed_at):
+            entered.set()
+            if not release.wait(timeout=5):
+                raise TimeoutError("forecast test gate was not released")
+            return original(batch, index, context, completed_at)
+
+        with patch.object(routes.forecast.ForecastBatch,
+                          "build_ready", blocked), ThreadPoolExecutor(
+                              max_workers=2,
+                          ) as pool:
+            owner = pool.submit(routes.mission, request, repo_id)
+            try:
+                self.assertTrue(entered.wait(timeout=5))
+                self.assertTrue(self.tracker.forecast_gate.locked())
+                self.assertFalse(self.db_connection.in_transaction)
+                writer = sqlite3.connect(db.DB_PATH, timeout=1)
+                try:
+                    writer.execute(
+                        "UPDATE plan_snapshots SET last_seen_at = last_seen_at "
+                        "WHERE repo_id = ?", (repo_id,),
+                    )
+                    writer.commit()
+                finally:
+                    writer.close()
+                contender = pool.submit(routes.mission, request, repo_id)
+                busy = contender.result(timeout=5)["data"]
+                self.assertEqual(busy["forecast"][0]["reason"], "busy")
+                self.assertEqual(busy["plans"][0]["plan_file"], PLAN)
+            finally:
+                release.set()
+            winner = owner.result(timeout=5)["data"]
+        self.assertEqual(winner["forecast"][0]["state"], "ready")
+        self.assertFalse(self.tracker.forecast_gate.locked())
+
+    def test_isolated_mission_projection_does_not_hold_forecast_gate (self) -> None:
+        self.tracker.plan_reconciliation["Repo_A"] = (
+            2, True, "2026-09-07T01:30:00Z",
+        )
+        request = SimpleNamespace(app=SimpleNamespace(
+            state=SimpleNamespace(tracker=self.tracker),
+        ))
+        entered = threading.Event()
+        release = threading.Event()
+        calls_lock = threading.Lock()
+        calls = 0
+        original = self.tracker.mission_projection
+
+        def delayed (repo_id, captured):
+            nonlocal calls
+            with calls_lock:
+                calls += 1
+                first = calls == 1
+            if first:
+                entered.set()
+                if not release.wait(timeout=5):
+                    raise TimeoutError("isolated Mission test was not released")
+            return original(repo_id, captured)
+
+        with patch.object(self.tracker, "mission_projection", delayed), \
+                ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(routes.mission, request, "Repo_A")
+            try:
+                self.assertTrue(entered.wait(timeout=5))
+                self.assertFalse(self.tracker.forecast_gate.locked())
+                second = pool.submit(routes.mission, request, "Repo_A")
+                self.assertEqual(second.result(timeout=5)["data"]["forecast"][0][
+                    "state"], "ready")
+            finally:
+                release.set()
+            self.assertEqual(first.result(timeout=5)["data"]["forecast"][0][
+                "state"], "ready")
 
     def test_activity_scope_filters_order_bounds_and_effective_plan (self) -> None:
         boundary = self._activity("session_start", repo_ids=[], ts="2026-09-07T00:50:00Z")

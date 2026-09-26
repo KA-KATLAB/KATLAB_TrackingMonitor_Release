@@ -465,7 +465,7 @@ export const CollectionPager = forwardRef<HTMLDivElement, CollectionPagerProps>(
         )}
       >
         <span>{range}</span>
-        <div className="flex items-center gap-1">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1">
           <ControlButton
             aria-label={collectionLabel + ": previous page"}
             aria-controls={controlsId}

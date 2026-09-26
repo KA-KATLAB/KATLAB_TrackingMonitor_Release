@@ -1,5 +1,39 @@
 # Version Notes
 
+## v0.3.1.0 — Attribution Forecast (2026-09-26)
+
+**Key Highlights**
+
+- Mission adds a read-only Attribution Forecast for current dirty paths. It
+  projects the existing resolver's `B`, `A_SCOPED`, `A_GLOBAL`, `AMBIGUOUS`, and
+  `UNKNOWN` outcomes without saving an assignment or changing Git state.
+- Forecast keeps path/task data within its captured status and plan context,
+  reports bounded unavailable reasons instead of partial attribution, and
+  exposes at most four repositories and 50 locally paged rows at a time.
+- Literal task patterns use exact matching in Forecast; wildcard patterns keep
+  the bounded deterministic matcher. Existing event-ingest attribution is
+  unchanged. The cumulative 10-million-work-unit admission limit remains.
+- The companion Windows start/restart and demo scripts use the hidden launch
+  helper, with tracker output in `data/logs/tracker.log` and demo output in
+  `Demo/runtime/demo.log`. A launch request alone does not prove server readiness.
+- The Chronicle test suite includes a stricter offline documentation-universe
+  regression. No new Git verb, schema migration, hook contract, or WebSocket
+  event is introduced by Forecast.
+
+**Known limits and verification boundary**
+
+- Wildcard-heavy or otherwise over-budget contexts can still return
+  `unavailable/too_much_work`; this is an intentional safety boundary, not a
+  successful attribution result.
+- A previous live smoke exercised the bounded-unavailable path on dirty real
+  repositories. Later live reads were clean and returned zero-path ready rows;
+  neither establishes nonempty live attribution after the literal fast path.
+- Actual-browser zoom, keyboard/focus, coarse-pointer, safe-area/rotation,
+  reduced-motion, contrast, Retry activation, and nonempty real-repository
+  ready-state checks remain unperformed. Automated and synthetic evidence is
+  recorded separately in the detailed plan; it must not be described as those
+  manual checks.
+
 ## v0.3.0.3 — Dependency Security & Working Chronicle (2026-09-14)
 
 **Key Highlights**

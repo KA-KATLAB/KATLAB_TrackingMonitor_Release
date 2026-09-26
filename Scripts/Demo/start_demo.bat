@@ -38,7 +38,6 @@ if not exist ".venv\Scripts\python.exe" (
     )
 )
 set "PY=.venv\Scripts\python.exe"
-set "PYW=.venv\Scripts\pythonw.exe"
 
 echo [2/5] Installing backend requirements...
 "%PY%" -m pip install -q -r Backend\requirements.txt
@@ -68,8 +67,15 @@ if errorlevel 1 (
 
 echo [5/5] Starting DEMO HIDDEN (log: Demo\runtime\demo.log)...
 if exist "Demo\runtime\demo.log" move /y "Demo\runtime\demo.log" "Demo\runtime\demo.prev.log" >nul 2>&1
-start "" /b cmd /c ""%PYW%" -m Backend.app.main >> "Demo\runtime\demo.log" 2>&1"
+REM Use the shared helper so no CMD wrapper survives the setup window.
+"%PY%" Scripts\launch_hidden.py demo
+if errorlevel 1 (
+    echo [ABORT] Could not launch the demo - see errors above.
+    pause
+    exit /b 1
+)
 "%SystemRoot%\System32\timeout.exe" /t 3 /nobreak >nul
-echo started - DEMO UI http://127.0.0.1:%PORT% - log Demo\runtime\demo.log
+echo Launch requested - DEMO UI http://127.0.0.1:%PORT% - log Demo\runtime\demo.log
 start "" "http://127.0.0.1:%PORT%"
 endlocal
+exit /b 0
