@@ -96,6 +96,7 @@ At every width, document `scrollWidth` must not exceed `clientWidth`. Horizontal
 | dialogs and drawers | 100 |
 
 Use these values only for global layers. Descendants use local stacking within their owner; do not invent competing global z-index values.
+At very short viewport heights, an explicitly opened warning detail panel may share layer 40 and paint over a release banner so its scroller and pager stay operable. Closing it restores the normal release-banner priority; attract mode and dialogs remain above it.
 
 ## 3. Page and shell contract
 
@@ -169,7 +170,7 @@ Do not:
 - Frequently changing status rails are not live regions.
 - One polite, deduplicated status region announces meaningful action results.
 - A persistent CLEAN record is durable state, not an auto-expiring transient toast.
-- Banner/toast previews are bounded; a labelled “+N” disclosure pages the same full model instead of mounting a second copy.
+- Warning banners show one compact summary row by default for any positive count. Their explicit disclosure provides the complete loaded, undismissed list through a bounded 50-row pager and a viewport-limited local scroller; no warning detail rows mount while collapsed. If the shell is too short for a visible in-flow detail row, the non-modal panel opens above the summary without shrinking the main view. Other banner/toast previews remain bounded and use a labelled “+N” disclosure where applicable.
 
 Do:
 

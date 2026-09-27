@@ -2162,7 +2162,8 @@ export default function App () {
       )}
 
       <WarningsBanner key={`warnings:${entryIdRef.current}`} repos={visibleRepos} dismissed={dismissedWarnings}
-        onDismiss={(key) => setDismissedWarnings(new Set(dismissedWarnings).add(key))} />
+        scopeKeyValue={currentScopeKey}
+        onDismiss={(key) => setDismissedWarnings((previous) => new Set(previous).add(key))} />
 
       <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <TaskSidebar key={`tasks:${entryIdRef.current}`}
@@ -2538,61 +2539,205 @@ function Sparkline ({ buckets }: { buckets: number[] }) {
   );
 }
 
-// F47: dismissible per-repo warnings banner.
-function WarningsBanner ({ repos, dismissed, onDismiss }:
-  { repos: Repo[]; dismissed: Set<string>; onDismiss: (key: string) => void }) {
+// F47: one-row warning summary with an explicitly opened, bounded detail list.
+function WarningsBanner ({ repos, dismissed, scopeKeyValue, onDismiss }:
+  { repos: Repo[]; dismissed: Set<string>; scopeKeyValue: string; onDismiss: (key: string) => void }) {
   const [expanded, setExpanded] = useState(false);
+  const [listMaxHeight, setListMaxHeight] = useState(0);
+  const [floatingDetails, setFloatingDetails] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const pagerRef = useRef<HTMLDivElement | null>(null);
+  const dismissRefs = useRef(new Map<string, HTMLButtonElement>());
+  const pendingDismissFocusRef = useRef<string | null | undefined>(undefined);
+  const pendingPageFocusRef = useRef(false);
+  const pendingEscapeFocusRef = useRef(false);
+  const suppressRefreshFocusRef = useRef(false);
+  const focusedDetailRef = useRef<{
+    element: HTMLElement; kind: "warning" | "pager"; index: number;
+  } | null>(null);
   const items = repos.flatMap((r) =>
     r.warnings.map((w) => ({ key: JSON.stringify([r.id, w.ts, w.message]), repo: r.id, ...w })),
   ).filter((w) => !dismissed.has(w.key)).sort((left, right) =>
     left.ts < right.ts ? -1 : left.ts > right.ts ? 1 : 0);
-  const disclosureOpen = expanded && items.length > 5;
+  const disclosureOpen = expanded && items.length > 0;
   useDisclosureBehavior({
     open: disclosureOpen,
-    onClose: () => setExpanded(false),
+    onClose: (reason) => {
+      pendingEscapeFocusRef.current = reason === "escape";
+      suppressRefreshFocusRef.current = reason === "outside";
+      setExpanded(false);
+    },
     rootRef,
     triggerRef,
   });
   const pager = useBoundedPage({
-    identity: ["warnings"],
+    identity: ["warnings", scopeKeyValue],
     totalItems: items.length,
     pageSize: 50,
   });
-  useEffect(() => {
-    if (expanded && items.length <= 5) setExpanded(false);
+  useLayoutEffect(() => {
+    if (items.length === 0 && expanded) setExpanded(false);
   }, [expanded, items.length]);
+  useLayoutEffect(() => {
+    if (!disclosureOpen) return;
+    const updateHeight = () => {
+      const root = rootRef.current;
+      if (!root) return;
+      const viewportHeight = window.innerHeight;
+      const mainReserve = Math.min(160, viewportHeight * 0.3);
+      const fixedHeight = (triggerRef.current?.offsetHeight ?? 0)
+        + (headingRef.current?.offsetHeight ?? 0)
+        + (pagerRef.current?.offsetHeight ?? 0) + 12;
+      const available = viewportHeight - root.getBoundingClientRect().top
+        - fixedHeight - mainReserve;
+      const inFlowHeight = Math.floor(Math.min(viewportHeight * 0.4, available));
+      const floatAbove = inFlowHeight < 44;
+      const aboveHeight = root.getBoundingClientRect().top - fixedHeight - 8;
+      setFloatingDetails(floatAbove);
+      setListMaxHeight(Math.max(44, Math.floor(Math.min(
+        viewportHeight * 0.4, floatAbove ? aboveHeight : inFlowHeight,
+      ))));
+    };
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    if (rootRef.current) observer.observe(rootRef.current);
+    if (rootRef.current?.parentElement) {
+      for (const sibling of rootRef.current.parentElement.children) {
+        if (sibling !== rootRef.current) observer.observe(sibling);
+      }
+    }
+    window.addEventListener("resize", updateHeight);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, [disclosureOpen, items.length, pager.pageCount]);
+  useLayoutEffect(() => {
+    if (pendingDismissFocusRef.current !== undefined) {
+      const nextKey = pendingDismissFocusRef.current;
+      pendingDismissFocusRef.current = undefined;
+      const target = nextKey === null ? null : dismissRefs.current.get(nextKey);
+      if (target?.isConnected) target.focus();
+      else if (triggerRef.current?.isConnected) triggerRef.current.focus({ preventScroll: true });
+      else document.getElementById("main-content")?.focus({ preventScroll: true });
+    } else if (pendingEscapeFocusRef.current) {
+      pendingEscapeFocusRef.current = false;
+      triggerRef.current?.focus({ preventScroll: true });
+    } else if (pendingPageFocusRef.current && disclosureOpen) {
+      pendingPageFocusRef.current = false;
+      if (listRef.current) listRef.current.scrollTop = 0;
+      headingRef.current?.focus({ preventScroll: true });
+    }
+    const previousFocus = focusedDetailRef.current;
+    if (!previousFocus) return;
+    const disabled = previousFocus.element instanceof HTMLButtonElement
+      && previousFocus.element.disabled;
+    if (previousFocus.element.isConnected && !disabled) return;
+    focusedDetailRef.current = null;
+    if (suppressRefreshFocusRef.current) {
+      suppressRefreshFocusRef.current = false;
+      return;
+    }
+    if (document.activeElement !== document.body
+      && document.activeElement !== document.documentElement
+      && document.activeElement !== previousFocus.element) return;
+    if (previousFocus.kind === "pager" && headingRef.current?.isConnected) {
+      headingRef.current.focus({ preventScroll: true });
+      return;
+    }
+    if (previousFocus.kind === "warning") {
+      const nextKey = items[previousFocus.index]?.key ?? items[previousFocus.index - 1]?.key;
+      const target = nextKey ? dismissRefs.current.get(nextKey) : undefined;
+      if (target?.isConnected) {
+        target.focus();
+        return;
+      }
+    }
+    if (triggerRef.current?.isConnected) triggerRef.current.focus({ preventScroll: true });
+    else document.getElementById("main-content")?.focus({ preventScroll: true });
+  });
   if (items.length === 0) return null;
-  const visibleItems = disclosureOpen
-    ? items.slice(pager.start, pager.end)
-    : items.slice(-5);
+  const visibleItems = disclosureOpen ? items.slice(pager.start, pager.end) : [];
   return (
-    <div ref={rootRef} className="bg-amber-900/50 px-4 py-1">
-      <div className="flex items-center gap-2 py-0.5">
-        <span className="text-xs font-semibold text-amber-200">Warnings</span>
-        {items.length > 5 && (
-          <button ref={triggerRef} type="button" aria-expanded={disclosureOpen}
-            aria-controls="warnings-list" onClick={() => setExpanded((open) => !open)}
-            className="rounded px-2 py-0.5 text-xs text-amber-300 hover:bg-amber-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
-            {disclosureOpen ? "Show newest 5" : `+${items.length - 5} more`}
-          </button>
+    <div ref={rootRef} className={`relative min-w-0 shrink-0 bg-amber-900/50 text-amber-100${
+      disclosureOpen && floatingDetails ? " z-40" : ""
+    }`}>
+      <button ref={triggerRef} type="button" aria-expanded={disclosureOpen}
+        aria-controls="warnings-list" onClick={() => {
+          suppressRefreshFocusRef.current = false;
+          setExpanded((open) => !open);
+        }}
+        onFocus={() => { focusedDetailRef.current = null; }}
+        className="flex min-h-11 w-full min-w-0 touch-manipulation items-center gap-2 px-4 text-left text-xs font-semibold hover:bg-amber-800/50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-sky-400">
+        <span className="min-w-0 flex-1 truncate">Warnings</span>
+        <span className="shrink-0 tabular-nums">· {items.length.toLocaleString("en-US")}</span>
+        <span className="shrink-0 text-amber-200">{disclosureOpen ? "Hide" : "Show"}</span>
+      </button>
+      <div hidden={!disclosureOpen}
+        className={disclosureOpen
+          ? `flex min-h-0 min-w-0 flex-col px-4 pb-2${floatingDetails
+            ? " absolute inset-x-0 bottom-full border border-amber-700/50 bg-amber-950/95 pt-2 shadow-xl"
+            : ""}`
+          : undefined}>
+        {disclosureOpen && (
+          <>
+            <h2 ref={headingRef} id="warnings-list-heading" tabIndex={-1}
+              onFocus={() => { focusedDetailRef.current = null; }}
+              className="mb-1 w-fit rounded text-xs font-semibold text-amber-100 focus:outline-none focus:ring-2 focus:ring-sky-400">
+              Warning details
+            </h2>
+          </>
+        )}
+        <div ref={listRef} id="warnings-list" role="region"
+          aria-labelledby={disclosureOpen ? "warnings-list-heading" : undefined}
+          hidden={!disclosureOpen}
+          className={disclosureOpen ? "min-h-0 min-w-0 overflow-y-auto overscroll-contain" : undefined}
+          style={disclosureOpen ? { maxHeight: listMaxHeight } : undefined}>
+          {visibleItems.map((w, index) => (
+                <div key={w.key} data-warning-row
+                  className="flex min-w-0 items-center gap-2 border-t border-amber-300/10 py-0.5 text-xs text-amber-100">
+                  <span className="min-w-0 flex-1 break-words [overflow-wrap:anywhere]">
+                    <span className="font-bold">[{w.repo}]</span> {w.message}
+                  </span>
+                  <button type="button"
+                    ref={(element) => {
+                      if (element) dismissRefs.current.set(w.key, element);
+                      else dismissRefs.current.delete(w.key);
+                    }}
+                    aria-label={`Dismiss warning ${pager.start + index + 1} of ${items.length} from ${w.repo}`}
+                    onFocus={(event) => {
+                      suppressRefreshFocusRef.current = false;
+                      focusedDetailRef.current = {
+                        element: event.currentTarget, kind: "warning", index: pager.start + index,
+                      };
+                    }}
+                    className="flex min-h-11 min-w-11 shrink-0 touch-manipulation items-center justify-center rounded text-amber-200 hover:bg-amber-800/60 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-400"
+                    onClick={() => {
+                      const itemIndex = pager.start + index;
+                      pendingDismissFocusRef.current = items[itemIndex + 1]?.key
+                        ?? items[itemIndex - 1]?.key ?? null;
+                      onDismiss(w.key);
+                    }}>✕</button>
+                </div>
+          ))}
+        </div>
+        {disclosureOpen && items.length > 50 && (
+          <CollectionPager ref={pagerRef} collectionLabel="Warnings" controlsId="warnings-list"
+            onFocusCapture={(event) => {
+              suppressRefreshFocusRef.current = false;
+              focusedDetailRef.current = {
+                element: event.target as HTMLElement, kind: "pager", index: pager.start,
+              };
+            }}
+            page={pager} onPageChange={(page) => {
+              pendingPageFocusRef.current = true;
+              pager.setPage(page);
+            }} />
         )}
       </div>
-      <div id="warnings-list">
-      {visibleItems.map((w) => (
-        <div key={w.key} className="flex items-center gap-2 py-0.5 text-xs text-amber-200">
-          <span className="font-bold">[{w.repo}]</span>
-          <span className="flex-1">{w.message}</span>
-          <button type="button" aria-label={`Dismiss warning from ${w.repo}`}
-            className="text-amber-400 hover:text-white"
-            onClick={() => onDismiss(w.key)}>✕</button>
-        </div>
-      ))}
-      </div>
-      {disclosureOpen && items.length > 50 && (
-        <CollectionPager collectionLabel="Warnings" page={pager} onPageChange={pager.setPage} />
-      )}
     </div>
   );
 }

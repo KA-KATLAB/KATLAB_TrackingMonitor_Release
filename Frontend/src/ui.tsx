@@ -60,7 +60,7 @@ export function useDisclosureBehavior ({
   initialFocusRef,
 }: {
   open: boolean;
-  onClose: () => void;
+  onClose: (reason: "escape" | "outside") => void;
   rootRef: MutableRefObject<HTMLElement | null>;
   triggerRef: MutableRefObject<HTMLElement | null>;
   returnFocusRef?: MutableRefObject<HTMLElement | null>;
@@ -78,12 +78,12 @@ export function useDisclosureBehavior ({
       if (event.key !== "Escape") return;
       event.preventDefault();
       event.stopPropagation();
-      onCloseRef.current();
+      onCloseRef.current("escape");
     };
     const onPointer = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) {
         suppressDisclosureFocusRestore();
-        onCloseRef.current();
+        onCloseRef.current("outside");
       }
     };
     window.addEventListener("keydown", onKey, true);
