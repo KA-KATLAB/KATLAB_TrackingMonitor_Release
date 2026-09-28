@@ -7,28 +7,20 @@ REM demo NEVER spawns the Chronicle loop (KATLAB_TRACKER_CONFIG set ->
 REM the A.2 guard). Lives in Scripts\Demo\ -> repo root two levels up.
 
 setlocal
+REM Do not let an inherited CD variable shadow CMD's current-directory value.
+set "CD="
 cd /d "%~dp0..\.."
+if errorlevel 1 (
+    echo [ABORT] Could not enter the tracker repository root.
+    exit /b 1
+)
 set "KATLAB_TRACKER_DEMO=1"
 set "KATLAB_TRACKER_CONFIG=%cd%\Demo\runtime\repos.demo.yaml"
 set "KATLAB_TRACKER_DB=%cd%\Demo\runtime\demo.db"
 set "KATLAB_TRACKER_ACTIVITY_DIR=%cd%\Demo\runtime\activity"
 
-REM [0/5] Demo port (RV24: the generated yaml if present, else the
-REM fixed 8101 - the yaml doesn't exist before [4/5] on a fresh clone)
-REM + the RV8 already-running guard.
-set "PORT="
-if exist "Demo\runtime\repos.demo.yaml" (
-    for /f "tokens=2 delims=:" %%p in ('findstr /r /c:"^ *port:" Demo\runtime\repos.demo.yaml') do set /a PORT=%%p
-)
-if not defined PORT set /a PORT=8101
-netstat -ano | findstr /r /c:":%PORT% .*LISTENING" >nul 2>&1
-if not errorlevel 1 (
-    echo Demo already running - opening http://127.0.0.1:%PORT%
-    start "" "http://127.0.0.1:%PORT%"
-    exit /b 0
-)
-
 echo [1/5] Checking venv...
+set "FRESH_VENV="
 if not exist ".venv\Scripts\python.exe" (
     python -m venv .venv
     if errorlevel 1 (
@@ -36,15 +28,40 @@ if not exist ".venv\Scripts\python.exe" (
         pause
         exit /b 1
     )
+    set "FRESH_VENV=1"
 )
 set "PY=.venv\Scripts\python.exe"
 
-echo [2/5] Installing backend requirements...
-"%PY%" -m pip install -q -r Backend\requirements.txt
+REM A new venv needs PyYAML before the config/port preflight can run.
+if defined FRESH_VENV (
+    echo [2/5] Installing backend requirements...
+    "%PY%" -m pip install -q -r Backend\requirements.txt
+    if errorlevel 1 (
+        echo [ABORT] pip install failed.
+        pause
+        exit /b 1
+    )
+)
+
+echo [0/5] Checking demo port and health...
+"%PY%" -m Scripts.lifecycle_port preflight demo
+if errorlevel 10 if not errorlevel 11 (
+    endlocal
+    exit /b 0
+)
 if errorlevel 1 (
-    echo [ABORT] pip install failed.
-    pause
+    echo [ABORT] Demo preflight failed; nothing was launched.
     exit /b 1
+)
+
+if not defined FRESH_VENV (
+    echo [2/5] Installing backend requirements...
+    "%PY%" -m pip install -q -r Backend\requirements.txt
+    if errorlevel 1 (
+        echo [ABORT] pip install failed.
+        pause
+        exit /b 1
+    )
 )
 
 echo [3/5] Checking frontend build...
@@ -74,8 +91,10 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-"%SystemRoot%\System32\timeout.exe" /t 3 /nobreak >nul
-echo Launch requested - DEMO UI http://127.0.0.1:%PORT% - log Demo\runtime\demo.log
-start "" "http://127.0.0.1:%PORT%"
+"%PY%" -m Scripts.lifecycle_port ready demo
+if errorlevel 1 (
+    echo [ABORT] Demo health was not confirmed; the child may still be starting. See Demo\runtime\demo.log.
+    exit /b 1
+)
 endlocal
 exit /b 0

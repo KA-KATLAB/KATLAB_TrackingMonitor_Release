@@ -1,5 +1,27 @@
 # Version Notes
 
+## v0.3.1.1 — Fail-Closed Restart (2026-09-28)
+
+**Key Highlights**
+
+- Tracker and demo stop scripts verify that the exact configured TCP port is
+  clear; restart aborts on a failed stop instead of launching a second server.
+- Start verifies the current app version, selected repository IDs, and live
+  watcher tasks through `/api/health` before opening the UI or returning success.
+- Deadline-based checks replace console-dependent waits. The existing hidden
+  backend launch, logs, Attribution Forecast, and compact warnings remain.
+- No backend API, database schema, frontend source, or Git-status contract
+  changes in this patch.
+
+**Known limits**
+
+- Port-based stop is not process-ownership proof. Live use requires listener
+  identity preflight, and a health match is only an instantaneous readiness
+  observation. Stop the old instance before changing `server.port`; a restart
+  at the new port cannot find a server left on the old port.
+- A startup timeout may leave a child that becomes ready later. Check logs and
+  the listener before retrying.
+
 ## v0.3.1.0 — Attribution Forecast (2026-09-26)
 
 **Key Highlights**

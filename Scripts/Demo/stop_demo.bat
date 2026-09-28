@@ -1,31 +1,30 @@
 @echo off
-REM KATLAB TrackingMonitor DEMO stopper - kills whatever LISTENs on the demo
-REM port. Port is read from the generated Demo\runtime\repos.demo.yaml (same
-REM source the demo launcher uses); falls back to 8101 (CFT-13 fixed demo
-REM port) if the demo has never been generated. Force-kill is safe: SQLite
-REM writes are transactional. Real tracker on 8100 is never touched.
+REM KATLAB TrackingMonitor DEMO stopper: clear port 8101 or fail.
 
 setlocal
+REM Do not let an inherited CD variable shadow CMD's current-directory value.
+set "CD="
 cd /d "%~dp0..\.."
-
-echo [1/2] Reading demo port from Demo\runtime\repos.demo.yaml...
-set "PORT="
-if exist "Demo\runtime\repos.demo.yaml" (
-    for /f "tokens=2 delims=:" %%p in ('findstr /r /c:"^ *port:" Demo\runtime\repos.demo.yaml') do set /a PORT=%%p
+if errorlevel 1 (
+    echo [ABORT] Could not enter the tracker repository root.
+    exit /b 1
 )
-if not defined PORT set /a PORT=8101
+set "KATLAB_TRACKER_DEMO=1"
+set "KATLAB_TRACKER_CONFIG=%cd%\Demo\runtime\repos.demo.yaml"
+set "KATLAB_TRACKER_DB=%cd%\Demo\runtime\demo.db"
+set "KATLAB_TRACKER_ACTIVITY_DIR=%cd%\Demo\runtime\activity"
 
-echo [2/2] Stopping DEMO server on port %PORT%...
-set "FOUND="
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr /r /c:":%PORT% .*LISTENING"') do (
-    taskkill /pid %%a /t /f >nul 2>&1 && echo     Killed PID %%a.
-    set "FOUND=1"
-)
-if not defined FOUND (
-    echo     Demo server was not running - nothing to stop.
-) else (
-    echo     Demo server stopped.
+set "PY=.venv\Scripts\python.exe"
+if not exist "%PY%" (
+    echo [ABORT] Demo venv Python is unavailable; the port was not checked.
+    exit /b 1
 )
 
-"%SystemRoot%\System32\timeout.exe" /t 3
+"%PY%" -m Scripts.lifecycle_port stop demo
+if errorlevel 1 (
+    echo [ABORT] Demo port was not confirmed clear.
+    exit /b 1
+)
+
 endlocal
+exit /b 0

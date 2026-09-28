@@ -8,20 +8,13 @@ REM and the Chronicle at /chronicle/ on the same configured port.
 
 setlocal
 cd /d "%~dp0.."
-
-REM [0/4] Port from Config\repos.yaml (F10) + the RV8 already-running
-REM guard - also makes the log rotation below safe by construction.
-set "PORT="
-for /f "tokens=2 delims=:" %%p in ('findstr /r /c:"^ *port:" Config\repos.yaml') do set /a PORT=%%p
-if not defined PORT set /a PORT=8100
-netstat -ano | findstr /r /c:":%PORT% .*LISTENING" >nul 2>&1
-if not errorlevel 1 (
-    echo Already running - opening http://127.0.0.1:%PORT%
-    start "" "http://127.0.0.1:%PORT%"
-    exit /b 0
+if errorlevel 1 (
+    echo [ABORT] Could not enter the tracker repository root.
+    exit /b 1
 )
 
 echo [1/4] Checking venv...
+set "FRESH_VENV="
 if not exist ".venv\Scripts\python.exe" (
     python -m venv .venv
     if errorlevel 1 (
@@ -29,15 +22,41 @@ if not exist ".venv\Scripts\python.exe" (
         pause
         exit /b 1
     )
+    set "FRESH_VENV=1"
 )
 set "PY=.venv\Scripts\python.exe"
 
-echo [2/4] Installing backend requirements...
-"%PY%" -m pip install -q -r Backend\requirements.txt
+REM A new venv needs PyYAML before the config/port preflight can run.
+if defined FRESH_VENV (
+    echo [2/4] Installing backend requirements...
+    "%PY%" -m pip install -q -r Backend\requirements.txt
+    if errorlevel 1 (
+        echo [ABORT] pip install failed - see errors above.
+        pause
+        exit /b 1
+    )
+)
+
+echo [0/4] Checking tracker port and health...
+"%PY%" -m Scripts.lifecycle_port preflight tracker
+if errorlevel 10 if not errorlevel 11 (
+    endlocal
+    exit /b 0
+)
 if errorlevel 1 (
-    echo [ABORT] pip install failed - see errors above.
-    pause
+    echo [ABORT] Tracker preflight failed; nothing was launched.
     exit /b 1
+)
+
+REM Avoid pip mutation while a verified tracker is already running.
+if not defined FRESH_VENV (
+    echo [2/4] Installing backend requirements...
+    "%PY%" -m pip install -q -r Backend\requirements.txt
+    if errorlevel 1 (
+        echo [ABORT] pip install failed - see errors above.
+        pause
+        exit /b 1
+    )
 )
 
 echo [3/4] Checking frontend build...
@@ -75,8 +94,10 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-"%SystemRoot%\System32\timeout.exe" /t 3 /nobreak >nul
-echo Launch requested - UI http://127.0.0.1:%PORT% - Chronicle /chronicle/ - logs data\logs\
-start "" "http://127.0.0.1:%PORT%"
+"%PY%" -m Scripts.lifecycle_port ready tracker
+if errorlevel 1 (
+    echo [ABORT] Tracker health was not confirmed; the child may still be starting. See data\logs\tracker.log.
+    exit /b 1
+)
 endlocal
 exit /b 0
