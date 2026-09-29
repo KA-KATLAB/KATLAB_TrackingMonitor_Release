@@ -158,6 +158,7 @@ def create_app (snapshot: ConfigSnapshot | None = None) -> FastAPI:
     app = FastAPI(title="KATLAB TrackingMonitor", version=__version__, lifespan=lifespan)
     app.state.tracker = tracker
     app.state.config_snapshot = snapshot
+    app.state.chronicle_disabled = chronicle_guarded
     app.state.chronicle_signer = signer
     app.state.chronicle_runtime = None
     app.state.chronicle_proc = None

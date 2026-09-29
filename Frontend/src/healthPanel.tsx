@@ -4,6 +4,7 @@ import { api, createActionDeadline, isAbortError } from "./api";
 import type { HealthPayload } from "./api";
 import { DialogShell } from "./dialog";
 import { fmtMinutes, fmtRel, fmtTs } from "./format";
+import { decodeChronicleHealth } from "./healthModel";
 import { CollectionPager, useBoundedPage } from "./ui";
 
 function fmtBytes (bytes: number): string {
@@ -29,12 +30,26 @@ function Row ({
 
 export function HealthBody ({ data }: { data: HealthPayload }): JSX.Element {
   const { server, repos, activity, providers } = data;
+  const chronicle = decodeChronicleHealth(data);
   const activityAvailable = activity !== undefined && activity !== null;
   const providersAvailable = Array.isArray(providers);
-  const missingExtensions = [
+  const missingNames = [
     activityAvailable ? null : "activity inbox",
     providersAvailable ? null : "provider health",
-  ].filter((value): value is string => value !== null).join(" and ");
+    chronicle.kind === "missing" ? "Chronicle worker health" : null,
+  ].filter((value): value is string => value !== null);
+  const missingExtensions = missingNames.length > 1
+    ? `${missingNames.slice(0, -1).join(", ")} and ${missingNames[missingNames.length - 1]}`
+    : missingNames[0] ?? "";
+  const chronicleText = chronicle.kind !== "state"
+    ? chronicle.kind === "missing" ? "not reported" : "health data invalid"
+    : chronicle.state === "running" ? "worker running"
+    : chronicle.state === "disabled" ? "disabled for this mode"
+    : "worker unavailable";
+  const chronicleColor = chronicle.kind === "state" && chronicle.state === "running"
+    ? "text-teal-300"
+    : chronicle.kind === "state" && chronicle.state === "disabled"
+    ? "text-ui-muted" : "text-amber-300";
   const watchersOk = server.watchers_alive === server.watchers_total;
   const uptimeMin = Math.max(0, Math.round(
     (Date.now() - new Date(server.started_ts).getTime()) / 60_000,
@@ -59,6 +74,9 @@ export function HealthBody ({ data }: { data: HealthPayload }): JSX.Element {
           {server.watchers_alive}/{server.watchers_total} alive
         </span>
       </Row>
+      <Row label="Chronicle">
+        <span className={chronicleColor}>{chronicleText}</span>
+      </Row>
       <Row label="hook">
         <span
           title={server.hook_settings_path}
@@ -75,6 +93,12 @@ export function HealthBody ({ data }: { data: HealthPayload }): JSX.Element {
             Server v{server.version} did not provide {missingExtensions}. Restart
             TrackingMonitor to load matching backend and frontend code.
           </p>
+        </div>
+      )}
+
+      {chronicle.kind === "invalid" && (
+        <div className="mt-3 rounded-control border border-amber-700 bg-amber-950/30 p-3 text-amber-200">
+          Chronicle health data has an unexpected shape; worker state cannot be confirmed.
         </div>
       )}
 
@@ -230,7 +254,7 @@ export function HealthModal ({ onClose, onStatus }: {
   return (
     <DialogShell
       title="System health"
-      description="Watcher, capture, and repository status at open time."
+      description="Watcher, Chronicle worker, capture, and repository status at open time."
       onClose={onClose}
       backdropClose
       closeLabel="Close system health"

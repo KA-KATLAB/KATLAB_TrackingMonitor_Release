@@ -1,5 +1,7 @@
 // REST client - UM envelope {success, data, message, timestamp}.
 
+import type { ChronicleWorkerState } from "./healthModel";
+
 export interface Repo {
   id: string;
   name: string;
@@ -57,6 +59,7 @@ export interface HealthPayload {
   // serve newly built frontend assets until TrackingMonitor is restarted.
   activity?: HealthActivity;
   providers?: ProviderHealth[];
+  chronicle?: { state: ChronicleWorkerState };
 }
 
 export interface Task {

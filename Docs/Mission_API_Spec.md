@@ -258,7 +258,16 @@ providers: [{
   configuration_valid: boolean, configuration_state: string,
   recently_observed: boolean, last_observed_at: string|null
 }]
+chronicle: {state: "disabled"|"running"|"unavailable"}
 ```
+
+`chronicle.state` reports the optional owned worker at the instant of the
+request. `disabled` means demo or explicit-config isolation intentionally
+skipped it. `running` requires both a live owned worker and its published
+response signer. `unavailable` covers production startup failure, later worker
+exit, revoked signer, or an observation failure. This does not establish that
+the generated site exists, is current, or will remain available. The Chronicle
+field discloses no process ID, capability, key, path, log, or error detail.
 
 `configuration_valid` requires each registered command to contain the exact
 quoted adapter path, the complete provider/channel argument vector with no extra

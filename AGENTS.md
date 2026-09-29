@@ -62,6 +62,9 @@ The high-level flow is:
 
 ## Planning and tracking discipline
 
+- A current-turn "workflow K" request invokes the gated cycle in
+  [Workflow K](Claude_Info/Workflow_K.md); its optional topic/details control
+  scope. The alias never waives the Git and live-system boundaries above.
 - Significant fixes/features/releases require an enhanced-format `temp/Plan/PLAN_*.txt` plan; follow `Docs/Plan_Format_Spec.md`.
 - Before editing implementation files, mark exactly one relevant task `in-progress`, with precise repo-relative forward-slash entries in `<files>`.
 - Mark the task `done` immediately after completion and keep the manual-pick queue empty.
@@ -112,7 +115,8 @@ Report:
 - verification commands and results;
 - checks not run and why;
 - any plan/status follow-up the user must perform;
-- confirmation that no Git mutation command was run.
+- exact current-turn-authorized Git operations performed, or confirmation
+  that none was run.
 
 ## Detailed guidance
 

@@ -48,6 +48,21 @@ def _tracker (request: Request):
     return request.app.state.tracker
 
 
+def _chronicle_worker_state (request: Request) -> str:
+    state = request.app.state
+    if state.chronicle_disabled:
+        return "disabled"
+    owned = state.chronicle_runtime
+    if owned is None:
+        return "unavailable"
+    try:
+        if owned.is_live() and state.chronicle_signer.snapshot() is not None:
+            return "running"
+    except Exception:
+        pass
+    return "unavailable"
+
+
 def _known_repo (tracker, repo_id: str):
     match = next((repo for repo in tracker.config.repos if repo.id == repo_id), None)
     if match is None:
@@ -192,6 +207,7 @@ def health (request: Request):
         "repos": repos,
         "activity": tracker.activity.health_counts(),
         "providers": provider_health.provider_health(),
+        "chronicle": {"state": _chronicle_worker_state(request)},
     })
 
 

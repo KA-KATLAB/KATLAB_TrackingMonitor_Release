@@ -1,5 +1,27 @@
 # Version Notes
 
+## v0.3.1.2 — Chronicle Worker Health (2026-09-29)
+
+**Key Highlights**
+
+- Sys and `/api/health` distinguish an intentionally disabled Chronicle
+  worker, an observed live owned worker with a published signer, and an
+  unavailable production worker. The field is additive and read-only.
+- The frontend handles older or malformed Chronicle health data without
+  incorrectly displaying a healthy worker.
+- [Workflow K](Workflow_K.md) records the user's gated repeat-cycle shorthand.
+  Agent Git guidance lists only `status`, `diff`, `log`, and `show` by default.
+- The v0.3.1.1 fail-closed restart behavior remains; no new dependency,
+  database schema change, or product Git verb is introduced.
+
+**Known limits**
+
+- Worker liveness is a point-in-time observation, not generated-site freshness
+  or durable availability. Sys is a modal; HTTP checks alone do not verify its
+  actual button and render interaction.
+- Workflow K does not waive separate Git staging/mutation authority or the
+  listener-identity preflight before a live restart.
+
 ## v0.3.1.1 — Fail-Closed Restart (2026-09-28)
 
 **Key Highlights**

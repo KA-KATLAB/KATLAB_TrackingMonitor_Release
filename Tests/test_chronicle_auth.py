@@ -397,6 +397,20 @@ class TrackerModelSessionTests(unittest.TestCase):
 
 
 class ChronicleAppIsolationTests(unittest.TestCase):
+    def test_factory_freezes_chronicle_disabled_mode (self):
+        from Backend.app import main
+        from Backend.app.config import AppConfig, ServerConfig
+        snapshot = SimpleNamespace(config=AppConfig(ServerConfig(), ()))
+        cases = (
+            ({"KATLAB_TRACKER_CONFIG": "", "KATLAB_TRACKER_DEMO": "0"}, False),
+            ({"KATLAB_TRACKER_CONFIG": "demo.yaml", "KATLAB_TRACKER_DEMO": "0"}, True),
+            ({"KATLAB_TRACKER_CONFIG": "", "KATLAB_TRACKER_DEMO": "1"}, True),
+        )
+        for values, disabled in cases:
+            with self.subTest(values=values), patch.dict(main.os.environ, values):
+                app = main.create_app(snapshot)
+                self.assertIs(app.state.chronicle_disabled, disabled)
+
     def test_optional_spawn_gates_precede_runtime_and_fail_closed (self):
         from Backend.app import main
         from Backend.app.config import AppConfig, ServerConfig

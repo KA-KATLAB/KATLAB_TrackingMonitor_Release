@@ -71,11 +71,18 @@ Canonical sequence: **Idea (Brainstorm) / Issue (Reproduce → Root cause) →
 Detailed Plan creation → CDD detailed-plan review 5/5 → Implementation → CFT
 5/5 → Focused/Full verification → Final plan update.**
 
+### Workflow K shorthand
+
+When the user says "workflow K", follow [Workflow_K.md](Claude_Info/Workflow_K.md)
+for the complete, repeatable research-to-release sequence. A supplied topic or
+detailed constraint takes precedence over autonomous idea selection. The alias
+does not waive any review, verification, Git, restart, or scope boundary.
+
 ## **Working Mode — Solo**
 
 This workspace runs **SOLO by default** — work directly; do NOT spin up a multi-agent team (or auto-spawn agents) for routine tasks. Match effort to task.
 
-**GIT — HARD RULE (overrides any other git guidance in this repo)**: ONLY READ-ONLY git commands are permitted: `git status`, `git diff`, `git log`, `git show`, `git rev-parse` (user-approved 2026-07-07 — the tracking server needs log/show for commit detection). ALL mutation commands (`add`, `commit`, `push`, `branch`, `checkout`, `reset`, `merge`, `rebase`, `tag`, `stash`, `cherry-pick`, `restore`, `amend`, `clean`, ...) are **FORBIDDEN**. When changes are ready, report them — never invoke git mutations. If the user explicitly requests a one-off git command in a specific turn, execute exactly that and do NOT generalize.
+**GIT — HARD RULE (overrides any other git guidance in this repo)**: ONLY READ-ONLY git commands are permitted: `git status`, `git diff`, `git log`, `git show`. ALL mutation commands (`add`, `commit`, `push`, `branch`, `checkout`, `reset`, `merge`, `rebase`, `tag`, `stash`, `cherry-pick`, `restore`, `amend`, `clean`, ...) are **FORBIDDEN**. When changes are ready, report them — never invoke git mutations unless the user explicitly requests the exact one-off operation in the current turn. Do not generalize permission to adjacent operations or later turns.
 
 ## 📖 **CLAUDE_INFO DOCUMENTATION ARCHITECTURE**
 
@@ -85,6 +92,7 @@ Detailed docs live in `Claude_Info/` (mirrors the EA + UM repo pattern):
 - [Version_Notes.md](Claude_Info/Version_Notes.md) — release notes per version (v0.1.0.0 foundation)
 - [Monitored_Repos.md](Claude_Info/Monitored_Repos.md) — registry of tracked repos + how to add more
 - [Plan_Format_Notes.md](Claude_Info/Plan_Format_Notes.md) — existing PLAN formats found in EA/UM repos + enhancement spec
+- [Workflow_K.md](Claude_Info/Workflow_K.md) — shorthand for the gated autonomous delivery cycle
 
 **Normative specs in `Docs/`**: [Plan_Format_Spec.md](Docs/Plan_Format_Spec.md) (the enhanced format) · [Installation_Guideline.md](Docs/Installation_Guideline.md) (repo onboarding contract)
 

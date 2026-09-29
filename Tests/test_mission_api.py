@@ -9,13 +9,14 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from Backend.app import db, provider_health
 from Backend.app.api import routes
+from Backend.app.chronicle_auth import SignerState
 from Backend.app.config import AppConfig, RepoConfig, ServerConfig, load_check_registry
 from Backend.app.plan_parser import parse_plan_bytes, raw_plan_sha256
 from Backend.app.watcher import Tracker
@@ -110,7 +111,11 @@ class MissionApiTests(unittest.TestCase):
         self.tracker.set_broadcaster(capture)
         app = FastAPI()
         app.state.tracker = self.tracker
+        app.state.chronicle_disabled = False
+        app.state.chronicle_runtime = None
+        app.state.chronicle_signer = SignerState()
         app.include_router(routes.router)
+        self.app = app
         self.client = TestClient(app)
 
     def tearDown (self) -> None:
@@ -729,13 +734,58 @@ class MissionApiTests(unittest.TestCase):
         }]
         with patch.object(routes.provider_health, "provider_health", return_value=expected):
             data = self.client.get("/api/health").json()["data"]
-        self.assertEqual(set(data), {"server", "repos", "activity", "providers"})
+        self.assertEqual(set(data), {
+            "server", "repos", "activity", "providers", "chronicle",
+        })
         self.assertEqual(set(data["activity"]), {
             "pending", "rejected", "ignored_unscoped",
             "registry_revision_mismatch",
         })
         self.assertEqual(data["providers"], expected)
         self.assertNotIn("session", json.dumps(data["providers"]))
+        self.assertEqual(data["chronicle"], {"state": "unavailable"})
+
+    def test_health_chronicle_reports_only_observed_worker_state (self) -> None:
+        state = self.app.state
+
+        def observed () -> dict:
+            response = self.client.get("/api/health")
+            self.assertEqual(response.status_code, 200)
+            return response.json()["data"]["chronicle"]
+
+        # Demo/explicit-config isolation never probes a production object.
+        state.chronicle_disabled = True
+        owned = SimpleNamespace(is_live=MagicMock(
+            side_effect=AssertionError("disabled mode probed worker")))
+        signer = SimpleNamespace(snapshot=MagicMock(
+            side_effect=AssertionError("disabled mode probed signer")))
+        state.chronicle_runtime = owned
+        state.chronicle_signer = signer
+        self.assertEqual(observed(), {"state": "disabled"})
+        owned.is_live.assert_not_called()
+        signer.snapshot.assert_not_called()
+
+        state.chronicle_disabled = False
+        self.assertEqual(observed(), {"state": "unavailable"})
+        owned.is_live.assert_called_once()
+
+        owned.is_live = MagicMock(return_value=True)
+        state.chronicle_signer = SignerState()
+        self.assertEqual(observed(), {"state": "unavailable"})
+        state.chronicle_signer.publish(b"k" * 32, lambda: True)
+        self.assertEqual(observed(), {"state": "running"})
+        state.chronicle_signer.revoke()
+        self.assertEqual(observed(), {"state": "unavailable"})
+        state.chronicle_signer = SimpleNamespace(snapshot=MagicMock(
+            side_effect=RuntimeError("signer observation failed")))
+        self.assertEqual(observed(), {"state": "unavailable"})
+
+        owned.is_live.return_value = False
+        self.assertEqual(observed(), {"state": "unavailable"})
+        owned.is_live.side_effect = RuntimeError("observation failed")
+        self.assertEqual(observed(), {"state": "unavailable"})
+        state.chronicle_runtime = None
+        self.assertEqual(observed(), {"state": "unavailable"})
 
     def test_rendered_provider_settings_validate_without_writes (self) -> None:
         paths = {}
