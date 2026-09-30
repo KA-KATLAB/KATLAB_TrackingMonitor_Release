@@ -1,7 +1,7 @@
 // v0.1.12.0 D1 (B.1): momentum strip — "am I speeding up?". Both windows
 // are client-side projections of the SERVED activity_calendar (365
-// zero-filled UTC days): this week = the LAST 7 entries (today inclusive,
-// the wrapped precedent), last week = [-14:-7] — no overlap, no gap.
+// zero-filled UTC days): selected = the LAST 7 entries, preceding =
+// [-14:-7] — no overlap, no gap. Supplied dates do not certify freshness.
 // DELTA RULE (honest, no infinities): prev>0 -> rounded pct; prev==0 &&
 // cur>0 -> "new ▲" (a percentage against zero is a lie); both 0 -> "—".
 // ▼ renders SLATE, not red — a light week is not a failure (deliberate
@@ -9,6 +9,7 @@
 // goal-rings metric palette (events teal / minutes sky / commits amber).
 
 import type { StatsData } from "./charts";
+import { calendarRangeLabel } from "./calendarDay";
 import { fmtMinutes } from "./format";
 import { SectionHeading, Surface } from "./ui";
 
@@ -62,35 +63,52 @@ function Spark ({ values, accent }: { values: number[]; accent: string }) {
 
 export function MomentumStrip ({ calendar, scope }:
   { calendar: CalDay[]; scope: string | undefined }) {
+  const selected = calendar.slice(-7);
+  const preceding = calendar.slice(-14, -7);
+  const selectedPeriod = calendarRangeLabel(selected);
+  const precedingPeriod = calendarRangeLabel(preceding);
+  const comparisonAvailable = selected.length === 7 && preceding.length === 7;
   return (
     <Surface data-reveal>
       <SectionHeading level={4} title="Momentum"
-        description={`This week vs last (UTC) — ${scope ?? "All repos"}.`} />
+        description={`Selected: ${selectedPeriod}, ${selected.length}/7 days. `
+          + `Preceding: ${precedingPeriod}, ${preceding.length}/7 days. Scope: ${scope ?? "All repos"}.`} />
+      {!comparisonAvailable && (
+        <p className="mb-3 text-xs text-slate-400">
+          Comparison unavailable: both windows need seven supplied days.
+        </p>
+      )}
       <div className="ui-local-scroller overflow-x-auto" role="region"
         aria-label="Momentum metrics" tabIndex={0}>
         <div className="grid min-w-[420px] gap-3 sm:grid-cols-3">
           {TILES.map(({ key, label, accent }) => {
             const { cur, prev } = windowSums(calendar, key);
-            const d = delta(cur, prev);
+            const d = comparisonAvailable ? delta(cur, prev) : null;
             const shown = (n: number) => (key === "minutes" ? fmtMinutes(n) : fmt(n));
+            const selectedValue = selected.length > 0 ? shown(cur) : "Unavailable";
+            const precedingValue = preceding.length > 0 ? shown(prev) : "Unavailable";
             return (
               <div key={key} className="flex items-center gap-3 rounded bg-slate-800/60 px-3 py-2"
-                title={`this week ${shown(cur)} · last week ${shown(prev)}`}>
+                title={`Selected: ${selectedValue}, ${selectedPeriod} · Preceding: ${precedingValue}, ${precedingPeriod}`}>
                 <div className="min-w-0">
                   <div className="text-[11px] text-slate-400">{label}</div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-lg font-bold text-slate-100">{shown(cur)}</span>
-                    <span className={`text-[11px] font-semibold ${
-                      d.up ? "text-teal-300" : "text-slate-400"}`}>
-                      {d.text}
-                    </span>
+                    <span className="text-lg font-bold text-slate-100">{selectedValue}</span>
+                    {d && (
+                      <span className={`text-[11px] font-semibold ${
+                        d.up ? "text-teal-300" : "text-slate-400"}`}>
+                        {d.text}
+                      </span>
+                    )}
                   </div>
-                  <div className="text-[10px] text-slate-500">last week {shown(prev)}</div>
+                  <div className="text-[10px] text-slate-500">Preceding {precedingValue}</div>
                 </div>
-                <div className="ml-auto w-full max-w-[130px]">
-                  <Spark accent={accent}
-                    values={calendar.slice(-14).map((day) => day[key])} />
-                </div>
+                {comparisonAvailable && (
+                  <div className="ml-auto w-full max-w-[130px]">
+                    <Spark accent={accent}
+                      values={calendar.slice(-14).map((day) => day[key])} />
+                  </div>
+                )}
               </div>
             );
           })}

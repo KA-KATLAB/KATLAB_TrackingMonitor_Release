@@ -13,6 +13,7 @@
 // version claim (RV3).
 
 import { RAMP, rampBucket } from "./calendarHeatmap";
+import { calendarRangeLabel } from "./calendarDay";
 import type { StatsData } from "./charts";
 import { startBlobDownload } from "./download";
 import { fmtMinutes } from "./format";
@@ -23,13 +24,6 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const fmt = (n: number) => n.toLocaleString("en-US");
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-function dateRangeLabel (rows: readonly { day: string }[]): string {
-  if (rows.length === 0) return "Dates unavailable (UTC)";
-  const first = rows[0].day;
-  const last = rows[rows.length - 1].day;
-  return first === last ? `${first} (UTC)` : `${first} to ${last} (UTC)`;
-}
 
 const CARD = "border:1px solid #334155;border-radius:8px;padding:12px 16px;margin:10px 0;background:#0f172a";
 const H2 = "font-size:14px;margin:20px 0 4px;color:#e2e8f0";
@@ -78,8 +72,8 @@ export function buildReportHtml (stats: StatsData, scope: string | undefined,
   const cal = stats.activity_calendar;
   const tail = cal.slice(-range);
   const prior = cal.slice(-2 * range, -range);
-  const selectedPeriod = dateRangeLabel(tail);
-  const priorPeriod = dateRangeLabel(prior);
+  const selectedPeriod = calendarRangeLabel(tail);
+  const priorPeriod = calendarRangeLabel(prior);
   const hasCalendar = tail.length > 0;
   const comparisonAvailable = tail.length === range && prior.length === range;
   const scopeLabel = scope ?? "All repos";
@@ -164,7 +158,7 @@ export function buildReportHtml (stats: StatsData, scope: string | undefined,
 
   // WRAPPED (7d report only, with its own supplied snapshot dates).
   const w = stats.wrapped;
-  const wrappedPeriod = dateRangeLabel(w.days);
+  const wrappedPeriod = calendarRangeLabel(w.days);
   const wrappedDayRows = w.days.map((day) =>
     `<tr><th scope="row">${esc(day.day)}</th><td>${fmt(day.events)}</td>` +
     `<td>${fmtMinutes(day.minutes)}</td></tr>`).join("");

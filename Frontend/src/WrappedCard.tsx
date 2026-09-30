@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Task } from "./api";
 import type { StatsData } from "./charts";
+import { calendarRangeLabel } from "./calendarDay";
 import { streakOf } from "./calendarHeatmap";
 import { DialogShell } from "./dialog";
 import { fmtMinutes } from "./format";
@@ -16,14 +17,17 @@ export function WrappedCard ({
   tasks: Task[];
   onClose: () => void;
 }): JSX.Element {
-  // The story is a static snapshot. Close/reopen is its explicit refresh.
+  // Hold already accepted data. Reopening adopts the latest passed snapshot.
   const [snapshot] = useState(() => ({
     wrapped: stats.wrapped,
-    streak: streakOf(stats.activity_calendar),
+    streak: stats.activity_calendar.length > 0 ? streakOf(stats.activity_calendar) : null,
     tasks,
   }));
   const wrapped = snapshot.wrapped;
-  const empty = wrapped.days.every((day) => day.events === 0);
+  const hasDays = wrapped.days.length > 0;
+  const zeroCaptureEvents = hasDays && wrapped.days.every((day) => day.events === 0);
+  const period = calendarRangeLabel(wrapped.days);
+  const coverage = `${wrapped.days.length}/7 days`;
   const maxDay = Math.max(1, ...wrapped.days.map((day) => day.events));
   const top = wrapped.top_task;
   const topTitle = top
@@ -34,19 +38,20 @@ export function WrappedCard ({
 
   return (
     <DialogShell
-      title="Your week ✨"
-      description="Last 7 days (UTC), captured when this dialog opened."
+      title="Weekly snapshot"
+      description={`${period}, ${coverage}. Already accepted data is held while this dialog is open.`}
       onClose={onClose}
       backdropClose
       closeLabel="Close weekly wrapped"
       panelClassName="max-w-lg"
     >
       <div className="space-y-4 text-sm">
-        {empty && <p className="text-ui-muted">A quiet week — nothing captured.</p>}
-        {!empty && (
+        {!hasDays && <p className="text-ui-muted">Weekly day data is unavailable.</p>}
+        {zeroCaptureEvents && <p className="text-ui-muted">No capture events in this snapshot.</p>}
+        {hasDays && (
           <>
             <figure>
-              <figcaption className="sr-only">Events per day, last 7 UTC days</figcaption>
+              <figcaption className="sr-only">Events per day: {period}, {coverage}</figcaption>
               <div className="flex min-w-0 items-end gap-1.5" aria-hidden="true">
                 {wrapped.days.map((day) => (
                   <div key={day.day} className="flex min-w-0 flex-1 flex-col items-center gap-1">
@@ -67,7 +72,7 @@ export function WrappedCard ({
             <DisclosureTable
               label="Weekly activity"
               summary={`${wrapped.days.reduce((sum, day) => sum + day.events, 0).toLocaleString("en-US")} `
-                + "events across the last seven UTC days."}
+                + `events across ${period}, ${coverage}.`}
               rows={wrapped.days}
               rowKey={(day) => day.day}
               identity={["weekly-wrapped-days", ...wrapped.days.map((day) => day.day)]}
@@ -79,69 +84,69 @@ export function WrappedCard ({
                   cellClassName: "text-right tabular-nums", headerClassName: "text-right" },
               ]}
             />
-            {top && (
-              <div>
-                <div className="text-xs uppercase tracking-wide text-ui-muted">Top task</div>
-                <div className="break-words font-semibold text-sky-300">{topTitle}</div>
-                <div
-                  className="break-words text-xs text-ui-muted"
-                  title="estimated from capture timestamps — 15-min gap rule"
-                >
-                  {top.repo} · {fmtMinutes(top.minutes)} · {top.sessions} session
-                  {top.sessions === 1 ? "" : "s"}
-                </div>
-              </div>
-            )}
-            <div className="grid grid-cols-1 gap-3 text-center sm:grid-cols-3">
-              <div className="rounded-panel border border-ui-border bg-ui-raised/60 p-2">
-                <div className="text-xl font-bold tabular-nums text-ui-text">
-                  {wrapped.files_touched}
-                </div>
-                <div className="text-xs text-ui-muted">files touched</div>
-              </div>
-              <div className="rounded-panel border border-ui-border bg-ui-raised/60 p-2">
-                <div className="text-xl font-bold tabular-nums text-ui-text">
-                  {wrapped.commits}
-                </div>
-                <div className="text-xs text-ui-muted">commits</div>
-              </div>
-              <div className="rounded-panel border border-ui-border bg-ui-raised/60 p-2">
-                <div className="text-xl font-bold tabular-nums text-amber-300">
-                  {snapshot.streak >= 2 ? "🔥 " + snapshot.streak : "—"}
-                </div>
-                <div
-                  className="text-xs text-ui-muted"
-                  title="consecutive UTC days with captured activity"
-                >
-                  day streak
-                </div>
-              </div>
-            </div>
-            {wrapped.busiest_hour && (
-              <div className="break-words text-xs text-slate-300">
-                <span className="text-ui-muted">Busiest hour: </span>
-                <span className="font-semibold">
-                  {DAYS[wrapped.busiest_hour.dow]}{" "}
-                  {String(wrapped.busiest_hour.hour).padStart(2, "0")}:00
-                </span>
-                <span className="text-ui-muted">
-                  {" "}(local time) — {wrapped.busiest_hour.events} events
-                </span>
-              </div>
-            )}
-            {wrapped.top_pair && (
-              <div className="break-words text-xs text-slate-300">
-                <span className="text-ui-muted">Pair of the week: </span>
-                <span className="break-all font-mono">{wrapped.top_pair.file_a}</span>
-                <span className="text-ui-muted"> ↔ </span>
-                <span className="break-all font-mono">{wrapped.top_pair.file_b}</span>
-                <span className="text-ui-muted">
-                  {" "}— together in {wrapped.top_pair.shared} task
-                  {wrapped.top_pair.shared === 1 ? "" : "s"} ({wrapped.top_pair.repo})
-                </span>
-              </div>
-            )}
           </>
+        )}
+        {top && (
+          <div>
+            <div className="text-xs uppercase tracking-wide text-ui-muted">Top task</div>
+            <div className="break-words font-semibold text-sky-300">{topTitle}</div>
+            <div
+              className="break-words text-xs text-ui-muted"
+              title="estimated from capture timestamps — 15-min gap rule"
+            >
+              {top.repo} · {fmtMinutes(top.minutes)} · {top.sessions} session
+              {top.sessions === 1 ? "" : "s"}
+            </div>
+          </div>
+        )}
+        <div className="grid grid-cols-1 gap-3 text-center sm:grid-cols-3">
+          <div className="rounded-panel border border-ui-border bg-ui-raised/60 p-2">
+            <div className="text-xl font-bold tabular-nums text-ui-text">
+              {wrapped.files_touched}
+            </div>
+            <div className="text-xs text-ui-muted">files touched</div>
+          </div>
+          <div className="rounded-panel border border-ui-border bg-ui-raised/60 p-2">
+            <div className="text-xl font-bold tabular-nums text-ui-text">
+              {wrapped.commits}
+            </div>
+            <div className="text-xs text-ui-muted">commits</div>
+          </div>
+          <div className="rounded-panel border border-ui-border bg-ui-raised/60 p-2">
+            <div className="text-xl font-bold tabular-nums text-amber-300">
+              {snapshot.streak === null ? "Unavailable" : snapshot.streak >= 2 ? "🔥 " + snapshot.streak : "—"}
+            </div>
+            <div
+              className="text-xs text-ui-muted"
+              title="consecutive UTC days with captured activity in the calendar snapshot"
+            >
+              calendar snapshot streak
+            </div>
+          </div>
+        </div>
+        {wrapped.busiest_hour && (
+          <div className="break-words text-xs text-slate-300">
+            <span className="text-ui-muted">Busiest hour: </span>
+            <span className="font-semibold">
+              {DAYS[wrapped.busiest_hour.dow]}{" "}
+              {String(wrapped.busiest_hour.hour).padStart(2, "0")}:00
+            </span>
+            <span className="text-ui-muted">
+              {" "}(server-local time) — {wrapped.busiest_hour.events} events
+            </span>
+          </div>
+        )}
+        {wrapped.top_pair && (
+          <div className="break-words text-xs text-slate-300">
+            <span className="text-ui-muted">Pair of the week: </span>
+            <span className="break-all font-mono">{wrapped.top_pair.file_a}</span>
+            <span className="text-ui-muted"> ↔ </span>
+            <span className="break-all font-mono">{wrapped.top_pair.file_b}</span>
+            <span className="text-ui-muted">
+              {" "}— together in {wrapped.top_pair.shared} task
+              {wrapped.top_pair.shared === 1 ? "" : "s"} ({wrapped.top_pair.repo})
+            </span>
+          </div>
         )}
       </div>
     </DialogShell>

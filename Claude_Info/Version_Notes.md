@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.3.1.30 — Weekly Snapshot Visibility (2026-10-01)
+
+- Momentum labels selected and preceding UTC periods with supplied coverage.
+  Missing sides are Unavailable; incomplete pairs suppress deltas and split
+  sparklines. Full-window calculations, formatters and local scrolling remain.
+- Weekly snapshot holds already accepted data while open and names its own
+  dates. Missing days differ from zero capture events. Zero-day chart/table
+  values remain available, and commits/files/top facts no longer disappear
+  merely because no capture events exist. Absent calendar streak is unavailable.
+- Shared calendar-range labels reuse the existing report algorithm unchanged.
+  Daily labels, report output, dialog ownership and backend contracts are intact.
+- Actual-component SSR and controlled hook/shell checks do not establish native
+  browser layout, keyboard, focus, assistive-technology or download behavior.
+
 ## v0.3.1.29 — Report Snapshot Dates (2026-10-01)
 
 - Exported reports name the supplied selected and preceding UTC windows,

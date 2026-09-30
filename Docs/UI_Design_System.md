@@ -654,6 +654,17 @@ For long content, do preserve the full path in selectable/wrapping text or an op
   remain measured zeros. Keep all-time sections, synchronous downloads and
   scope-safe generated filenames unchanged; exporting never fetches fresh stats.
 - Keep exact values in tables, accessible names, or tooltips when a compact visual abbreviates them.
+- Interactive Momentum names the selected and preceding supplied UTC periods
+  and their coverage out of seven rows. Missing sides are unavailable; partial
+  sides retain supplied sums. Delta chips and split sparklines require two
+  complete windows. Keep the local scroller and full-window calculation rules.
+- Weekly snapshot holds the already accepted data while open, not a fresh fetch.
+  Use its own wrapped-day bounds and coverage for descriptions and exact-data
+  summaries. Absent days differ from measured zero capture events. Available
+  zero days still have a chart and table; supplied commits, files and nullable
+  top facts remain visible independently of capture counts. Missing calendar
+  streak is unavailable; an available streak describes its calendar snapshot,
+  not current-day activity. Busiest-hour time remains server-local.
 - Use locale-aware thousands separators for human-facing counts and tabular figures for changing columns.
 - Empty denominators render an honest empty/zero state; never display `NaN`, `Infinity`, or a percentage against an undefined basis.
 
