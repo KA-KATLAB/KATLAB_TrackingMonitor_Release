@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.3.1.20 — Frontend Sanitizer Patch (2026-10-01)
+
+- Patch the frontend's transitive DOMPurify from 3.4.15 to 3.4.16 for
+  GHSA-p98j-92pf-mc4p. Only that lock entry's version, registry URL and integrity
+  change; Mermaid 11.17.2, its dependency range and every other entry remain.
+- Keep strict nested-lazy Mermaid and existing graph/SVG consumers unchanged.
+  The reviewed application path does not show the advisory's IN_PLACE plus
+  node-removing hook combination; this is dependency remediation, not evidence
+  of an exploited application or proof of complete security.
+- Frontend audit/install/build checks are distinct from GitHub default-branch
+  alerts and Chronicle's separately pinned Mermaid asset, which is unchanged.
+  Native browser rendering/sanitizer exploit checks remain unrun.
+
 ## v0.3.1.19 — WebSocket Lifecycle Ownership (2026-10-01)
 
 - Dispose the pending reconnect timer when a live subscription is cleaned up,
