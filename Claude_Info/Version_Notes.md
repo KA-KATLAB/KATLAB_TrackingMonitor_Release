@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.3.1.13 — Commit Draft Recovery (2026-10-01)
+
+- Commit-draft copy distinguishes copied, empty captured window, unavailable
+  clipboard and failed write. A deadline separately bounds observation when a
+  browser clipboard promise does not settle; it cannot cancel native writing.
+- One App-level owner guards both StatusBar and palette actions. A persistent,
+  wrapped failure note identifies the repo and recovery; timeout warns that
+  the browser may still finish and asks users to check before retrying.
+- Draft composition and the global 500-event snapshot remain unchanged. Copy
+  starts synchronously from the click; there is no extra fetch, clipboard read,
+  permissions query or automatic retry.
+- Controlled request/SSR checks are not actual browser clipboard, keyboard,
+  viewport or assistive-technology verification.
+
 ## v0.3.1.12 — Day Lanes DST Replay (2026-09-30)
 
 - Sparse Day Lanes and replay use the selected local day's actual elapsed

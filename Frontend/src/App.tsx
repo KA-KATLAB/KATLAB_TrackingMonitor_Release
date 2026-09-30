@@ -24,6 +24,9 @@ import { notifyPickNeeded, notifyRelease, notifyStatusChange, notifyWanted, noti
 import { playChime, playFanfare, playTick, setSoundEnabled, soundWanted } from "./sound";
 import { readPreference, writePreference } from "./preferences";
 import { copyCommitDraft } from "./draft";
+import { DraftFeedback } from "./draftFeedback";
+import { draftCopyMessage, runDraftCopy } from "./draftRequest";
+import type { DraftCopyResult } from "./draftRequest";
 import type { StatsData } from "./charts";
 import { useReveal } from "./reveal";
 import {
@@ -1221,13 +1224,38 @@ export default function App () {
       setSoundBusy(false);
     });
   }, [announceStatus, soundOn]);
-  // v0.2.9.0 D2/D3 (A.2, R-BL): the commit-draft action — clipboard
-  // only, forever (the click is the gesture); the inline note rides
-  // the digestNote recipe (~3s, repo-keyed).
-  const [draftNote, setDraftNote] = useState<{ repo: string; ok: boolean; n: number } | null>(null);
-  const [draftBusyRepos, setDraftBusyRepos] = useState<Set<string>>(new Set());
-  const draftBusyRef = useRef<Set<string>>(new Set());
+  // One clipboard observer at a time; native writes cannot be canceled.
+  const [draftNote, setDraftNote] = useState<{
+    repo: string; result: DraftCopyResult; n: number; scopeKey: string;
+  } | null>(null);
+  const [draftBusyRepo, setDraftBusyRepo] = useState<string | null>(null);
+  const draftOwnerRef = useRef<{ repo: string; scopeKey: string; action: ActionDeadline } | null>(null);
+  const draftMountedRef = useRef(false);
+  const draftScopeRef = useRef(currentScopeKey);
+  draftScopeRef.current = currentScopeKey;
+  const draftNoteTimerRef = useRef<number | null>(null);
   const draftNoteN = useRef(0);
+  useEffect(() => {
+    draftMountedRef.current = true;
+    return () => {
+      draftMountedRef.current = false;
+      const owner = draftOwnerRef.current;
+      draftOwnerRef.current = null;
+      owner?.action.controller.abort();
+      owner?.action.clear();
+      if (draftNoteTimerRef.current !== null) window.clearTimeout(draftNoteTimerRef.current);
+    };
+  }, []);
+  useEffect(() => {
+    const owner = draftOwnerRef.current;
+    if (owner && owner.scopeKey !== currentScopeKey) {
+      draftOwnerRef.current = null;
+      owner.action.controller.abort();
+      owner.action.clear();
+      setDraftBusyRepo(null);
+    }
+    setDraftNote((current) => current?.scopeKey === currentScopeKey ? current : null);
+  }, [currentScopeKey]);
   // v0.2.10.0 D8 (A.3c, R-BO): the odometer moment — nonce-compare
   // timer (the v0.2.9.0 CFT-2 law); dies by its own 8s clock, immune
   // to the outside-click toast clear (that handler clears TOASTS only).
@@ -1248,33 +1276,38 @@ export default function App () {
     setOdoNote((current) => current?.animate ? { ...current, animate: false } : current);
   }, [reducedMotion]);
   const doDraft = useCallback((repoId: string) => {
-    if (draftBusyRef.current.has(repoId)) return;
-    draftBusyRef.current.add(repoId);
-    setDraftBusyRepos(new Set(draftBusyRef.current));
-    void copyCommitDraft(repoId, events, tasks).then((ok) => {
-      // CFT-2: NONCE-compare clear (the celebration law) — a repo-keyed
-      // compare let a rapid re-click's note be cleared EARLY by the
-      // first click's timer.
-      const n = ++draftNoteN.current;
-      setDraftNote({ repo: repoId, ok, n });
-      announceStatus(ok
-        ? `Commit draft for ${repoId} copied.`
-        : `Commit draft for ${repoId} could not be copied.`);
-      window.setTimeout(() => {
-        setDraftNote((cur) => (cur && cur.n === n ? null : cur));
-      }, 3000);
-    }, (errorValue) => {
-      const n = ++draftNoteN.current;
-      setDraftNote({ repo: repoId, ok: false, n });
-      announceStatus(`Commit draft for ${repoId} failed: ${String(errorValue).slice(0, 80)}.`);
-      window.setTimeout(() => {
-        setDraftNote((cur) => (cur && cur.n === n ? null : cur));
-      }, 3000);
-    }).finally(() => {
-      draftBusyRef.current.delete(repoId);
-      setDraftBusyRepos(new Set(draftBusyRef.current));
+    if (!draftMountedRef.current || draftOwnerRef.current
+        || draftScopeRef.current !== currentScopeKey) return;
+    if (draftNoteTimerRef.current !== null) window.clearTimeout(draftNoteTimerRef.current);
+    draftNoteTimerRef.current = null;
+    setDraftNote(null);
+    const owner = { repo: repoId, scopeKey: currentScopeKey, action: createActionDeadline() };
+    draftOwnerRef.current = owner;
+    setDraftBusyRepo(repoId);
+    announceStatus(`Copying commit draft for ${repoId}.`);
+    const isCurrent = () => draftMountedRef.current && draftOwnerRef.current === owner
+      && draftScopeRef.current === owner.scopeKey;
+    void runDraftCopy({
+      action: owner.action,
+      copy: () => copyCommitDraft(repoId, events, tasks),
+      isCurrent,
+      onResult: (result) => {
+        const n = ++draftNoteN.current;
+        setDraftNote({ repo: repoId, result, n, scopeKey: owner.scopeKey });
+        announceStatus(draftCopyMessage(repoId, result));
+        if (result === "copied") {
+          draftNoteTimerRef.current = window.setTimeout(() => {
+            draftNoteTimerRef.current = null;
+            setDraftNote((current) => current?.n === n ? null : current);
+          }, 3_000);
+        }
+      },
+      onSettled: () => {
+        draftOwnerRef.current = null;
+        setDraftBusyRepo(null);
+      },
     });
-  }, [announceStatus, events, tasks]);
+  }, [announceStatus, currentScopeKey, events, tasks]);
 
   const lastInputRef = useRef(Date.now());
   const [attractOn, setAttractOn] = useState(
@@ -1769,7 +1802,7 @@ export default function App () {
     ...repos.filter((r) => !r.offline && r.count > 0).map((r) => ({
       id: paletteEntryId("action", "copy-draft", r.id),
       section: "Actions", label: `Copy commit draft — ${r.id}`,
-      disabledReason: draftBusyRepos.has(r.id) ? `Commit draft for ${r.id} is being copied.` : undefined,
+      disabledReason: draftBusyRepo !== null ? `Commit draft for ${draftBusyRepo} is being copied.` : undefined,
       run: () => void doDraft(r.id),
     } as PaletteEntry)),
     // v0.2.9.0 D5 (C.1, R-BM): the attract opt-out (the visible-effect
@@ -2014,13 +2047,20 @@ export default function App () {
           </div>
           <StatusBar repos={visibleRepos} scopeKeyValue={currentScopeKey}
             violationOf={violationOf} burst={burst}
-            onDraft={doDraft} draftNote={draftNote} draftBusyRepos={draftBusyRepos} />
+            onDraft={doDraft} draftBusyRepo={draftBusyRepo} />
           <div className="hidden shrink-0 items-center gap-2 sm:flex">
             <ComboMeter count={comboCount} lastMs={comboLastMsRef.current} burst={comboBurst} />
             <FlowChip count={comboCount} startMs={comboStartMsRef.current}
               lastMs={comboLastMsRef.current} />
           </div>
         </div>
+        {draftNote?.scopeKey === currentScopeKey && (
+          <DraftFeedback repo={draftNote.repo} result={draftNote.result}
+            onDismiss={() => {
+              setDraftNote(null);
+              mainRef.current?.focus({ preventScroll: true });
+            }} />
+        )}
         {digestNote && <p className="hidden text-xs text-amber-300 lg:block">{digestNote}</p>}
         {Object.entries(preferenceFailures).map(([key, message]) => message
           ? <p key={key} className={`${moreOpen ? "hidden lg:block " : ""}mt-1 break-words text-xs text-amber-300`}>{message}</p>
@@ -2429,19 +2469,16 @@ function ViewNavigation ({
 
 // Status bar: CLEAN / N uncommitted / OFFLINE (F46) + capture heartbeat (D9)
 // + v0.1.5.0 D3 discipline micro-chip (absent when exactly 1 in-progress).
-function StatusBar ({ repos, scopeKeyValue, violationOf, burst, onDraft, draftNote,
-  draftBusyRepos }:
+function StatusBar ({ repos, scopeKeyValue, violationOf, burst, onDraft, draftBusyRepo }:
   { repos: Repo[]; violationOf: (repoId: string) => number | null;
     scopeKeyValue: string;
     // v0.1.7.0 D6 (C.3): burst nonce — the matching repo's CLEAN chip
     // renders the particle burst; naturally skipped when the chip is not
     // rendered (other tab / repo currently dirty).
     burst: { repo: string; n: number } | null;
-    // v0.2.9.0 A.2 (R-BL): the commit-draft chip (dirty repos only) +
-    // its repo-keyed inline note (the digestNote recipe).
+    // Draft feedback is App-level so palette targets outside this scope remain visible.
     onDraft: (repoId: string) => void;
-    draftNote: { repo: string; ok: boolean; n: number } | null;
-    draftBusyRepos: ReadonlySet<string> }) {
+    draftBusyRepo: string | null }) {
   const pager = useRememberedBoundedPage("status-bar", {
     identity: ["status-bar", scopeKeyValue],
     totalItems: repos.length,
@@ -2496,17 +2533,13 @@ function StatusBar ({ repos, scopeKeyValue, violationOf, burst, onDraft, draftNo
             {!r.offline && !r.clean && ( /* v0.2.9.0 A.2 (R-BL): the
                 draft chip — composes the commit message from this
                 repo's KNOWN attribution; clipboard only, forever. */
-              <button onClick={() => onDraft(r.id)} disabled={draftBusyRepos.has(r.id)}
-                aria-busy={draftBusyRepos.has(r.id)}
-                title="copy a commit-message draft composed from this repo's uncommitted attribution"
+              <button onClick={() => onDraft(r.id)} disabled={draftBusyRepo !== null}
+                aria-busy={draftBusyRepo === r.id}
+                title={draftBusyRepo !== null ? `Commit draft for ${draftBusyRepo} is being copied.`
+                  : "copy a commit-message draft composed from this repo's uncommitted attribution"}
                 className="rounded bg-slate-700 px-1.5 py-0.5 text-[11px] text-slate-200 hover:bg-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-40">
-                {draftBusyRepos.has(r.id) ? "copying…" : "draft 📋"}
+                {draftBusyRepo === r.id ? "copying…" : draftBusyRepo !== null ? "copying elsewhere" : "draft 📋"}
               </button>
-            )}
-            {draftNote?.repo === r.id && (
-              <span className={`text-[11px] ${draftNote.ok ? "text-emerald-300" : "text-amber-300"}`}>
-                {draftNote.ok ? "copied ✓" : "clipboard blocked ✗"}
-              </span>
             )}
             {violation !== null && (
               <span title="Discipline: keep exactly ONE task in-progress — new undeclared edits will land in the pick queue (Docs/Tracking_Discipline.md)"

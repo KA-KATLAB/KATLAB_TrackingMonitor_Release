@@ -44,18 +44,20 @@ export function buildCommitDraft (repoId: string, events: TrackedEvent[],
   return `KATLAB ${tag}: ${VER} - ${summary} - ${VER}`;
 }
 
-/** D3/RV10: feature-detected clipboard — node/absent/denied resolves
- *  FALSE, never throws (the caller shows the inline failure note; the
- *  button click is the required user gesture). */
+export type DraftCopyOutcome = "copied" | "empty" | "unavailable" | "failed";
+
+/** Start exactly one native write in the original user gesture; never infer denial. */
 export async function copyCommitDraft (repoId: string,
-  events: TrackedEvent[], tasks: Task[]): Promise<boolean> {
+  events: TrackedEvent[], tasks: Task[]): Promise<DraftCopyOutcome> {
   const draft = buildCommitDraft(repoId, events, tasks);
-  if (draft === "") return false;
-  if (typeof navigator === "undefined" || !navigator.clipboard) return false;
+  if (draft === "") return "empty";
   try {
-    await navigator.clipboard.writeText(draft);
-    return true;
+    if (typeof navigator === "undefined") return "unavailable";
+    const clipboard = navigator.clipboard;
+    if (!clipboard || typeof clipboard.writeText !== "function") return "unavailable";
+    await clipboard.writeText(draft);
+    return "copied";
   } catch {
-    return false;
+    return "failed";
   }
 }

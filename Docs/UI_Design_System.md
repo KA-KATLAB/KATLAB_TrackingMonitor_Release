@@ -466,6 +466,24 @@ Do not:
 - Validate after blur or submit, preserve entered values, and state cause plus recovery.
 - Disable every mutable control during a batch action and expose `aria-busy` where appropriate.
 - Prevent silent duplicate submission for assignments, reads, graphs, exports, clipboard, permission, sound, and notification actions.
+- Commit-draft copy keeps the existing global captured-event window and starts
+  one `writeText` call synchronously in the user gesture, with no extra fetch or
+  clipboard read. Report distinct copied, empty-window, unavailable and failed
+  outcomes; an empty draft is not a blocked clipboard. One App-level owner
+  prevents overlapping StatusBar/palette copy observers across repositories.
+  The shared 10-second deadline bounds observation only: a timed-out native
+  write may still finish. Never claim cancellation, automatically retry or
+  promise last-click-wins clipboard ordering. Keep a wrapped repo-labelled
+  failure note visible at every shell width until another draft, scope change
+  or Dismiss; timeout asks users to check the clipboard before retrying. The
+  note is not a second live region and never takes focus on appearance.
+  Bound failure details to min(8rem,25dvh) in a labelled keyboard-scrollable
+  region, with Dismiss outside it. Successful notes are passive, start with
+  the copied outcome, clamp long text to two lines and clear after three
+  seconds; their full text remains in the existing announcer. Other-repo
+  disabled draft controls visibly say "copying elsewhere", not just in a title.
+  Failure notes alone have Dismiss. Explicit dismissal returns focus to the
+  main-content region rather than leaving focus on a removed button.
 - Browser preference storage is optional. Guard both the storage getter and
   reads/writes; keep existing defaults when reading fails. A failed save keeps
   the current visual choice but must show visible feedback and announce that
