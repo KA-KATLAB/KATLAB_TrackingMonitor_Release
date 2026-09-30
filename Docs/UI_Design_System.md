@@ -201,6 +201,19 @@ All modal dialogs and drawers use the shared portal-based dialog foundation. It 
 
 Command Palette, File Story, Session Timeline, Health, Wrapped, relationship-graph expansion, task drawer, and Focus Mode use this foundation. Focus Mode keeps its explicit-close fullscreen behavior.
 
+System health is a manually refreshed snapshot, not a live stream. Its stable
+Refresh/Retry control remains disabled while a single request is pending;
+closing stays available and silently cancels that request. Keep the last
+successful response during refresh/failure and label it explicitly. Show its
+local browser receipt time, update it only on an accepted response, and base
+the displayed uptime on that receipt time. This is not a server observation
+timestamp or freshness guarantee. Health requests bypass browser cache.
+
+Health's polite atomic status region lives inside the modal, outside the
+inert application root. Do not rely only on the background status announcer
+or mark the local status region busy while announcing a request. Refresh
+does not programmatically move focus or replace the action button node.
+
 More, Attention, Legend, and goal settings are disclosures, not ARIA menus. Use `aria-expanded` and `aria-controls` with ordinary buttons/links. Escape/outside close restores the connected opener. During disclosure-to-disclosure or disclosure-to-dialog handoff, suppress outgoing focus restoration until the destination owns focus. Never leave two header disclosures open.
 
 Do:

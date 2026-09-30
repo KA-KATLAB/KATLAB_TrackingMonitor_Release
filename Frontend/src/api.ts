@@ -354,7 +354,7 @@ async function call<T> (url: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   repos: (signal?: AbortSignal) => call<Repo[]>("/api/repos", { signal }),
-  health: (signal?: AbortSignal) => call<HealthPayload>("/api/health", { signal }), // v0.2.3.0 D2 (B.2)
+  health: (signal?: AbortSignal) => call<HealthPayload>("/api/health", { signal, cache: "no-store" }),
   tasks: (repo?: string, signal?: AbortSignal) => {
     const q = new URLSearchParams();
     if (repo) q.set("repo", repo);

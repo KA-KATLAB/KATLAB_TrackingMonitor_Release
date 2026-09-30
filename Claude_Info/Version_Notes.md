@@ -1,5 +1,17 @@
 # Version Notes
 
+## v0.3.1.6 — System Health Refresh (2026-09-30)
+
+- Sys can explicitly refresh its health snapshot without closing the dialog.
+  The last successful response remains visible during refresh or failure,
+  with clear retained-data feedback and a browser receipt timestamp.
+- Health requests bypass browser cache, settle at the existing 10-second
+  deadline, and ignore stale completions after timeout or close. No polling.
+- A modal-local polite status region announces results outside the inert
+  application background. Snapshot uptime uses its receipt time, not a later
+  rerender clock. Actual browser/assistive-technology interaction remains a
+  separate verification limit, not a claim made from SSR or HTTP checks.
+
 ## v0.3.1.5 — Browser Preference Recovery (2026-09-30)
 
 - Optional browser storage failures no longer escape from startup preferences

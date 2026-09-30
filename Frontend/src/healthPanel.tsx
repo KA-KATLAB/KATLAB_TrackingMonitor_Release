@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { api, createActionDeadline, isAbortError } from "./api";
+import { api, createActionDeadline } from "./api";
 import type { HealthPayload } from "./api";
 import { DialogShell } from "./dialog";
 import { fmtMinutes, fmtRel, fmtTs } from "./format";
 import { decodeChronicleHealth, hookRegistrationLabel } from "./healthModel";
+import { startHealthRequest } from "./healthRequest";
 import { CollectionPager, useBoundedPage } from "./ui";
 
 function fmtBytes (bytes: number): string {
@@ -28,7 +29,10 @@ function Row ({
   );
 }
 
-export function HealthBody ({ data }: { data: HealthPayload }): JSX.Element {
+export function HealthBody ({ data, receivedAt }: {
+  data: HealthPayload;
+  receivedAt: string;
+}): JSX.Element {
   const { server, repos, activity, providers } = data;
   const chronicle = decodeChronicleHealth(data);
   const activityAvailable = activity !== undefined && activity !== null;
@@ -52,7 +56,7 @@ export function HealthBody ({ data }: { data: HealthPayload }): JSX.Element {
     ? "text-ui-muted" : "text-amber-300";
   const watchersOk = server.watchers_alive === server.watchers_total;
   const uptimeMin = Math.max(0, Math.round(
-    (Date.now() - new Date(server.started_ts).getTime()) / 60_000,
+    (new Date(receivedAt).getTime() - new Date(server.started_ts).getTime()) / 60_000,
   ));
   const pager = useBoundedPage({
     identity: ["health-repos"],
@@ -206,42 +210,80 @@ export function HealthButton ({ onClick }: { onClick: () => void }): JSX.Element
   );
 }
 
+export interface HealthSnapshot {
+  data: HealthPayload;
+  receivedAt: string;
+}
+
+export function HealthSnapshotContent ({ snapshot, error, busy, onRefresh }: {
+  snapshot: HealthSnapshot | null;
+  error: string;
+  busy: boolean;
+  onRefresh: () => void;
+}): JSX.Element {
+  const status = busy
+    ? snapshot ? "Refreshing system health; showing the last successful response." : "Loading system health."
+    : error ? `${error} Retry is available.${snapshot ? " Showing the last successful response." : ""}`
+    : snapshot ? `System health updated. Received locally: ${fmtTs(snapshot.receivedAt)}.` : "";
+  return (
+    <>
+      <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{status}</p>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="min-w-0 break-words text-xs text-ui-muted">
+          {snapshot ? <>Received locally: <time dateTime={snapshot.receivedAt}>
+            {fmtTs(snapshot.receivedAt)}</time></> : "No health response received yet."}
+        </p>
+        <button type="button" className="ui-control shrink-0 bg-ui-raised"
+          disabled={busy} aria-busy={busy} onClick={onRefresh}>
+          {busy ? snapshot ? "Refreshing…" : "Loading…" : error ? "Retry" : "Refresh"}
+        </button>
+      </div>
+      {error && (
+        <div className="mb-3 rounded-control border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">
+          <p className="break-words">{error}</p>
+        </div>
+      )}
+      {snapshot && (busy || error) && (
+        <p className="mb-3 text-xs text-amber-300">
+          {busy ? "Refreshing. " : "Refresh failed. "}
+          Showing the last successful response; it has not been updated.
+        </p>
+      )}
+      {busy && !snapshot && <p className="text-xs text-ui-muted">Loading system health…</p>}
+      {snapshot && <HealthBody data={snapshot.data} receivedAt={snapshot.receivedAt} />}
+    </>
+  );
+}
+
 export function HealthModal ({ onClose, onStatus }: {
   onClose: () => void;
   onStatus: (message: string) => void;
 }): JSX.Element {
-  const [data, setData] = useState<HealthPayload | null>(null);
+  const [snapshot, setSnapshot] = useState<HealthSnapshot | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
   const [retryNonce, setRetryNonce] = useState(0);
   const retryPendingRef = useRef(false);
 
   useEffect(() => {
-    let alive = true;
-    const action = createActionDeadline();
-    retryPendingRef.current = false;
+    retryPendingRef.current = true;
     setBusy(true);
     setError("");
-    void api.health(action.signal).then((payload) => {
-      if (!alive || action.signal.aborted) return;
-      setData(payload);
-      if (retryNonce > 0) onStatus("System health recovered.");
-    }, (errorValue) => {
-      if (!alive || (isAbortError(errorValue) && !action.didTimeout())) return;
-      const message = action.didTimeout()
-        ? "System health timed out after 10 seconds."
-        : `System health failed: ${String(errorValue).slice(0, 120)}`;
-      setError(message);
-      onStatus(`${message} Retry is available.`);
-    }).finally(() => {
-      action.clear();
-      if (alive) setBusy(false);
+    return startHealthRequest({
+      action: createActionDeadline(),
+      request: api.health,
+      onResult: (result) => {
+        retryPendingRef.current = false;
+        setBusy(false);
+        if (result.ok) {
+          setSnapshot({ data: result.data, receivedAt: new Date().toISOString() });
+          if (retryNonce > 0) onStatus("System health updated.");
+        } else {
+          setError(result.error);
+          onStatus(`${result.error} Retry is available.`);
+        }
+      },
     });
-    return () => {
-      alive = false;
-      action.controller.abort();
-      action.clear();
-    };
   }, [onStatus, retryNonce]);
 
   const retry = (): void => {
@@ -254,24 +296,13 @@ export function HealthModal ({ onClose, onStatus }: {
   return (
     <DialogShell
       title="System health"
-      description="Watcher, Chronicle worker, capture, and repository status at open time."
+      description="Watcher, Chronicle worker, capture, and repository snapshot. Refresh to check again."
       onClose={onClose}
       backdropClose
       closeLabel="Close system health"
       panelClassName="max-w-md"
     >
-      {error && (
-        <div className="rounded-control border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-200">
-          <p>{error}</p>
-          <button type="button" className="ui-control mt-2 bg-ui-raised"
-            disabled={busy} aria-busy={busy}
-            onClick={retry}>
-            Retry
-          </button>
-        </div>
-      )}
-      {busy && !data && <p className="text-xs text-ui-muted">Loading system health…</p>}
-      {data && <HealthBody data={data} />}
+      <HealthSnapshotContent snapshot={snapshot} error={error} busy={busy} onRefresh={retry} />
     </DialogShell>
   );
 }
