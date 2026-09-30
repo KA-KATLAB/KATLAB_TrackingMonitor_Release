@@ -217,8 +217,12 @@ does not programmatically move focus or replace the action button node.
 File Story and Session Timeline also keep a stable local polite/atomic status
 inside the active dialog. Announce loading before old data/error during retry,
 then a bounded failure with recovery or the accepted captured-row count. Zero
-rows is a successful empty result; truncated counts describe only the fetched
-window. Use the shared dialog status primitive; do not change focus or fetch
+rows is a successful empty result. A full final page means the fetch limit was
+reached, not that additional matching rows are known to exist. Describe only the
+fetched window and say "More may exist" in the local announcement and shared
+visible cap note. Use accepted row counts; do not claim complete history or
+event-timestamp ordering from an ingestion-ID-based window. Use the shared
+dialog status primitive; do not change focus or fetch
 lifecycle merely to announce a result. Keep visible error/retry feedback too.
 
 More, Attention, Legend, and goal settings are disclosures, not ARIA menus. Use `aria-expanded` and `aria-controls` with ordinary buttons/links. Escape/outside close restores the connected opener. During disclosure-to-disclosure or disclosure-to-dialog handoff, suppress outgoing focus restoration until the destination owns focus. Never leave two header disclosures open.

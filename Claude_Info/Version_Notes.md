@@ -1,5 +1,15 @@
 # Version Notes
 
+## v0.3.1.9 — Event Window Accuracy (2026-09-30)
+
+- File Story and Session Timeline describe a reached fetch limit, not proven
+  remaining history. Their shared visible note and local status say "More may
+  exist" at the cap and use the accepted captured-row count.
+- Exactly 1,500 matching events no longer trigger a false "had more" claim.
+  The three-page request bound and all filtering/lifecycle/API behavior stay.
+- Isolated API fixtures exercise 1,499/1,500/1,501 rows; SSR checks semantics
+  separately from unrun browser and assistive-technology interaction.
+
 ## v0.3.1.8 — Evidence Assignment Recovery (2026-09-30)
 
 - Assign/Clear errors are visible inside the dialog, with a local polite status

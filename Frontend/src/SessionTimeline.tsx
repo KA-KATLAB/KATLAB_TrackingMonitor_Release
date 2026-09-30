@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, createActionDeadline, isAbortError } from "./api";
 import type { TrackedEvent } from "./api";
 import { DialogShell } from "./dialog";
-import { DialogLoadStatus } from "./dialogStatus";
+import { DialogLoadStatus, EventWindowNotice } from "./dialogStatus";
 import { fmtMinutes, fmtTs } from "./format";
 import {
   EFFORT_GAP_MAX_MIN,
@@ -28,7 +28,7 @@ export function SessionTimeline ({
 }): JSX.Element {
   const [rows, setRows] = useState<TrackedEvent[] | null>(null);
   const [error, setError] = useState("");
-  const [truncated, setTruncated] = useState(false);
+  const [limitReached, setLimitReached] = useState(false);
   const [busy, setBusy] = useState(true);
   const [retryNonce, setRetryNonce] = useState(0);
   const retryPendingRef = useRef(false);
@@ -51,10 +51,10 @@ export function SessionTimeline ({
           }, action.signal);
           all.push(...page);
           if (page.length < API_PAGE) {
-            if (alive) setTruncated(false);
+            if (alive) setLimitReached(false);
             break;
           }
-          if (pageIndex === MAX_PAGES - 1 && alive) setTruncated(true);
+          if (pageIndex === MAX_PAGES - 1 && alive) setLimitReached(true);
         }
         all.sort((a, b) => a.ts.localeCompare(b.ts));
         if (alive && !action.signal.aborted) {
@@ -129,7 +129,7 @@ export function SessionTimeline ({
         ? (
           <>
             {rows.length} event{rows.length === 1 ? "" : "s"} · {fmtMinutes(effortMin)}
-            {truncated ? " (fetched window)" : ""}
+            {limitReached ? " (fetched window)" : ""}
           </>
         )
         : "Cross-repository captured activity"}
@@ -139,7 +139,7 @@ export function SessionTimeline ({
     >
       <div id="session-timeline-events" className="min-w-0 text-xs">
         <DialogLoadStatus label="Session timeline" busy={busy} error={error}
-          count={rows?.length ?? null} truncated={truncated} />
+          count={rows?.length ?? null} limitReached={limitReached} />
         {busy && !rows && <p className="text-ui-muted">Loading session timeline…</p>}
         {error && (
           <div className="rounded-control border border-rose-700 bg-rose-950/30 p-3 text-rose-200">
@@ -197,12 +197,7 @@ export function SessionTimeline ({
           className="mt-3 border-t border-ui-border pt-3"
         />
       )}
-      {truncated && (
-        <p className="mt-3 text-xs text-amber-300">
-          ⚠ Truncated: only the newest {API_PAGE * MAX_PAGES} events were fetched
-          — this session had more.
-        </p>
-      )}
+      {rows && <EventWindowNotice limitReached={limitReached} count={rows.length} />}
     </DialogShell>
   );
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, createActionDeadline, isAbortError } from "./api";
 import type { TrackedEvent } from "./api";
 import { DialogShell } from "./dialog";
-import { DialogLoadStatus } from "./dialogStatus";
+import { DialogLoadStatus, EventWindowNotice } from "./dialogStatus";
 import { ExternalLinkIcon } from "./icons";
 import { fmtMinutes, fmtTs } from "./format";
 import {
@@ -37,7 +37,7 @@ export function FileStory ({
 }: FileStoryProps): JSX.Element {
   const [rows, setRows] = useState<TrackedEvent[] | null>(null);
   const [error, setError] = useState("");
-  const [truncated, setTruncated] = useState(false);
+  const [limitReached, setLimitReached] = useState(false);
   const [busy, setBusy] = useState(true);
   const [retryNonce, setRetryNonce] = useState(0);
   const retryPendingRef = useRef(false);
@@ -60,10 +60,10 @@ export function FileStory ({
           }, action.signal);
           all.push(...page);
           if (page.length < API_PAGE) {
-            if (alive) setTruncated(false);
+            if (alive) setLimitReached(false);
             break;
           }
-          if (pageIndex === MAX_PAGES - 1 && alive) setTruncated(true);
+          if (pageIndex === MAX_PAGES - 1 && alive) setLimitReached(true);
         }
         all.sort((a, b) => a.ts.localeCompare(b.ts));
         if (alive && !action.signal.aborted) {
@@ -132,7 +132,7 @@ export function FileStory ({
           {rows.length} event{rows.length === 1 ? "" : "s"} · {fmtTs(rows[0].ts)}
           {" → "}{fmtTs(rows[rows.length - 1].ts)} · {commits} commit
           {commits === 1 ? "" : "s"} · {fmtMinutes(effortMin)}
-          {truncated ? " (fetched window)" : ""}
+          {limitReached ? " (fetched window)" : ""}
         </span>
       </>
     )
@@ -163,7 +163,7 @@ export function FileStory ({
     >
       <div id="file-story-events" className="min-w-0 text-xs">
         <DialogLoadStatus label="File story" busy={busy} error={error}
-          count={rows?.length ?? null} truncated={truncated} />
+          count={rows?.length ?? null} limitReached={limitReached} />
         {busy && !rows && <p className="text-ui-muted">Loading file story…</p>}
         {error && (
           <div className="rounded-control border border-rose-700 bg-rose-950/30 p-3 text-rose-200">
@@ -232,12 +232,7 @@ export function FileStory ({
           className="mt-3 border-t border-ui-border pt-3"
         />
       )}
-      {truncated && (
-        <p className="mt-3 text-xs text-amber-300">
-          ⚠ Truncated: only the newest {API_PAGE * MAX_PAGES} events were fetched
-          — this file had more.
-        </p>
-      )}
+      {rows && <EventWindowNotice limitReached={limitReached} count={rows.length} />}
     </DialogShell>
   );
 }

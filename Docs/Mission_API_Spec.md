@@ -254,6 +254,13 @@ the nullable fields `provider`, `turn_id`, `agent_id`, `tool_use_id`, `operation
 `plan_file`, and `task_id`. Its legacy session-only filter remains valid across
 providers.
 
+This endpoint returns rows, not a total or `has_more`. The database orders by
+ingestion ID descending, not event timestamp. A full final page at a client
+fetch cap cannot distinguish exactly that many matches from additional rows;
+File Story and Session Timeline therefore say "More may exist" at their
+three-page cap. A shorter fetched window is not a guarantee of complete history
+or snapshot-consistent offset pagination during concurrent ingestion.
+
 ## `GET /api/health` additions
 
 Existing `server` and `repos` fields remain. The data root also contains:

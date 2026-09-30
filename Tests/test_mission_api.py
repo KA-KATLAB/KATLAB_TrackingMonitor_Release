@@ -722,6 +722,54 @@ class MissionApiTests(unittest.TestCase):
         self.assertEqual(effort["sessions"], 2)
         self.assertEqual(stats["wrapped"]["top_task"]["sessions"], 2)
 
+    def test_event_window_cap_does_not_prove_more_rows (self) -> None:
+        # Each group is isolated by both exact file and provider+session filters.
+        # The fourth page is a test-only probe; production dialogs stop at three.
+        self.db_connection.executemany(
+            "INSERT INTO events "
+            "(repo_id, ts, tool, file, mode, provider, session_id) "
+            "VALUES ('Repo_A', ?, 'Edit', ?, 'B', 'codex', ?)",
+            (
+                (BASE_TS, f"src/window_{total}.py", f"window-{total}")
+                for total in (1499, 1500, 1501)
+                for _ in range(total)
+            ),
+        )
+        self.db_connection.commit()
+
+        for total in (1499, 1500, 1501):
+            file = f"src/window_{total}.py"
+            session = f"window-{total}"
+            scopes = (
+                {"repo": "Repo_A", "file": file},
+                {"provider": "codex", "session": session},
+            )
+            for scope in scopes:
+                with self.subTest(total=total, scope=scope):
+                    page_sizes = []
+                    for offset in (0, 500, 1000, 1500):
+                        response = self.client.get("/api/events", params={
+                            **scope, "limit": 500, "offset": offset,
+                        })
+                        self.assertEqual(response.status_code, 200)
+                        rows = response.json()["data"]
+                        self.assertIsInstance(rows, list)
+                        self.assertTrue(all(
+                            row["file"] == file
+                            and row["provider"] == "codex"
+                            and row["session_id"] == session
+                            for row in rows
+                        ))
+                        page_sizes.append(len(rows))
+
+                    expected = [500, 500, min(total - 1000, 500),
+                                max(total - 1500, 0)]
+                    self.assertEqual(page_sizes, expected)
+                    self.assertEqual(sum(page_sizes[:3]), min(total, 1500))
+                    self.assertEqual(page_sizes[2] == 500, total >= 1500)
+                    # 1500 and 1501 are identical within the three-page window.
+                    self.assertEqual(page_sizes[3], 1 if total == 1501 else 0)
+
     def test_health_has_independent_fixed_provider_and_activity_facts (self) -> None:
         expected = [{
             "provider": "claude", "adapter_present": True,
