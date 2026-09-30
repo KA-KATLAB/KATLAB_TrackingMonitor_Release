@@ -8,6 +8,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { api, createActionDeadline, isAbortError } from "./api";
 import type { ActionDeadline, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
 import { fmtMinutes } from "./format";
+import { calendarDayLabel } from "./calendarDay";
 import { readPreference, writePreference } from "./preferences";
 import { CalendarHeatmap, RAMP, RampLegend, streakOf } from "./calendarHeatmap";
 import { Skyline } from "./skyline";
@@ -499,9 +500,8 @@ function KpiRow ({ stats, repos, uncommitted }:
   const needsPick = uncommitted.filter((e) => e.mode === "AMBIGUOUS" || e.mode === "UNKNOWN").length;
   const clean = repos.filter((r) => r.clean).length;
   const uncommittedSum = repos.reduce((n, r) => n + r.count, 0);
-  // v0.1.6.0 D1 (C.1): today's effort = the calendar's LAST (UTC) day —
-  // no extra stats key; label carries the (UTC) day-basis marker (RV18).
-  const todayMinutes = stats.activity_calendar[stats.activity_calendar.length - 1]?.minutes ?? 0;
+  // Keep the supplied UTC date visible when a quiet/error snapshot is older.
+  const latestDay = stats.activity_calendar[stats.activity_calendar.length - 1];
   const busiest = stats.events_per_task[0]; // backend sorts count DESC — [0] is the top
   return (
     <div className="grid gap-3"
@@ -511,7 +511,9 @@ function KpiRow ({ stats, repos, uncommitted }:
       <Kpi label="need a pick" value={needsPick} />
       <Kpi label="repos clean" value={clean} suffix={`/${repos.length}`} />
       <Kpi label="uncommitted changes" value={uncommittedSum} />
-      <Kpi label="time today (UTC)" value={todayMinutes} format={fmtMinutes}
+      <Kpi key={latestDay?.day ?? "unavailable"}
+        label={`time ${calendarDayLabel(latestDay?.day)}`}
+        value={latestDay?.minutes ?? 0} format={latestDay ? fmtMinutes : () => "Unavailable"}
         tip="estimated from capture timestamps — 15-min gap rule" />
       {busiest && (
         <Kpi label="busiest task" value={busiest.count}

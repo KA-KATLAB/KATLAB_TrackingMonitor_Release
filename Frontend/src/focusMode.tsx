@@ -4,6 +4,7 @@ import type { StatsData } from "./charts";
 import { streakOf } from "./calendarHeatmap";
 import { DialogShell } from "./dialog";
 import { fmtMinutes } from "./format";
+import { calendarDayLabel, utcDayKey } from "./calendarDay";
 import { GoalRings } from "./goalRings";
 import { Pet } from "./pet";
 import type { Mood, Wardrobe } from "./pet";
@@ -56,8 +57,8 @@ export function FocusMode({
   );
   const alive =
     lastTimestamp !== null && Date.now() - Date.parse(lastTimestamp) < 5 * 60_000;
-  const todayMinutes =
-    stats?.activity_calendar[stats.activity_calendar.length - 1]?.minutes ?? 0;
+  const latestDay = stats?.activity_calendar[stats.activity_calendar.length - 1];
+  const dayLabel = calendarDayLabel(latestDay?.day, clock);
   const streak = stats ? streakOf(stats.activity_calendar) : 0;
 
   return (
@@ -170,9 +171,10 @@ export function FocusMode({
                 <span className="pulse-dot inline-block h-2 w-2 shrink-0 rounded-full bg-teal-400" />
               )}
               <span className="break-words">
-                {todayMinutes > 0
-                  ? `${fmtMinutes(todayMinutes)} today (UTC)`
-                  : "quiet so far today"}
+                {!latestDay ? "Effort unavailable (UTC)"
+                  : latestDay.minutes > 0 ? `${fmtMinutes(latestDay.minutes)} ${dayLabel}`
+                  : latestDay.day === utcDayKey(clock) ? "quiet so far today (UTC)"
+                  : `no effort recorded for ${dayLabel}`}
                 {streak >= 2 && ` · 🔥 ${streak}-day streak`}
               </span>
             </div>

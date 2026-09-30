@@ -622,6 +622,12 @@ For long content, do preserve the full path in selectable/wrapping text or an op
 - Reuse repository formatters rather than creating surface-specific abbreviations.
 - Use the existing approximate marker for derived effort and avoid false precision.
 - Label UTC/local bases wherever a date, day, or hour can be misread.
+- Daily effort and goal rings use the supplied calendar row's UTC day. If it is
+  not the current UTC day, show its absolute date; absent data is unavailable,
+  not a fabricated zero. Prepared Digest effort always names its absolute day.
+  The existing minute tick invalidates stats once per observed UTC-day change;
+  delayed/failed refresh retains the dated snapshot, not a freshness guarantee.
+  Historical rolling windows, reports and Wrapped retain their snapshot basis.
 - Keep exact values in tables, accessible names, or tooltips when a compact visual abbreviates them.
 - Use locale-aware thousands separators for human-facing counts and tabular figures for changing columns.
 - Empty denominators render an honest empty/zero state; never display `NaN`, `Infinity`, or a percentage against an undefined basis.

@@ -5,7 +5,7 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current version: **v0.3.1.25 — Backend Security Floor**
+Current version: **v0.3.1.26 — UTC Daily Snapshot Labels**
 
 ## What v0.3 adds
 
@@ -73,7 +73,7 @@ and demo setup use `Backend/requirements.txt`; an older satisfying FastAPI alone
 is no longer enough to retain an older Starlette. Let pip resolve a compatible
 pair or stop on installation failure; do not bypass dependency constraints.
 This does not alter Chronicle's separate dependency set or force a blanket
-upgrade. See the [current release notes](TrackingMonitor_v0.3.1.25_Release_Notes.md)
+upgrade. See the [backend security release notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.3.1.25_Release_Notes.md)
 for the security-policy scope and verification limits.
 
 | Action | Command |
@@ -148,7 +148,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current release notes](TrackingMonitor_v0.3.1.25_Release_Notes.md)
+- [Current release notes](TrackingMonitor_v0.3.1.26_Release_Notes.md)
 
 ## Guarantees
 

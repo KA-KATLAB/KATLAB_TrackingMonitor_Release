@@ -1,6 +1,6 @@
 // v0.1.11.0 D1 (B.1/C.1): Apple-style daily goal rings — captures / effort /
-// commits vs user-set targets, all from the SERVED calendar's last entry
-// (UTC today). The 2-circles-per-ring technique: a dim full TRACK under a
+// commits vs user-set targets, all from the SERVED calendar's last dated entry.
+// The 2-circles-per-ring technique: a dim full TRACK under a
 // PROGRESS circle (fixed dasharray = circumference, animated dashoffset).
 // Crossings fire the celebration recipe WHOLE (nonce spans + 900ms
 // nonce-compare clear + unmount clear — RV5: this component REMOUNTS by
@@ -13,6 +13,7 @@ import { useId, useEffect, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import type { StatsData } from "./charts";
 import { fmtMinutes } from "./format";
+import { calendarDayLabel, utcDayKey } from "./calendarDay";
 import { SettingsIcon } from "./icons";
 import { readPreference, writePreference } from "./preferences";
 import { usePrefersReducedMotion } from "./theme";
@@ -52,8 +53,11 @@ export function GoalRings ({ calendar, scope, compact, onStatus }: {
   const reducedMotion = usePrefersReducedMotion();
   const reducedMotionRef = useRef(reducedMotion);
   reducedMotionRef.current = reducedMotion;
-  const today = calendar[calendar.length - 1] ?? { events: 0, minutes: 0, commits: 0 };
-  const values = [today.events, today.minutes, today.commits];
+  const today = calendar[calendar.length - 1];
+  const now = new Date();
+  const isCurrentDay = today?.day === utcDayKey(now);
+  const dayLabel = calendarDayLabel(today?.day, now);
+  const values = [today?.events ?? 0, today?.minutes ?? 0, today?.commits ?? 0];
 
   const [goals, setGoals] = useState<Goals>(loadGoals);
   const goalsRef = useRef(goals); goalsRef.current = goals;
@@ -83,7 +87,7 @@ export function GoalRings ({ calendar, scope, compact, onStatus }: {
   // RV2b/RV5: crossings fire on STATS changes only — prev VALUES in a ref
   // (compared against the CURRENT goal at effect time), seeded on the
   // first payload; every pending burst timeout is cleared on unmount.
-  const prevRef = useRef<number[] | null>(null);
+  const prevRef = useRef<{ day: string; values: number[] } | null>(null);
   const nonceRef = useRef(0);
   const timeoutsRef = useRef<Set<number>>(new Set());
   const [bursts, setBursts] = useState<{ ring: number; n: number }[]>([]);
@@ -91,11 +95,15 @@ export function GoalRings ({ calendar, scope, compact, onStatus }: {
   useEffect(() => {
     const goalList = [goalsRef.current.events, goalsRef.current.minutes,
       goalsRef.current.commits];
-    if (prevRef.current === null) { // first payload = seed, never a crossing
-      prevRef.current = values;
+    if (!today || !isCurrentDay || prevRef.current?.day !== today.day) {
+      // Never compare different days or celebrate retained stale snapshots.
+      prevRef.current = today && isCurrentDay ? { day: today.day, values } : null;
+      timeoutsRef.current.forEach((id) => clearTimeout(id));
+      timeoutsRef.current.clear();
+      setBursts([]);
       return;
     }
-    const prev = prevRef.current;
+    const prev = prevRef.current.values;
     values.forEach((v, i) => {
       if (prev[i] < goalList[i] && v >= goalList[i] &&
         !document.hidden && !reducedMotionRef.current) {
@@ -108,9 +116,9 @@ export function GoalRings ({ calendar, scope, compact, onStatus }: {
         timeoutsRef.current.add(id);
       }
     });
-    prevRef.current = values;
+    prevRef.current = { day: today.day, values };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [today.events, today.minutes, today.commits]);
+  }, [today?.day, isCurrentDay, today?.events, today?.minutes, today?.commits]);
 
   useEffect(() => () => { // RV5: no timer aims setState at a dead instance
     timeoutsRef.current.forEach((id) => clearTimeout(id));
@@ -181,8 +189,8 @@ export function GoalRings ({ calendar, scope, compact, onStatus }: {
   return (
     <div ref={rootRef} className="relative">
       {!compact && (
-        <SectionHeading level={4} title="Today's rings"
-          description={`UTC — ${scope ?? "All repos"}.`}
+        <SectionHeading level={4} title={isCurrentDay ? "Today's rings" : "Daily rings"}
+          description={`${dayLabel} · ${scope ?? "All repos"}.`}
           actions={(
             <IconButton ref={triggerRef} label="Edit daily goals"
               onClick={openGoalEditor} aria-expanded={gearOpen}
@@ -243,12 +251,12 @@ export function GoalRings ({ calendar, scope, compact, onStatus }: {
                 <g key={i}>
                   <circle cx={60} cy={60} r={r} fill="none" stroke={RING_COLOR[i]}
                     strokeWidth={10} opacity={0.25} />
-                  <circle cx={60} cy={60} r={r} fill="none" stroke={RING_COLOR[i]}
+                  {today && <circle cx={60} cy={60} r={r} fill="none" stroke={RING_COLOR[i]}
                     strokeWidth={10} strokeLinecap="round"
                     strokeDasharray={C} strokeDashoffset={C * (1 - pct)}
                     transform="rotate(-90 60 60)"
                     style={reducedMotion ? undefined :
-                      { transition: "stroke-dashoffset 0.6s ease-out" }} />
+                      { transition: "stroke-dashoffset 0.6s ease-out" }} />}
                 </g>
               );
             })}
@@ -271,7 +279,7 @@ export function GoalRings ({ calendar, scope, compact, onStatus }: {
           ))}
         </div>
         <ul className={compact ? "sr-only" : "space-y-1 text-[11px] text-slate-300"}
-          aria-label={`Today's daily goals for ${scope ?? "All repos"}`}>
+          aria-label={`Daily goals for ${scope ?? "All repos"} · ${dayLabel}`}>
             {labels.map((label, i) => {
               const pct = Math.round((values[i] / goalList[i]) * 100);
               return (
@@ -280,7 +288,8 @@ export function GoalRings ({ calendar, scope, compact, onStatus }: {
                     style={{ backgroundColor: RING_COLOR[i] }} />
                   <span>{label}</span>
                   <span className="text-slate-400">
-                    {rendered(i)} / {i === 1 ? fmtMinutes(goalList[1]) : fmt(goalList[i])} ({fmt(pct)}%)
+                    {today ? rendered(i) : "Unavailable"} / {i === 1 ? fmtMinutes(goalList[1]) : fmt(goalList[i])}
+                    {today && ` (${fmt(pct)}%)`}
                   </span>
                 </li>
               );

@@ -20,6 +20,7 @@ import { FileStory } from "./FileStory";
 import { SessionTimeline } from "./SessionTimeline";
 import { WrappedCard } from "./WrappedCard";
 import { fmtAge, fmtMinutes, fmtRel, fmtTs } from "./format";
+import { utcDayKey } from "./calendarDay";
 import { notifyBackgroundFailure, notifyPickNeeded, notifyRelease, notifyStatusChange, notifyToggleMessage, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
 import { playChime, playFanfare, playTick, setSoundEnabled, soundBackgroundFailure, soundToggleMessage, soundWanted } from "./sound";
 import { readPreference, writePreference } from "./preferences";
@@ -493,7 +494,7 @@ export default function App () {
   // palette's tree-toggle action can reach it (same behavior, prop-drilled).
   const [groupMode, setGroupMode] = useState<"task" | "folder">("task");
   const [, setTick] = useState(0);
-  const [statsNonce, setStatsNonce] = useState(0); // R12: bumped only on a real sync
+  const [statsNonce, setStatsNonce] = useState(0); // Real syncs or an observed UTC day change.
   const [missionNonce, setMissionNonce] = useState(0);
   const currentScopeKey = scopeKey(scope);
   const [statsState, setStatsState] = useState<{
@@ -527,7 +528,7 @@ export default function App () {
   const statsError = statsEligible ? statsState.error : "";
   // v0.2.7.0 D5 (B.2, R-BF): the wardrobe basis is UNSCOPED (Kat is the
   // WORKSPACE pet — the tab-scoped stats prop would flicker her costume
-  // per tab): ONE dedicated api.stats() on mount + real syncs, throttled
+  // per tab): ONE dedicated api.stats() on mount + stats invalidation, throttled
   // to one call per 60s with a single trailing catch-up (the v0.2.0.0
   // City-RV3 throttle recipe; get_stats is the heavy endpoint).
   const [allCal, setAllCal] = useState<StatsData["activity_calendar"] | null>(null);
@@ -627,7 +628,7 @@ export default function App () {
       setTasks(t);
       setEvents(e);
       setWorkspaceReady(true);
-      setStatsNonce((n) => n + 1); // R12: Overview refetches on real syncs, not ticks/filters
+      setStatsNonce((n) => n + 1); // Real sync; ordinary same-day ticks/filters do not refetch.
       setError("");
       if (!membershipReadyRef.current) {
         membershipReadyRef.current = true;
@@ -817,7 +818,15 @@ export default function App () {
   useEffect(() => {
     // P8: relative times (and the heartbeat chip) must never freeze on an
     // idle UI - re-render once a minute even without WS traffic.
-    const timer = setInterval(() => setTick((n) => n + 1), 60_000);
+    let observedDay = utcDayKey();
+    const timer = setInterval(() => {
+      setTick((n) => n + 1);
+      const day = utcDayKey();
+      if (day !== observedDay) {
+        observedDay = day;
+        setStatsNonce((n) => n + 1);
+      }
+    }, 60_000);
     return () => clearInterval(timer);
   }, []);
 

@@ -136,7 +136,8 @@ test("actual prepared Digest preserves its captured day and bounded export contr
       }]);
       assert.deepEqual(result.statsCalls, [{ repo: undefined, signal: result.controller.signal }]);
       assert.match(result.html, /≈ 1h 5m/);
-      assert.match(result.html, /time today \(UTC\)/);
+      assert.match(result.html, /time on 2026-09-30 \(UTC\)/);
+      assert.doesNotMatch(result.html, /time today \(UTC\)/);
     });
 
     await t.test("old rows in a full raw page do not hide later in-day rows", async () => {
@@ -191,8 +192,29 @@ test("actual prepared Digest preserves its captured day and bounded export contr
         assert.ok(result.html.includes(label));
       }
       assert.doesNotMatch(result.html, /events today|auto-attributed today|sessions today|summaries today/);
+      assert.match(result.html, /time on 2026-09-30 \(UTC\)/);
       assert.equal(result.calls[0].since, since);
       assert.equal(result.calls[0].until, until);
+    });
+
+    await t.test("effort keeps its absolute snapshot date and distinguishes missing from measured zero", async () => {
+      const missing = await run({ stats: () => ({ activity_calendar: [] }) });
+      assert.match(missing.html, /font-weight:700">Unavailable<\/div><div[^>]*>time unavailable \(UTC\)/);
+      const zero = await run({ stats: () => ({
+        activity_calendar: [{ day: "2026-09-29", minutes: 0 }],
+      }) });
+      assert.match(zero.html, /font-weight:700">≈ 0m<\/div><div[^>]*>time on 2026-09-29 \(UTC\)/);
+      assert.doesNotMatch(zero.html, /time today|time unavailable/);
+      const before = zero.html;
+      assert.equal(await zero.blob.text(), before, "prepared content is immutable after preparation");
+    });
+
+    await t.test("dynamic effort date is escaped at the raw HTML boundary", async () => {
+      const result = await run({ stats: () => ({
+        activity_calendar: [{ day: "<day>&", minutes: 1 }],
+      }) });
+      assert.match(result.html, /time on &lt;day&gt;&amp; \(UTC\)/);
+      assert.doesNotMatch(result.html, /time on <day>/);
     });
 
     await t.test("grouping and script-safe JSON retain exact names and provider identities", async () => {

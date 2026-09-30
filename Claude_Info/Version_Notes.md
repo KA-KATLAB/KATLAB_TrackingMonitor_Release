@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.3.1.26 — UTC Daily Snapshot Labels (2026-10-01)
+
+- Quiet open tabs request stats on observed UTC-day changes using the existing
+  minute tick. No new timer, per-minute stats polling or backend sync operation.
+- Overview, daily rings and Focus retain actual snapshot values with their UTC
+  date when not current. Missing data is unavailable, not a measured zero.
+  Digest always names the effort row's absolute UTC date in its prepared HTML.
+- Day-key the effort KPI and reseed ring crossings across changed/missing/stale
+  dates without remounting goal editors or losing their settings.
+- Refresh is best-effort and subject to hidden-tab throttling/failure; historical
+  records, rolling windows, Wrapped and reportHtml wording are not redesigned.
+  Controlled source/hook/SSR tests are not native browser or midnight-live proof.
+
 ## v0.3.1.25 — Backend Security Floor (2026-10-01)
 
 - Declare `starlette>=1.3.1` explicitly in the backend requirements, using the

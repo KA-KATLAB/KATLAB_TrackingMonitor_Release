@@ -2161,11 +2161,13 @@ test("blocked storage still renders GoalRings, DayLanes, and empty Overview", {
       const goalHtml = renderToStaticMarkup(React.createElement(GoalRings, {
         calendar: [], scope: undefined, onStatus() {},
       }));
-      assert.match(goalHtml, /Today&#x27;s rings|Today.s rings/);
+      assert.match(goalHtml, /Daily rings/);
+      assert.match(goalHtml, /unavailable \(UTC\)/);
       assert.match(goalHtml, /<svg/);
-      assert.match(goalHtml, /captures[\s\S]{0,180}0 \/ 30 \(0%\)/);
-      assert.match(goalHtml, /effort[\s\S]{0,180}2h 0m \(0%\)/);
-      assert.match(goalHtml, /commits[\s\S]{0,180}0 \/ 2 \(0%\)/);
+      assert.match(goalHtml, /captures[\s\S]{0,180}Unavailable \/ 30/);
+      assert.match(goalHtml, /effort[\s\S]{0,180}Unavailable \/ ≈ 2h 0m/);
+      assert.match(goalHtml, /commits[\s\S]{0,180}Unavailable \/ 2/);
+      assert.doesNotMatch(goalHtml, /\(0%\)/);
       const dayHtml = renderToStaticMarkup(React.createElement(DayLanes, {
         scope: undefined, stats: null, day: "2026-09-30", speed: 1,
         onDayChange() {}, onSpeedChange() {}, onStatus() {},
@@ -2198,17 +2200,19 @@ test("blocked storage still renders GoalRings, DayLanes, and empty Overview", {
     });
     await withGlobals({ localStorage: { value: saved.storage } }, async () => {
       const goalHtml = renderGoal();
-      assert.match(goalHtml, /captures[\s\S]{0,180}0 \/ 41 \(0%\)/);
-      assert.match(goalHtml, /effort[\s\S]{0,180}1h 17m \(0%\)/);
-      assert.match(goalHtml, /commits[\s\S]{0,180}0 \/ 5 \(0%\)/);
+      assert.match(goalHtml, /captures[\s\S]{0,180}Unavailable \/ 41/);
+      assert.match(goalHtml, /effort[\s\S]{0,180}Unavailable \/ ≈ 1h 17m/);
+      assert.match(goalHtml, /commits[\s\S]{0,180}Unavailable \/ 5/);
+      assert.doesNotMatch(goalHtml, /\(0%\)/);
       assert.match(renderDay(), /aria-pressed="true"[^>]*>clock<\/button>/);
     });
     const malformed = storageFixture({ "katlab.goals": "{not-json" });
     await withGlobals({ localStorage: { value: malformed.storage } }, async () => {
       const goalHtml = renderGoal();
-      assert.match(goalHtml, /captures[\s\S]{0,180}0 \/ 30 \(0%\)/);
-      assert.match(goalHtml, /effort[\s\S]{0,180}2h 0m \(0%\)/);
-      assert.match(goalHtml, /commits[\s\S]{0,180}0 \/ 2 \(0%\)/);
+      assert.match(goalHtml, /captures[\s\S]{0,180}Unavailable \/ 30/);
+      assert.match(goalHtml, /effort[\s\S]{0,180}Unavailable \/ ≈ 2h 0m/);
+      assert.match(goalHtml, /commits[\s\S]{0,180}Unavailable \/ 2/);
+      assert.doesNotMatch(goalHtml, /\(0%\)/);
     });
   } finally {
     await vite.close();

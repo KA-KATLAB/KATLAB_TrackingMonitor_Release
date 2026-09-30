@@ -97,12 +97,12 @@ export async function prepareDigest (scope: string | undefined, repos: Repo[],
   const window = localDayWindow(new Date());
   const { todays, limitReached } = await fetchToday(scope, signal, window);
   if (signal.aborted) throw abortError();
-  // v0.1.6.0 D1 (C.1): effort KPI reads the SAME backend value as the
-  // Overview (calendar last UTC day) - never re-clusters in TS; the
+  // Effort reads the SAME dated backend value as Overview, never re-clusters;
+  // its absolute UTC label remains truthful after this prepared Blob ages. The
   // fetch sits BEFORE the Blob build so a failure aborts (RV20).
   const stats = await api.stats(scope, signal);
   if (signal.aborted) throw abortError();
-  const todayMinutes = stats.activity_calendar[stats.activity_calendar.length - 1]?.minutes ?? 0;
+  const latestDay = stats.activity_calendar[stats.activity_calendar.length - 1];
 
   const day = window.day;
   const generated = fmtTs(new Date().toISOString());
@@ -202,7 +202,8 @@ ${kpi(`${autoPct}%`, "auto-attributed on report day")}
 ${kpi(String(picksNow), "picks pending now")}
 ${kpi(`${clean}/${repos.length}`, "repos clean now")}
 ${kpi(String(sessions), "sessions on report day")}
-${kpi(fmtMinutes(todayMinutes), "time today (UTC)")}
+${kpi(latestDay ? fmtMinutes(latestDay.minutes) : "Unavailable",
+    latestDay ? esc(`time on ${latestDay.day} (UTC)`) : "time unavailable (UTC)")}
 </div>
 <section aria-labelledby="digest-details-heading">
 <h2 id="digest-details-heading" style="font-size:16px;margin:22px 0 4px">File summaries</h2>
