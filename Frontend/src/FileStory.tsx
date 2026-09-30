@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, createActionDeadline, isAbortError } from "./api";
 import type { TrackedEvent } from "./api";
 import { DialogShell } from "./dialog";
+import { DialogLoadStatus } from "./dialogStatus";
 import { ExternalLinkIcon } from "./icons";
 import { fmtMinutes, fmtTs } from "./format";
 import {
@@ -161,6 +162,8 @@ export function FileStory ({
       )}
     >
       <div id="file-story-events" className="min-w-0 text-xs">
+        <DialogLoadStatus label="File story" busy={busy} error={error}
+          count={rows?.length ?? null} truncated={truncated} />
         {busy && !rows && <p className="text-ui-muted">Loading file story…</p>}
         {error && (
           <div className="rounded-control border border-rose-700 bg-rose-950/30 p-3 text-rose-200">

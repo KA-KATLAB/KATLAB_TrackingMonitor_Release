@@ -1,5 +1,16 @@
 # Version Notes
 
+## v0.3.1.7 — Dialog Load Announcements (2026-09-30)
+
+- File Story and Session Timeline now expose loading, error and accepted-row
+  status inside the active dialog. Retry completion no longer relies solely
+  on the application's inert background announcer.
+- Zero captured rows and truncated fetched windows are described explicitly;
+  pending retries cannot announce old rows as a new success.
+- Health reuses the same presentational status primitive without changing its
+  receipt/refresh messages. No fetching, focus, API or dependency behavior changes.
+- SSR validates text/semantics, not actual screen-reader or browser interaction.
+
 ## v0.3.1.6 — System Health Refresh (2026-09-30)
 
 - Sys can explicitly refresh its health snapshot without closing the dialog.

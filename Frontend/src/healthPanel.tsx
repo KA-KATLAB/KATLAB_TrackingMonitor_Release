@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { api, createActionDeadline } from "./api";
 import type { HealthPayload } from "./api";
 import { DialogShell } from "./dialog";
+import { DialogStatus } from "./dialogStatus";
 import { fmtMinutes, fmtRel, fmtTs } from "./format";
 import { decodeChronicleHealth, hookRegistrationLabel } from "./healthModel";
 import { startHealthRequest } from "./healthRequest";
@@ -227,7 +228,7 @@ export function HealthSnapshotContent ({ snapshot, error, busy, onRefresh }: {
     : snapshot ? `System health updated. Received locally: ${fmtTs(snapshot.receivedAt)}.` : "";
   return (
     <>
-      <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">{status}</p>
+      <DialogStatus>{status}</DialogStatus>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="min-w-0 break-words text-xs text-ui-muted">
           {snapshot ? <>Received locally: <time dateTime={snapshot.receivedAt}>

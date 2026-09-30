@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, createActionDeadline, isAbortError } from "./api";
 import type { TrackedEvent } from "./api";
 import { DialogShell } from "./dialog";
+import { DialogLoadStatus } from "./dialogStatus";
 import { fmtMinutes, fmtTs } from "./format";
 import {
   EFFORT_GAP_MAX_MIN,
@@ -137,6 +138,8 @@ export function SessionTimeline ({
       closeLabel="Close session timeline"
     >
       <div id="session-timeline-events" className="min-w-0 text-xs">
+        <DialogLoadStatus label="Session timeline" busy={busy} error={error}
+          count={rows?.length ?? null} truncated={truncated} />
         {busy && !rows && <p className="text-ui-muted">Loading session timeline…</p>}
         {error && (
           <div className="rounded-control border border-rose-700 bg-rose-950/30 p-3 text-rose-200">
