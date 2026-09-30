@@ -461,6 +461,16 @@ Do not:
 
 ## 10. Forms, async actions, and feedback
 
+- Each live WebSocket subscription owns its current socket and at most one
+  reconnect timer. Cancel pending retries and keepalive on cleanup; detach
+  handlers and invalidate ownership before best-effort native close. Cleanup
+  is idempotent. Saved obsolete handlers/timers cannot invoke consumers, close
+  a replacement socket or reconnect a disposed subscription. Preserve capped
+  1/2/4/8/15-second backoff, reset on accepted open, REST resnapshot on open and
+  the existing 25-second text ping. This is lifecycle ownership, not runtime
+  frame validation, a heartbeat/pong protocol or general transport recovery.
+  Defensive saved-callback tests do not imply duplicate native browser events,
+  and logical teardown does not prove immediate physical disconnection.
 - Give every input/select/range/checkbox a visible label or fieldset/legend.
 - Connect persistent help/error text with `aria-describedby`.
 - Validate after blur or submit, preserve entered values, and state cause plus recovery.

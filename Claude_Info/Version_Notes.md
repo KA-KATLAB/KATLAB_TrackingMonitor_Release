@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.3.1.19 — WebSocket Lifecycle Ownership (2026-10-01)
+
+- Dispose the pending reconnect timer when a live subscription is cleaned up,
+  instead of retaining its closure until the timer wakes and does nothing.
+- Fence every socket callback and reconnect record to its current owner.
+  Accepted close retires handlers once; obsolete callbacks cannot call UI
+  consumers, close a replacement or create competing retries. Teardown is
+  idempotent and logically complete even when native close throws.
+- Preserve same-origin ws/wss, capped reconnect backoff/reset, REST resnapshot,
+  25-second text ping and existing JSON/consumer exception policy. No payload
+  validation, heartbeat protocol, new UI or general transport recovery.
+- Saved-callback tests are defensive fixtures, not observed duplicate browser
+  events. Native disconnection/reconnection and UI interaction remain unrun.
+
 ## v0.3.1.18 — Live Audio Failure Isolation (2026-10-01)
 
 - Public tick, chime and fanfare failures no longer escape into the WebSocket
