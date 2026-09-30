@@ -257,6 +257,15 @@ Use one SectionHeading and one Surface vocabulary. Chart canvases and informativ
 
 - This contract owns only the React host, iframe sizing/name, fallback, and shell interaction.
 - The iframe fills the measured flex remainder; never subtract a hard-coded header height.
+- The host checks page availability with a bounded, abortable HEAD request.
+  Before success, retry 10 seconds after each failed check, with a 10-second
+  per-attempt deadline. Ignore settled or unmounted attempts' late results.
+- Distinguish checking, no page (404), and an unavailable check (other status,
+  network failure, or timeout). Do not promise a build deadline or infer worker
+  health from page availability. Keep the section name and heading stable.
+- Stop host probes after the first successful check so a transient response
+  cannot remove the opened iframe. A new view entry checks again; the generated
+  page retains its own existing freshness/navigation behavior.
 - A focused same-origin iframe counts as activity and blocks attract-mode arming.
 - New-tab actions are real anchors with `target="_blank" rel="noopener"`.
 - The generated MkDocs theme/content under `Chronicle/runtime/` is outside this design scope and is never hand-edited.

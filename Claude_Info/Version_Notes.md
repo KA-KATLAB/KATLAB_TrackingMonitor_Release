@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.3.1.4 — Chronicle Probe Recovery (2026-09-30)
+
+- Chronicle host checks are bounded and sequential. Timed-out/unmounted
+  requests cannot publish late results; successful availability ends polling
+  for that mount so a later probe cannot destroy the opened reader.
+- No-page and temporarily unavailable checks have different fallback text.
+  The heading, same-origin iframe, measured flex layout and focus boundary
+  remain intact. Generated-page freshness is unchanged.
+- Regression coverage exercises request ordering, cancellation, retry and
+  cleanup. See the detailed plan for executed checks and browser limitations.
+- Availability does not imply current content or worker health; the existing
+  HEAD/iframe-GET promotion window remains outside this patch.
+
 ## v0.3.1.3 — Health Settings Encoding Recovery (2026-09-30)
 
 **Key Highlights**
