@@ -239,6 +239,14 @@ Data root:
 before `evidence_updated`, followed by `readiness_updated`. Both signals name the
 union of prior and new effective repository scopes.
 
+Client recovery: a timed-out, cancelled or failed response does not prove that
+the append was rolled back. The server may have committed before the response
+was lost. The assignment dialog warns while pending and shows local failure
+feedback; close and refresh Mission to verify the effective assignment before
+retrying. Cancelling its observer does not undo a server write, and the client
+must not automatically repeat a PATCH. Only an acknowledged response triggers
+the normal success refresh/close path.
+
 ## Existing `GET /api/events`
 
 The existing array-shaped data root is retained. It adds optional `provider` and

@@ -1,5 +1,17 @@
 # Version Notes
 
+## v0.3.1.8 — Evidence Assignment Recovery (2026-09-30)
+
+- Assign/Clear errors are visible inside the dialog, with a local polite status
+  and guidance to close, refresh Mission and verify before retrying. Pending
+  feedback warns that closing may not cancel a submitted server-side change.
+- The existing deadline now bounds the observer even for uncooperative transport.
+  Close intent immediately revokes callback ownership; stale results cannot
+  announce or unlock another action. The selected target remains after failure.
+- Accepted responses preserve status/refresh/close order. No API, database,
+  eligibility, dependency or automatic retry change; cancellation is not rollback.
+- Isolated request/SSR tests are not actual browser or assistive-technology tests.
+
 ## v0.3.1.7 — Dialog Load Announcements (2026-09-30)
 
 - File Story and Session Timeline now expose loading, error and accepted-row

@@ -328,8 +328,13 @@ Use one SectionHeading and one Surface vocabulary. Chart canvases and informativ
 - The timeline is an enhancement over the same bounded rows shown in a labelled,
   keyboard-operable Exact Data table.
 - Assignment uses the shared modal foundation, lists only currently eligible
-  direct-link plan targets, and reports completion through the shared polite status
-  channel.
+  direct-link plan targets, and reports acknowledged completion through the shared
+  polite status channel. Pending/failure feedback also stays visible and locally
+  announced inside the dialog, outside the inert application root. While pending,
+  warn that closing may not cancel a submitted change; refresh Mission to verify
+  before retrying. Failures retain the target and cannot imply server rollback.
+  Close intent revokes the current observer immediately; deadline settlement and
+  late responses cannot unlock a newer action. Never retry a write automatically.
 - Timeline and table width overflow stays inside labelled local scrollers. Every
   outer grid/flex boundary remains shrinkable at 360px and 200% zoom.
 

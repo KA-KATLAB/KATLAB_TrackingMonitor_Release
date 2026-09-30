@@ -23,6 +23,8 @@ import type {
   SessionPage,
 } from "./api";
 import { DialogShell } from "./dialog";
+import { AssignmentFeedback } from "./assignmentFeedback";
+import { runAssignmentRequest } from "./assignmentRequest";
 import { fmtRel, fmtTs } from "./format";
 import { decodeForecast, forecastCandidateKey } from "./forecastDecoder";
 import type { ForecastDecodeResult } from "./forecastDecoder";
@@ -471,18 +473,22 @@ function AssignmentDialog ({ row, plans, onClose, onSaved, onStatus }: {
     (plan) => planKey(plan.repo, plan.plan_file) === target,
   );
   const [busy, setBusy] = useState(false);
+  const [assignmentError, setAssignmentError] = useState("");
   const mountedRef = useRef(true);
   const activeActionRef = useRef<ReturnType<typeof createActionDeadline> | null>(null);
+  const cancelActiveAction = useCallback((): void => {
+    const action = activeActionRef.current;
+    activeActionRef.current = null;
+    action?.controller.abort();
+    action?.clear();
+  }, []);
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      const action = activeActionRef.current;
-      activeActionRef.current = null;
-      action?.controller.abort();
-      action?.clear();
+      cancelActiveAction();
     };
-  }, []);
+  }, [cancelActiveAction]);
   useEffect(() => {
     if (selectedTarget) return;
     const current = currentKey
@@ -504,29 +510,37 @@ function AssignmentDialog ({ row, plans, onClose, onSaved, onStatus }: {
     && row.effective_assignment.mode !== "UNASSIGNED"
     && row.effective_assignment.mode !== "NONE";
 
+  const close = (): void => {
+    cancelActiveAction();
+    onClose();
+  };
   const save = (clear: boolean): void => {
     if (busy || activeActionRef.current) return;
     const repo = clear ? row.effective_assignment.repo : selectedTarget?.repo;
     if (!repo || (!clear && !selectedTarget)) return;
     const action = createActionDeadline();
     activeActionRef.current = action;
+    setAssignmentError("");
     setBusy(true);
-    void api.assignEvidence(
-      row.evidence_id, repo, clear ? null : selectedTarget?.plan_file ?? null, action.signal,
-    ).then(() => {
-      if (!mountedRef.current || action.signal.aborted) return;
-      onStatus(clear ? "Evidence assignment cleared." : "Evidence assigned to plan.");
-      onSaved();
-      onClose();
-    }, (errorValue) => {
-      if (isAbortError(errorValue) && !action.didTimeout()) return;
-      onStatus(action.didTimeout()
-        ? "Evidence assignment timed out after 10 seconds. Retry is available."
-        : `Evidence assignment failed: ${String(errorValue).slice(0, 120)}`);
-    }).finally(() => {
-      action.clear();
-      if (activeActionRef.current === action) activeActionRef.current = null;
-      if (mountedRef.current) setBusy(false);
+    void runAssignmentRequest({
+      action,
+      request: (signal) => api.assignEvidence(
+        row.evidence_id, repo, clear ? null : selectedTarget?.plan_file ?? null, signal,
+      ),
+      isCurrent: () => mountedRef.current && activeActionRef.current === action,
+      onSuccess: () => {
+        onStatus(clear ? "Evidence assignment cleared." : "Evidence assigned to plan.");
+        onSaved();
+        close();
+      },
+      onFailure: (message) => {
+        setAssignmentError(message);
+        onStatus(message);
+      },
+      onSettled: () => {
+        activeActionRef.current = null;
+        setBusy(false);
+      },
     });
   };
 
@@ -534,7 +548,7 @@ function AssignmentDialog ({ row, plans, onClose, onSaved, onStatus }: {
     <DialogShell
       title="Assign verification evidence"
       description={`${row.check_id ?? "Unknown check"} · evidence ${row.evidence_id}`}
-      onClose={onClose}
+      onClose={close}
       backdropClose={!busy}
       closeLabel="Close evidence assignment"
     >
@@ -568,6 +582,7 @@ function AssignmentDialog ({ row, plans, onClose, onSaved, onStatus }: {
           )}
         </fieldset>
       )}
+      <AssignmentFeedback busy={busy} error={assignmentError} />
       <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-ui-border pt-3">
         {canClear && (
           <ControlButton disabled={busy} onClick={() => save(true)}>Clear assignment</ControlButton>
