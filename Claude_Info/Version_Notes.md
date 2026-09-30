@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.3.1.12 — Day Lanes DST Replay (2026-09-30)
+
+- Sparse Day Lanes and replay use the selected local day's actual elapsed
+  duration. Variable-day axes show bounded elapsed ticks and UTC offsets;
+  late events remain reachable on 25-hour days.
+- Visual block tails clip at the day end without changing approximate effort.
+  Replay seek, end and Play-again consume the fetched rows, while density stays
+  at 48 wall-time half-hour bins and the standard clock at 24 hourly wedges.
+- Variable-day timestamps show numeric UTC offsets so repeated hours are
+  distinguishable. No API, capture, query, storage or dependency change.
+- Controlled helper/TZ/static checks are not browser replay, keyboard,
+  assistive-technology or viewport verification.
+
 ## v0.3.1.11 — Day Lanes Window Accuracy (2026-09-30)
 
 - Day Lanes and Digest share local calendar-day bounds with six-digit UTC-Z

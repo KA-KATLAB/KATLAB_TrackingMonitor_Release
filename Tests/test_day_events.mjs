@@ -176,6 +176,6 @@ test("Day Lanes statically preserves owner guards and reuses honest cap feedback
   assert.match(source, /disabled=\{isToday \|\| nextDay === null\}/);
   assert.match(source, /\{rows && <EventWindowNotice limitReached=\{limitReached\} count=\{rows\.length\} \/>\}/);
   assert.doesNotMatch(source, /\btruncated\b|Only the newest|left\.ts\.localeCompare/);
-  // Explicit outstanding limitation, not evidence of DST-complete replay.
-  assert.match(source, /const DAY_S = 86_400;/);
+  assert.match(source, /dayReplayWindow\(day\)/);
+  assert.doesNotMatch(source, /const DAY_S = 86_400;/);
 });

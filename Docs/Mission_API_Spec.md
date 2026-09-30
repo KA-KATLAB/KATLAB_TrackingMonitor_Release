@@ -276,8 +276,11 @@ rejects invalid or nonexistent local dates before requesting events, filters
 each raw page to the numeric half-open day, and sorts accepted rows by epoch
 milliseconds then ID for replay input. Only a short raw page ends the bounded
 fetch early; a full third page proves a cap, not additional matching rows.
-DST-safe query bounds do not repair the separate 24-hour sparse-axis/replay
-assumption on a 25-hour day.
+The API shape and query remain unchanged. Sparse Day Lanes and replay now use
+the actual elapsed local-day duration; density remains 48 wall-time half-hour
+bins and the standard clock remains 24 hourly wedges. Repeated wall times may
+share a density bin even though their exact replay instants and displayed UTC
+offsets differ.
 
 ## `GET /api/health` additions
 

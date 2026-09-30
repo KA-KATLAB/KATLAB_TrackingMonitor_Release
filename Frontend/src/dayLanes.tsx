@@ -1,4 +1,4 @@
-// v0.1.8.0 D1 (B.1): "what did my day look like" — 24h day lanes, pure SVG
+// v0.1.8.0 D1 (B.1): "what did my day look like" — local-day lanes, pure SVG
 // (the calendarHeatmap/punchCard sibling). Lanes derive from the FETCHED
 // ROWS' repo_ids (RV19 — the OverviewView repos prop excludes offline
 // repos, but an offline repo's historical day must still render); blocks
@@ -17,9 +17,12 @@ import type { ActionDeadline, TrackedEvent } from "./api";
 import { DisclosureTable } from "./accessibleData";
 import { RAMP, rampBucket } from "./calendarHeatmap";
 import { loadDayEvents } from "./dayEvents";
+import { advanceReplay, clampReplaySeconds, dayAxisTicks, dayBlockGeometry,
+  dayReplayWindow, dayTimeText, elapsedDayFraction, replayPointer,
+  replaySeekStep, replayTimeText, wallDayFraction } from "./dayReplay";
 import { localDayLabel, shiftDayLabel } from "./dayWindow";
 import { EventWindowNotice } from "./dialogStatus";
-import { fmtMinutes, fmtTs } from "./format";
+import { fmtMinutes } from "./format";
 import { readPreference, writePreference } from "./preferences";
 import { EFFORT_GAP_MAX_MIN, EFFORT_TAIL_MIN, eventSessionIdentity,
   MODE_BADGE, MODE_COLOR, sessionColor, usePrefersReducedMotion } from "./theme";
@@ -27,7 +30,7 @@ import { SectionHeading, Surface } from "./ui";
 
 const LANE_H = 26, GAP_Y = 8, LEFT = 76, TOP = 18, HOUR_W = 34;
 const WIDTH = LEFT + 24 * HOUR_W + 8;
-const DAY_S = 86_400;
+const PLOT_W = 24 * HOUR_W;
 
 interface Block { start: number; rawEnd: number; events: TrackedEvent[] }
 
@@ -172,7 +175,13 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
   replayRef.current = replay;
   const isToday = day === today;
 
-  const dayStartMs = new Date(`${day}T00:00:00`).getTime();
+  const timeWindow = useMemo(() => dayReplayWindow(day), [day]);
+  const dayStartMs = timeWindow?.startMs ?? 0;
+  const daySeconds = timeWindow?.durationSeconds ?? 0;
+  const replaySeconds = clampReplaySeconds(vt, daySeconds);
+  const seekStep = replaySeekStep(daySeconds);
+  const seekPosition = Math.floor(replaySeconds / seekStep) * seekStep;
+  const sparseTicks = useMemo(() => timeWindow ? dayAxisTicks(timeWindow) : [], [timeWindow]);
   const previousDay = shiftDayLabel(day, -1);
   const nextDay = shiftDayLabel(day, 1);
 
@@ -331,11 +340,19 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
   }, [rows]);
   const density = useMemo(() => rows ? buildDayDensity(rows) : null, [rows]);
 
-  const x = (ms: number) => LEFT + ((ms - dayStartMs) / 1000 / DAY_S) * 24 * HOUR_W;
+  const x = (ms: number) => LEFT + (timeWindow ? elapsedDayFraction(timeWindow, ms) : 0) * PLOT_W;
   const tailMs = EFFORT_TAIL_MIN * 60_000;
   const visualLaneCount = density?.enabled ? density.bands.length : lanes.length;
-  const height = TOP + Math.max(1, visualLaneCount) * (LANE_H + GAP_Y);
-  const fmtLocal = (ms: number) => fmtTs(new Date(ms).toISOString()).slice(11, 16);
+  const plotTop = timeWindow?.variableDay && !density?.enabled ? 32 : TOP;
+  const height = plotTop + Math.max(1, visualLaneCount) * (LANE_H + GAP_Y);
+  const fmtLocal = (ms: number, full = false) => dayTimeText(ms, !!timeWindow?.variableDay, full);
+  const cursorFraction = timeWindow
+    ? density?.enabled ? wallDayFraction(timeWindow, replaySeconds) : replaySeconds / daySeconds
+    : 0;
+  const axisTicks = density?.enabled
+    ? Array.from({ length: 9 }, (_, index) => ({ fraction: index / 8,
+      label: String(index * 3).padStart(2, "0"), offset: "", title: "Local wall time" }))
+    : sparseTicks;
 
   const exitReplay = () => { setReplay(false); setPlaying(false); };
   const shift = (delta: number) => {
@@ -365,37 +382,30 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
   // frame's huge dt is capped, so the clock effectively pauses — never
   // wall-anchored, never skips events). 1x = the whole day in 30s.
   useEffect(() => {
-    if (!replay || !playing) return;
+    if (!replay || !playing || daySeconds <= 0) return;
     lastFrame.current = performance.now();
     const step = (now: number) => {
-      const dt = Math.min(100, now - lastFrame.current);
+      const dt = now - lastFrame.current;
       lastFrame.current = now;
-      setVt((v) => Math.min(DAY_S, v + (dt / 1000) * (DAY_S / 30) * speed));
+      setVt((v) => advanceReplay(v, dt, daySeconds, speed));
       rafRef.current = requestAnimationFrame(step);
     };
     rafRef.current = requestAnimationFrame(step);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [replay, playing, speed]);
+  }, [replay, playing, speed, daySeconds]);
   useEffect(() => {
     if (!reducedMotion) return;
     cancelAnimationFrame(rafRef.current);
     setPlaying(false);
   }, [reducedMotion]);
-  useEffect(() => { if (vt >= DAY_S) setPlaying(false); }, [vt]);
+  useEffect(() => { if (playing && vt >= daySeconds) setPlaying(false); }, [vt, playing, daySeconds]);
 
   // Consumed pointer via binary search over precomputed event seconds
   // (O(log n) per seek; the ts-ASC order is RV8's).
   const eventSecs = useMemo(
     () => (rows ?? []).map((e) => (new Date(e.ts).getTime() - dayStartMs) / 1000),
     [rows, dayStartMs]);
-  const ptr = useMemo(() => {
-    let lo = 0, hi = eventSecs.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (eventSecs[mid] <= vt) lo = mid + 1; else hi = mid;
-    }
-    return lo;
-  }, [eventSecs, vt]);
+  const ptr = useMemo(() => replayPointer(eventSecs, replaySeconds), [eventSecs, replaySeconds]);
   // "~Xm replayed-effort" over the CONSUMED rows via the MIRRORED
   // constants (RV6 — fmtMinutes renders the ≈).
   const replayedMinutes = useMemo(() => {
@@ -415,6 +425,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
     [rows, ptr]);
 
   const armReplay = () => {
+    if (!timeWindow) return;
     cancelRequest();
     trailingRefreshRef.current = false;
     pendingCatchUpRef.current = false;
@@ -456,7 +467,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
               </button>
             ))}
           </span>
-          {!replay && laneView === "lanes" && rows && rows.length > 0 && (
+          {!replay && timeWindow && laneView === "lanes" && rows && rows.length > 0 && (
             <button onClick={armReplay}
               title="replay this day — the whole day in 30 seconds at 1x"
               className="mr-2 rounded bg-teal-700 px-2 py-0.5 text-[11px] font-bold text-white hover:bg-teal-600">
@@ -471,6 +482,12 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
         </span>
         )} />
       {preferenceNote && <p className="mb-2 text-xs text-amber-300">{preferenceNote}</p>}
+      {timeWindow?.variableDay && (
+        <p className="mb-2 text-xs text-slate-400">
+          This local day lasts {daySeconds / 3_600} hours. Sparse lanes and replay use elapsed time.
+          {" "}Density and clock combine repeated wall times; the density cursor can jump or revisit them.
+        </p>
+      )}
       {error && (
         <div data-route-hydration-failure tabIndex={-1}
           aria-label="Activity day load failure"
@@ -488,27 +505,32 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
       {/* v0.1.13.0 D3 (B.3): the clock — same rows, polar projection; at
           0 rows NEITHER view renders an svg (RV12 — the shared empty
           paragraph above covers it, mirroring the lanes' gate). */}
-      {rows && rows.length > 0 && laneView === "clock" && (
+      {timeWindow && rows && rows.length > 0 && laneView === "clock" && (
         <DayClock rows={rows} day={day} isToday={isToday} density={density} />
       )}
-      {rows && rows.length > 0 && laneView === "lanes" && (
+      {timeWindow && rows && rows.length > 0 && laneView === "lanes" && (
         <div className="ui-local-scroller overflow-x-auto" role="region"
           aria-label={`Activity lanes visualization for ${day}`} tabIndex={0}>
           <svg width={WIDTH} height={height} role="img"
             aria-label={density?.enabled
               ? `Activity density for ${day}: ${density.total} events in ${density.bands.length} repository bands and 48 half-hour bins`
               : `activity lanes for ${day} (local time)`}>
-            {Array.from({ length: 9 }, (_, i) => i * 3).map((h) => (
-              <g key={h}>
-                <text x={LEFT + h * HOUR_W} y={10} className="fill-slate-400" fontSize={9}>
-                  {String(h).padStart(2, "0")}
+            {axisTicks.map((tick) => (
+              <g key={tick.fraction}>
+                <title>{tick.title}</title>
+                <text x={LEFT + tick.fraction * PLOT_W} y={10}
+                  textAnchor={tick.fraction === 1 ? "end" : tick.fraction === 0 ? "start" : "middle"}
+                  className="fill-slate-400" fontSize={9}>
+                  {tick.label}
+                  {tick.offset && <tspan x={LEFT + tick.fraction * PLOT_W} dy={12}
+                    fontSize={8}>{tick.offset}</tspan>}
                 </text>
-                <line x1={LEFT + h * HOUR_W} y1={TOP - 4} x2={LEFT + h * HOUR_W}
+                <line x1={LEFT + tick.fraction * PLOT_W} y1={plotTop - 4} x2={LEFT + tick.fraction * PLOT_W}
                   y2={height} stroke="#334155" strokeWidth={0.5} />
               </g>
             ))}
             {density?.enabled ? <LaneDensityMarks density={density} /> : lanes.map(([repo, blocks], lane) => {
-              const yTop = TOP + lane * (LANE_H + GAP_Y);
+              const yTop = plotTop + lane * (LANE_H + GAP_Y);
               return (
                 <g key={repo}>
                   <text x={0} y={yTop + LANE_H / 2 + 3} className="fill-slate-400"
@@ -517,13 +539,14 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
                   </text>
                   {blocks.map((b, i) => {
                     const minutes = Math.round((b.rawEnd - b.start + tailMs) / 60_000);
+                    const geometry = dayBlockGeometry(timeWindow, b.start, b.rawEnd, tailMs, PLOT_W);
                     return (
                       <g key={i}>
                         <title>
-                          {`${fmtLocal(b.start)}-${fmtLocal(b.rawEnd + tailMs)} (local) — ${b.events.length} event${b.events.length === 1 ? "" : "s"} · ${fmtMinutes(minutes)}`}
+                          {`${fmtLocal(b.start)} to ${fmtLocal(geometry.endMs)} (local) — ${b.events.length} event${b.events.length === 1 ? "" : "s"} · estimated effort ${fmtMinutes(minutes)}${geometry.clipped ? "; visual tail clipped at day end" : ""}`}
                         </title>
-                        <rect x={x(b.start)} y={yTop}
-                          width={Math.max(2, x(b.rawEnd + tailMs) - x(b.start))}
+                        <rect x={LEFT + geometry.left} y={yTop}
+                          width={geometry.width}
                           height={LANE_H} rx={3} fill="#14b8a6" opacity={0.35} />
                         {b.events.map((e) => {
                           const identity = eventSessionIdentity(e);
@@ -533,7 +556,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
                               fill={identity
                                 ? sessionColor(identity.provider, identity.sessionId)
                                 : "#94a3b8"}>
-                              <title>{`${fmtTs(e.ts)} — ${e.file}`}</title>
+                              <title>{`${fmtLocal(new Date(e.ts).getTime(), true)} — ${e.file}`}</title>
                             </circle>
                           );
                         })}
@@ -546,18 +569,21 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
             {replay && ( /* D2: the cursor sweeps OVER the lanes — painted
                 LAST (CFT-1: SVG paint order; under the semi-transparent
                 blocks it read dimmed at exactly the moments it matters) */
-              <line x1={LEFT + (vt / DAY_S) * 24 * HOUR_W} y1={TOP - 6}
-                x2={LEFT + (vt / DAY_S) * 24 * HOUR_W} y2={height}
+              <line x1={LEFT + cursorFraction * PLOT_W} y1={plotTop - 6}
+                x2={LEFT + cursorFraction * PLOT_W} y2={height}
                 stroke="#f59e0b" strokeWidth={1.5} />
             )}
           </svg>
         </div>
       )}
-      {replay && rows && (
+      {replay && timeWindow && rows && (
         <div className="mt-2 space-y-2">
-          <div className="flex items-center gap-2 text-xs">
-            <button onClick={() => setPlaying(!playing)}
-              aria-label={playing ? "pause replay" : "play replay"}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <button onClick={() => {
+              if (replaySeconds >= daySeconds) { setVt(0); setPlaying(true); }
+              else setPlaying(!playing);
+            }}
+              aria-label={playing ? "pause replay" : replaySeconds >= daySeconds ? "replay day again" : "play replay"}
               className="rounded bg-slate-700 px-2 py-0.5 font-bold text-white hover:bg-slate-600">
               {playing ? "⏸" : "▶"}
             </button>
@@ -570,12 +596,14 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
             ))}
             <label className="flex min-w-32 flex-1 items-center gap-2 text-slate-400">
               <span className="shrink-0">Position</span>
-              <input type="range" min={0} max={DAY_S} step={30} value={Math.round(vt)}
-                onChange={(e) => setVt(Number(e.target.value))}
+              <input type="range" min={0} max={daySeconds} step={seekStep}
+                value={seekPosition}
+                aria-valuetext={replayTimeText(timeWindow, seekPosition, true)}
+                onChange={(e) => setVt(clampReplaySeconds(Number(e.target.value), daySeconds))}
                 className="min-w-24 flex-1 accent-teal-500" />
             </label>
             <span className="shrink-0 font-mono text-slate-400">
-              {String(Math.floor(vt / 3600)).padStart(2, "0")}:{String(Math.floor((vt % 3600) / 60)).padStart(2, "0")}
+              {replayTimeText(timeWindow, replaySeconds)}
             </span>
             <span className="shrink-0 text-slate-400"
               title="estimated from capture timestamps — 15-min gap rule">
@@ -589,7 +617,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
               <span key={e.id}
                 className="chip-pop flex items-center gap-1 rounded bg-slate-800 px-1.5 py-0.5 text-[11px]">
                 <span className="font-mono text-slate-400">
-                  {fmtTs(e.ts).slice(11, 16)}
+                  {fmtLocal(new Date(e.ts).getTime())}
                 </span>
                 {scope === undefined && (
                   <span className="text-[10px] text-slate-500">{e.repo_id}</span>
@@ -622,7 +650,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
           identity={["day-events", scope === undefined ? "all" : "repo", scope, day]}
           emptyMessage="No events were fetched for this local day."
           columns={[
-            { key: "time", label: "Captured (local)", render: (row) => fmtTs(row.ts),
+            { key: "time", label: "Captured (local)", render: (row) => fmtLocal(new Date(row.ts).getTime(), true),
               cellClassName: "whitespace-nowrap font-mono" },
             { key: "repo", label: "Repository", render: (row) => row.repo_id,
               cellClassName: "break-all" },

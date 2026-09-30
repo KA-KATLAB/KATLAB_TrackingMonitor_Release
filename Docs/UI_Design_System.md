@@ -382,11 +382,15 @@ filters returned rows to that half-open numeric window, then orders accepted
 events by timestamp milliseconds and ID. A short raw page ends the bounded
 three-by-500 fetch; a full final raw page only proves the fetch cap was reached.
 Show the shared wrapped cap notice with the actual accepted count, never a
-"newest" or known-more claim. This fixes query boundaries and replay input
-ordering, not the existing 24-hour sparse-lane axis/replay assumption: on a
-25-hour DST day late events can still plot outside the lane or be unreachable
-by replay. Density uses 48 half-hour wall-time bins; the standard clock uses
-24 hourly wedges. A coordinated DST rendering/replay correction remains separate.
+"newest" or known-more claim. Sparse positions, seek and replay use actual
+elapsed duration between local midnights, so late 25-hour-day events remain
+reachable. Variable-day axes use bounded elapsed ticks and numeric UTC offsets;
+the end tick names the exact boundary. Visual block tails clip at that boundary
+without changing approximate effort. Replay at end consumes every fetched row,
+and Play again restarts at zero. Density still combines repeated wall times in
+48 half-hour bins; the standard clock keeps 24 hourly wedges. The density-lane
+replay cursor revisits repeated wall time or jumps missing time, while exact replay
+end stays at the right edge. A short variable-day note explains that distinction.
 Day arrows shift date labels with UTC calendar arithmetic, while event bounds
 stay local. A skipped local date shows the existing load error and remains
 navigable in both directions; unsupported calendar-boundary arrows are disabled.
