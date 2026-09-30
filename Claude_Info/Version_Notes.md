@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.3.1.25 — Backend Security Floor (2026-10-01)
+
+- Declare `starlette>=1.3.1` explicitly in the backend requirements, using the
+  already-tested deployed version as the reviewed installation floor. This is
+  an existing FastAPI dependency, not a new runtime subsystem.
+- The older manifest allowed a compatible pair containing Starlette versions
+  affected by GHSA-wqp7-x3pw-xc5r. The current runtime was already patched;
+  upstream's first patch was 1.1.0, not this project's reviewed 1.3.1 baseline.
+- Preserve other requirements, normal/demo installer behavior and separate
+  Chronicle dependencies. No blanket upgrade, application/API/UI change or
+  claim that GitHub default-branch alerts are cleared.
+- Policy tests and guarded actual StaticFiles checks perform no real UNC/SMB
+  access. Resolver dry-runs are not installation or Python3.10 runtime tests.
+
 ## v0.3.1.24 — Repository Scope Paging (2026-10-01)
 
 - Fix the scope rail's automatic page snap-back: manual Next/Previous can leave
