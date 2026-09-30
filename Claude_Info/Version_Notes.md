@@ -1,5 +1,16 @@
 # Version Notes
 
+## v0.3.1.27 — Button Busy Semantics (2026-10-01)
+
+- Preserve native `aria-busy` through `ControlButton` and `IconButton`, including
+  boolean/string false and omission. Existing asynchronous App and Overview
+  controls no longer lose the busy metadata they already declare.
+- Shorthand `busy=true` still takes precedence and disables the button. Native
+  `aria-busy` alone does not disable it. Keep labels, handlers, refs, types,
+  visual styles, existing disabled states and action deadlines unchanged.
+- Actual-component SSR and prop-identity regressions are not native browser,
+  keyboard or assistive-technology announcement verification.
+
 ## v0.3.1.26 — UTC Daily Snapshot Labels (2026-10-01)
 
 - Quiet open tabs request stats on observed UTC-day changes using the existing

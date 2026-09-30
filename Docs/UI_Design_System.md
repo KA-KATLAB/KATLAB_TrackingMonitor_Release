@@ -156,6 +156,7 @@ Do not:
 
 `ControlButton`, `IconButton`, and `SegmentedControl` expose default, hover, active, focus-visible, disabled, and busy states.
 
+- `ControlButton` and `IconButton` preserve native `aria-busy`, including explicit false. Shorthand `busy=true` takes precedence and disables the control; native `aria-busy` alone does not change its disabled state.
 - Fine-pointer controls remain compact and meet the 24x24 WCAG target floor unless the spacing exception is proven.
 - Coarse-pointer controls expose at least a 44x44 hit area without overlapping adjacent actions.
 - Enabled controls use a pointer cursor on fine pointers; disabled controls use native disabled semantics and a non-action cursor.

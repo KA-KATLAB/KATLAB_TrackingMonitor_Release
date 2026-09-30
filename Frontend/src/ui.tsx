@@ -192,7 +192,7 @@ export const ControlButton = forwardRef<HTMLButtonElement, ControlButtonProps>(
         ref={ref}
         type={type}
         {...props}
-        aria-busy={busy || undefined}
+        aria-busy={busy || props["aria-busy"]}
         disabled={disabled || busy}
         className={cx("ui-control", CONTROL_TONE[tone], className)}
       />
