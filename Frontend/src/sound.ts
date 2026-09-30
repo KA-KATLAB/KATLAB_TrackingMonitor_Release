@@ -12,6 +12,9 @@
 import { readPreference, writePreference } from "./preferences";
 import type { PreferenceToggleResult } from "./preferences";
 import { raceWithSignal } from "./api";
+import { createPreferenceFailureStore } from "./preferenceFailure";
+
+export const soundBackgroundFailure = createPreferenceFailureStore();
 
 export interface SoundToggleResult extends PreferenceToggleResult {
   preferenceUnconfirmed?: boolean;
@@ -143,6 +146,7 @@ export async function setSoundEnabled (on: boolean,
   if (signal?.aborted) return { enabled: soundWanted(), persisted: false };
   const owner = ++preferenceGeneration;
   offVeto = true;
+  soundBackgroundFailure.clear();
   retireContext(ctx, master);
   if (!on) {
     return { enabled: false, persisted: persistSound("off") };
@@ -231,6 +235,16 @@ export function playFanfare (): void {
   note(NOTES.E5, 0.28, 0.34, 0.9, "triangle");
 }
 
+function failBackgroundSound (owner: number): void {
+  if (owner !== preferenceGeneration) return;
+  offVeto = true;
+  retireContext(ctx, master);
+  if (owner !== preferenceGeneration) return;
+  const persisted = persistSound("off");
+  if (owner !== preferenceGeneration) return;
+  soundBackgroundFailure.publish(persisted);
+}
+
 // RV14 gesture path (2): a persisted-on reload starts SUSPENDED until
 // the browser sees a gesture — ONE first-interaction listener resumes
 // (the autoplay-policy honest degrade). RV2: typeof-window guarded —
@@ -242,18 +256,14 @@ if (typeof window !== "undefined" && soundWanted()) {
     window.removeEventListener("keydown", resumeOnce);
     if (owner !== preferenceGeneration) return;
     if (!soundWanted()) {
-      offVeto = true;
-      persistSound("off");
+      failBackgroundSound(owner);
       return;
     }
     void activateContext(owner).then((running) => {
       if (owner !== preferenceGeneration || running) return;
-      offVeto = true;
-      persistSound("off");
+      failBackgroundSound(owner);
     }, () => {
-      if (owner !== preferenceGeneration) return;
-      offVeto = true;
-      persistSound("off");
+      failBackgroundSound(owner);
     });
   };
   window.addEventListener("pointerdown", resumeOnce);

@@ -9,6 +9,9 @@
 import { readPreference, writePreference } from "./preferences";
 import type { PreferenceToggleResult } from "./preferences";
 import { raceWithSignal } from "./api";
+import { createPreferenceFailureStore } from "./preferenceFailure";
+
+export const notifyBackgroundFailure = createPreferenceFailureStore();
 
 const KEY = "katlab.notify";
 const COALESCE_MS = 5000;
@@ -26,15 +29,12 @@ export function notifyWanted (): boolean {
   return !offVeto && readPreference(KEY) === "on";
 }
 
-function canFire (): boolean {
-  if (!notifyWanted() || typeof Notification === "undefined") return false;
-  try {
-    return Notification.permission === "granted";
-  } catch {
-    offVeto = true;
-    persistNotify("off");
-    return false;
-  }
+function failBackgroundNotify (owner: number): void {
+  if (owner !== preferenceGeneration) return;
+  offVeto = true;
+  const persisted = persistNotify("off");
+  if (owner !== preferenceGeneration) return;
+  notifyBackgroundFailure.publish(persisted);
 }
 
 /** Opt-in only after storage and permission are both verified. RV21:
@@ -44,6 +44,7 @@ export async function setNotifyEnabled (on: boolean,
   if (signal?.aborted) return { enabled: notifyWanted(), persisted: false };
   const owner = ++preferenceGeneration;
   offVeto = true;
+  notifyBackgroundFailure.clear();
   if (!on) {
     return { enabled: false, persisted: persistNotify("off") };
   }
@@ -103,13 +104,20 @@ export function notifyToggleMessage (on: boolean, result: PreferenceToggleResult
 }
 
 function fire (tag: string, body: string, onclick: () => void): void {
-  if (!canFire() || !document.hidden) return; // background-only (D5)
+  const owner = preferenceGeneration;
+  if (!notifyWanted() || owner !== preferenceGeneration) return;
   try {
-    const n = new Notification("KATLAB Tracking Monitor", { body, tag });
+    const capability = globalThis.Notification;
+    if (!capability || capability.permission !== "granted") {
+      failBackgroundNotify(owner);
+      return;
+    }
+    if (!document.hidden) return; // background-only (D5)
+    if (owner !== preferenceGeneration) return;
+    const n = new capability("KATLAB Tracking Monitor", { body, tag });
     n.onclick = () => { window.focus(); onclick(); };
   } catch {
-    offVeto = true;
-    persistNotify("off");
+    failBackgroundNotify(owner);
   }
 }
 

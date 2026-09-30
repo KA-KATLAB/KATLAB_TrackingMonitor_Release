@@ -1,5 +1,22 @@
 # Version Notes
 
+## v0.3.1.17 — Background Preference Feedback (2026-10-01)
+
+- Reported background sound-restoration and notification-access/delivery
+  failures now update existing controls to off and show recovery feedback,
+  including whether off was saved and older-opt-in/reload advice when needed.
+- Each channel retains one immutable non-private failure fact. Observation
+  covers pre-mount failures, cleans up on unmount and reads current snapshots.
+  Accepted explicit retry clears only its channel; preabort does not clear.
+  Current failures take priority over older explicit completion feedback.
+- Missing/non-granted/throwing notification capability fails closed without
+  prompting; granted permission on a visible page remains a no-op. Existing
+  deadlines, user gestures, coalescing, sounds and six-view layout are preserved.
+- Only reported same-page failures are synchronized, not external permission
+  or storage changes or every native failure. Background resume is unbounded;
+  native cleanup is best effort. Real browser/audio/OS-alert/AT checks remain
+  unrun; controlled and static checks do not prove native delivery.
+
 ## v0.3.1.16 — Sound Confirmation Truth (2026-10-01)
 
 - Revalidate saved on after explicit audio activation, before confirmation.

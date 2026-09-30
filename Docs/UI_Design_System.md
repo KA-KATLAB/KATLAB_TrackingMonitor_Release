@@ -501,8 +501,8 @@ Do not:
   publication, confirmation, feedback and busy release; navigation does not
   cancel a page-global preference. Initial saved-on gesture listeners capture
   their registration generation and cannot override an accepted explicit choice.
-  Background first-gesture activation has no foreground deadline; its existing
-  preference-to-UI synchronization gap remains separate from explicit recovery.
+  Background first-gesture activation has no foreground deadline. Reported
+  failures synchronize to existing preference controls and recovery feedback.
 - Before confirming an otherwise successful explicit sound activation, verify
   saved on again while retaining the page veto. Recheck owner/cancellation after
   that read. An unverified snapshot retires its context and stays off without
@@ -522,6 +522,23 @@ Do not:
   one busy/result owner; stale work cannot release a newer owner.
 - Preference failures are visible from both direct controls and palette actions
   at all shell widths. Do not hide them behind another action's success note.
+- Same-page sound-restoration and notification-access/delivery failures retain
+  one immutable, non-private failure fact per channel, after current-owner
+  validation, off veto, owned cleanup and a fresh off-save attempt. Publication
+  rechecks ownership after persistence; sound also rechecks before persistence
+  after cleanup. Capture notification ownership before reading wanted and
+  reject supersession after that read. Fence construction after visibility so
+  reentrant native/storage boundaries cannot override a newer choice. Notification
+  capability is read once inside the guarded delivery path; non-granted or
+  unavailable access fails closed without prompting. Granted/visible is a no-op.
+  Subscribe before reading the cached fact; consume the current snapshot and
+  clean up on unmount. Update existing off state, recovery note and announcer
+  even while explicit observation is busy, without changing busy ownership.
+  Both explicit success/error continuations give the current failure priority.
+  Only the next accepted explicit choice clears its own channel's cache;
+  preaborted choices and completion/finally never clear it. Failed off saving
+  retains older-opt-in/reload guidance. No cross-tab/storage-policy/permission
+  watcher, automatic retry or native delivery/physical-silence guarantee is added.
 - User-triggered REST work owns one absolute 10-second deadline for the complete activation. Retry gets a fresh controller/deadline.
 - Close, unmount, scope change, or supersession aborts silently; only timer-owned abort reports timeout.
 - Background work never inherits a foreground deadline.

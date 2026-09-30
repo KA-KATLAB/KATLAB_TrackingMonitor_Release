@@ -27,6 +27,8 @@ const preferenceUrl = dataUrl(transpile("preferences.ts"));
 const preferences = await import(preferenceUrl);
 const apiUrl = dataUrl(transpile("api.ts"));
 const api = await import(apiUrl);
+const preferenceFailureUrl = dataUrl(transpile("preferenceFailure.ts"));
+const preferenceFailure = await import(preferenceFailureUrl);
 
 async function freshModule (name) {
   const emitted = transpile(name);
@@ -37,6 +39,9 @@ async function freshModule (name) {
     const apiImports = linked.match(/from ["']\.\/api["']/g) ?? [];
     assert.equal(apiImports.length, 1, `${name} must reuse the shared observation race`);
     linked = linked.replace(apiImports[0], `from "${apiUrl}"`);
+    const failureImports = linked.match(/from ["']\.\/preferenceFailure["']/g) ?? [];
+    assert.equal(failureImports.length, 1, `${name} must use its independent failure store`);
+    linked = linked.replace(failureImports[0], `from "${preferenceFailureUrl}"`);
   }
   return import(`${dataUrl(linked)}#fixture-${++moduleSerial}`);
 }
@@ -1343,6 +1348,404 @@ test("App statically owns notification deadline, lifecycle and recovery surfaces
   assert.equal((app.match(/disabled=\{notifyBusy\}/g) ?? []).length, 2);
   assert.match(app, /Object\.entries\(preferenceFailures\)/);
   assert.doesNotMatch(app, /notifyBusyRef/);
+});
+
+test("background failure stores are bounded, immutable and exception-isolated", () => {
+  const first = preferenceFailure.createPreferenceFailureStore();
+  const second = preferenceFailure.createPreferenceFailureStore();
+  const snapshots = [];
+  let throwingCalls = 0;
+  const stopThrowing = first.subscribe(() => { throwingCalls++; throw new Error("private listener error"); });
+  const stop = first.subscribe(() => snapshots.push(first.getSnapshot()));
+  assert.equal(first.getSnapshot(), null);
+  first.clear();
+  assert.equal(throwingCalls, 0, "clearing null must not publish");
+  first.publish(false);
+  const initial = first.getSnapshot();
+  assert.deepEqual(initial, { persisted: false });
+  assert.equal(Object.isFrozen(initial), true);
+  assert.throws(() => { initial.persisted = true; }, TypeError);
+  assert.equal(first.getSnapshot(), initial);
+  assert.equal(snapshots[0], initial, "publication precedes listener notification");
+  assert.equal(second.getSnapshot(), null);
+  first.publish(true);
+  assert.notEqual(first.getSnapshot(), initial);
+  assert.deepEqual(first.getSnapshot(), { persisted: true });
+  first.clear();
+  assert.equal(snapshots.at(-1), null);
+  stop(); stop(); stopThrowing(); stopThrowing();
+  const count = snapshots.length;
+  first.publish(false);
+  assert.equal(snapshots.length, count);
+  assert.equal(throwingCalls, 3);
+});
+
+test("background observation reads cached and current snapshots and tears down safely", () => {
+  const store = preferenceFailure.createPreferenceFailureStore();
+  store.publish(false);
+  const order = [], received = [];
+  const traced = {
+    ...store,
+    subscribe(listener) { order.push("subscribe"); return store.subscribe(listener); },
+    getSnapshot() { order.push("read"); return store.getSnapshot(); },
+  };
+  const stop = preferenceFailure.observePreferenceFailure(traced, value => received.push(value));
+  assert.deepEqual(order.slice(0, 2), ["subscribe", "read"]);
+  assert.deepEqual(received, [{ persisted: false }]);
+  store.clear();
+  assert.equal(received.length, 1, "null clear must not replay feedback");
+  store.publish(true);
+  assert.deepEqual(received.at(-1), { persisted: true });
+  stop(); stop();
+  store.publish(false);
+  assert.equal(received.length, 2);
+  const remounted = [];
+  const stopRemount = preferenceFailure.observePreferenceFailure(store, value => remounted.push(value));
+  assert.deepEqual(remounted, [{ persisted: false }]);
+  const stopThrowing = preferenceFailure.observePreferenceFailure(store, () => { throw new Error("private consumer error"); });
+  assert.doesNotThrow(() => store.publish(true));
+  assert.deepEqual(remounted.at(-1), { persisted: true });
+  stopThrowing(); stopRemount();
+
+  const cleared = preferenceFailure.createPreferenceFailureStore();
+  const stopClearer = cleared.subscribe(() => { if (cleared.getSnapshot()) cleared.clear(); });
+  const obsolete = [];
+  const stopObserver = preferenceFailure.observePreferenceFailure(cleared, value => obsolete.push(value));
+  cleared.publish(false);
+  assert.deepEqual(obsolete, [], "a later observer reads current null, not the outer publish record");
+  stopClearer(); stopObserver();
+});
+
+test("background feedback is private, channel-specific and wins over normal completion", () => {
+  for (const channel of ["sound", "notify"]) {
+    for (const persisted of [false, true]) {
+      const failure = { persisted };
+      const feedback = preferenceFailure.backgroundPreferenceFeedback(channel, failure);
+      assert.equal(feedback.enabled, false);
+      assert.equal(feedback.failed, true);
+      assert.match(feedback.message, /off for this page/i);
+      assert.match(feedback.message, /retry/i);
+      assert.equal(/older opt-in.*reload/i.test(feedback.message), !persisted);
+      assert.doesNotMatch(feedback.message, /private|denied|revoked|physical silence/i);
+      for (const normal of [
+        { enabled: true, failed: false, message: "Enabled." },
+        { enabled: false, failed: true, message: "Generic explicit failure." },
+      ]) {
+        assert.deepEqual(preferenceFailure.withBackgroundPreferenceFailure(channel, failure, normal), feedback);
+        assert.deepEqual(preferenceFailure.withBackgroundPreferenceFailure(channel, null, normal), normal);
+      }
+    }
+  }
+});
+
+test("sound background failures publish verified off truth to an observed sink", async () => {
+  for (const failure of ["read", "setup", "resume"]) {
+    for (const failedSave of [false, true]) {
+      const store = storageFixture({ "katlab.sound": "on" });
+      const audio = audioFixture();
+      const win = windowFixture();
+      if (failure === "setup") audio.behavior.gainFailures = 1;
+      if (failure === "resume") audio.behavior.resume = () => Promise.reject(new Error("private native failure"));
+      await withGlobals({ localStorage: { value: store.storage },
+        AudioContext: { value: audio.AudioContextFake }, window: { value: win } }, async () => {
+        const sound = await freshModule("sound.ts");
+        const updates = [], wantedAtReport = [];
+        const stop = preferenceFailure.observePreferenceFailure(sound.soundBackgroundFailure,
+          value => {
+            wantedAtReport.push(sound.soundWanted());
+            updates.push(preferenceFailure.backgroundPreferenceFeedback("sound", value));
+          });
+        assert.equal(audio.calls.created, 0, "subscription must not activate audio");
+        assert.deepEqual(updates, []);
+        store.failure.read = failure === "read";
+        store.failure.write = failedSave;
+        win.dispatch("pointerdown");
+        await flush();
+        assert.deepEqual(sound.soundBackgroundFailure.getSnapshot(), {
+          persisted: !failedSave && failure !== "read",
+        });
+        assert.equal(updates.length, 1);
+        assert.equal(updates[0].enabled, false);
+        assert.equal(updates[0].failed, true);
+        assert.deepEqual(wantedAtReport, [false], "page veto precedes publication");
+        assert.equal(audio.calls.notes, 0);
+        assert.equal(sound.soundWanted(), false);
+        const cached = sound.soundBackgroundFailure.getSnapshot();
+        const aborted = new AbortController(); aborted.abort();
+        await sound.setSoundEnabled(true, aborted.signal);
+        assert.equal(sound.soundBackgroundFailure.getSnapshot(), cached);
+        store.failure.read = false; store.failure.write = false;
+        audio.behavior.resume = null;
+        assert.deepEqual(await sound.setSoundEnabled(true), { enabled: true, persisted: true });
+        assert.equal(sound.soundBackgroundFailure.getSnapshot(), null);
+        assert.equal(updates.length, 1, "accepted clear is not another background report");
+        stop();
+      });
+    }
+  }
+});
+
+test("stale initial sound failure cannot publish after a newer explicit choice", async () => {
+  const store = storageFixture({ "katlab.sound": "on" });
+  const audio = audioFixture();
+  const win = windowFixture();
+  const old = deferred();
+  audio.behavior.resume = (context, call) => {
+    if (call === 1) return old.promise;
+    context.state = "running";
+    return Promise.resolve();
+  };
+  await withGlobals({ localStorage: { value: store.storage },
+    AudioContext: { value: audio.AudioContextFake }, window: { value: win } }, async () => {
+    const sound = await freshModule("sound.ts");
+    const failures = [];
+    const stop = preferenceFailure.observePreferenceFailure(sound.soundBackgroundFailure, value => failures.push(value));
+    win.dispatch("keydown");
+    assert.deepEqual(await sound.setSoundEnabled(true), { enabled: true, persisted: true });
+    old.reject(new Error("private obsolete failure"));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(failures, []);
+    assert.equal(sound.soundBackgroundFailure.getSnapshot(), null);
+    assert.equal(sound.soundWanted(), true);
+    assert.equal(store.values.get("katlab.sound"), "on");
+    stop();
+  });
+});
+
+test("background notification failures fail closed and report off-save truth once", async () => {
+  for (const failure of ["missing", "denied", "default", "capability", "permission", "constructor", "visibility"]) {
+    for (const failedSave of [false, true]) {
+      const store = storageFixture({ "katlab.notify": "on" });
+      const notify = notificationFixture(failure === "denied" || failure === "default" ? failure : "granted");
+      notify.behavior.permissionError = failure === "permission";
+      notify.behavior.constructorError = failure === "constructor";
+      store.failure.write = failedSave;
+      const capability = failure === "capability"
+        ? { get() { throw new Error("private capability failure"); } }
+        : { value: failure === "missing" ? undefined : notify.NotificationFake };
+      await withGlobals({ localStorage: { value: store.storage }, Notification: capability,
+        document: { value: failure === "visibility"
+          ? { get hidden() { throw new Error("private visibility failure"); } } : { hidden: true } },
+        window: { value: windowFixture() } }, async () => {
+        const module = await freshModule("notify.ts");
+        const updates = [], wantedAtReport = [];
+        const stop = preferenceFailure.observePreferenceFailure(module.notifyBackgroundFailure, value => {
+          wantedAtReport.push(module.notifyWanted());
+          updates.push(value);
+        });
+        assert.equal(notify.calls.prompts, 0);
+        assert.equal(notify.calls.shown, 0, "subscription does not request native delivery");
+        assert.doesNotThrow(() => module.notifyWarning("fixture", "fixture", () => {}));
+        assert.deepEqual(updates, [{ persisted: !failedSave }]);
+        assert.deepEqual(wantedAtReport, [false], "page veto precedes publication");
+        assert.equal(module.notifyWanted(), false);
+        assert.equal(store.values.get("katlab.notify"), failedSave ? "on" : "off");
+        module.notifyWarning("fixture", "fixture", () => {});
+        assert.equal(updates.length, 1, "veto prevents repeated failure publication");
+        assert.equal(notify.calls.prompts, 0);
+        stop();
+      });
+    }
+  }
+});
+
+test("obsolete background notification failure cannot publish over a newer explicit choice", async () => {
+  const store = storageFixture({ "katlab.notify": "on" });
+  let module, newer;
+  const capability = { get permission() {
+    newer = module.setNotifyEnabled(false);
+    throw new Error("private obsolete permission failure");
+  } };
+  await withGlobals({ localStorage: { value: store.storage }, Notification: { value: capability },
+    document: { value: { hidden: true } }, window: { value: windowFixture() } }, async () => {
+    module = await freshModule("notify.ts");
+    const updates = [];
+    const stop = preferenceFailure.observePreferenceFailure(module.notifyBackgroundFailure, value => updates.push(value));
+    assert.doesNotThrow(() => module.notifyWarning("fixture", "fixture", () => {}));
+    assert.deepEqual(await newer, { enabled: false, persisted: true });
+    assert.equal(module.notifyBackgroundFailure.getSnapshot(), null);
+    assert.deepEqual(updates, []);
+    assert.equal(store.calls.filter(call => call === "write:katlab.notify:off").length, 1,
+      "obsolete failure must not persist a second off choice");
+    stop();
+  });
+});
+
+test("background off verification cannot publish over a newer accepted enable", async () => {
+  for (const channel of ["sound", "notify"]) {
+    const key = `katlab.${channel}`;
+    const store = storageFixture({ [key]: "on" });
+    const audio = audioFixture();
+    audio.behavior.gainFailures = 1;
+    const notify = notificationFixture();
+    notify.behavior.constructorError = true;
+    const win = windowFixture();
+    await withGlobals({ localStorage: { value: store.storage },
+      AudioContext: { value: audio.AudioContextFake }, Notification: { value: notify.NotificationFake },
+      document: { value: { hidden: true } }, window: { value: win } }, async () => {
+      const module = await freshModule(`${channel}.ts`);
+      const failures = channel === "sound" ? module.soundBackgroundFailure : module.notifyBackgroundFailure;
+      const setEnabled = channel === "sound" ? module.setSoundEnabled : module.setNotifyEnabled;
+      const wanted = channel === "sound" ? module.soundWanted : module.notifyWanted;
+      const reports = [];
+      const stop = preferenceFailure.observePreferenceFailure(failures, value => reports.push(value));
+      const originalRead = store.storage.getItem;
+      let armed = true, newer;
+      store.storage.getItem = requestedKey => {
+        const value = originalRead(requestedKey);
+        if (armed && requestedKey === key && value === "off") {
+          armed = false;
+          newer = setEnabled(true);
+        }
+        return value;
+      };
+      if (channel === "sound") win.dispatch("pointerdown");
+      else module.notifyWarning("fixture", "fixture", () => {});
+      await new Promise(resolve => setImmediate(resolve));
+      assert.ok(newer, "the new choice must start inside the old off-verification read");
+      const result = await newer;
+      assert.deepEqual(result, { enabled: true, persisted: true });
+      assert.equal(wanted(), true);
+      assert.equal(store.values.get(key), "on");
+      assert.equal(failures.getSnapshot(), null);
+      assert.deepEqual(reports, [], "obsolete off verification cannot publish after the new cache clear");
+      const normal = { enabled: true, failed: false, message: "Enabled." };
+      assert.deepEqual(preferenceFailure.withBackgroundPreferenceFailure(channel,
+        failures.getSnapshot(), normal), normal);
+      stop();
+    });
+  }
+});
+
+test("notification preflight reads cannot deliver after accepting a newer off choice", async () => {
+  for (const interruption of ["preference", "capability", "permission", "visibility"]) {
+    const store = storageFixture({ "katlab.notify": "on" });
+    const notify = notificationFixture();
+    let module, newer;
+    const chooseOff = () => { newer = module.setNotifyEnabled(false); };
+    if (interruption === "permission") {
+      Object.defineProperty(notify.NotificationFake, "permission", { configurable: true,
+        get() { chooseOff(); return "granted"; } });
+    }
+    await withGlobals({ localStorage: { value: store.storage },
+      Notification: interruption === "capability"
+        ? { get() { chooseOff(); return notify.NotificationFake; } }
+        : { value: notify.NotificationFake },
+      document: { value: interruption === "visibility"
+        ? { get hidden() { chooseOff(); return true; } } : { hidden: true } },
+      window: { value: windowFixture() } }, async () => {
+      module = await freshModule("notify.ts");
+      if (interruption === "preference") {
+        const originalRead = store.storage.getItem;
+        let armed = true;
+        store.storage.getItem = key => {
+          const value = originalRead(key);
+          if (armed) { armed = false; chooseOff(); }
+          return value;
+        };
+      }
+      const reports = [];
+      const stop = preferenceFailure.observePreferenceFailure(module.notifyBackgroundFailure,
+        failure => reports.push(failure));
+      assert.doesNotThrow(() => module.notifyWarning("fixture", "fixture", () => {}));
+      assert.deepEqual(await newer, { enabled: false, persisted: true });
+      assert.equal(module.notifyWanted(), false);
+      assert.equal(store.values.get("katlab.notify"), "off");
+      assert.equal(notify.calls.shown, 0, "obsolete delivery must stop before construction");
+      assert.equal(notify.calls.prompts, 0);
+      assert.equal(module.notifyBackgroundFailure.getSnapshot(), null);
+      assert.deepEqual(reports, []);
+      stop();
+    });
+  }
+});
+
+test("valid visible notification delivery is inert and captures capability once", async () => {
+  const store = storageFixture({ "katlab.notify": "on" });
+  const notify = notificationFixture();
+  const document = { hidden: false };
+  let reads = 0;
+  await withGlobals({ localStorage: { value: store.storage },
+    Notification: { get() { reads++; return notify.NotificationFake; } },
+    document: { value: document }, window: { value: windowFixture() } }, async () => {
+    const module = await freshModule("notify.ts");
+    module.notifyWarning("fixture", "fixture", () => {});
+    assert.equal(reads, 1);
+    assert.equal(notify.calls.shown, 0);
+    assert.equal(module.notifyBackgroundFailure.getSnapshot(), null);
+    assert.equal(module.notifyWanted(), true);
+    assert.ok(!store.calls.some(call => call.startsWith("write:")));
+    document.hidden = true;
+    module.notifyWarning("fixture", "fixture", () => {});
+    assert.equal(reads, 2);
+    assert.equal(notify.calls.shown, 1);
+    assert.equal(module.notifyBackgroundFailure.getSnapshot(), null);
+  });
+});
+
+test("accepted preference retries clear only their own cached failure", async () => {
+  const store = storageFixture();
+  const audio = audioFixture();
+  const notify = notificationFixture();
+  await withGlobals({ localStorage: { value: store.storage },
+    AudioContext: { value: audio.AudioContextFake }, Notification: { value: notify.NotificationFake } }, async () => {
+    const sound = await freshModule("sound.ts");
+    const module = await freshModule("notify.ts");
+    sound.soundBackgroundFailure.publish(false);
+    module.notifyBackgroundFailure.publish(false);
+    const notificationFailure = module.notifyBackgroundFailure.getSnapshot();
+    const aborted = new AbortController(); aborted.abort();
+    await module.setNotifyEnabled(false, aborted.signal);
+    assert.equal(module.notifyBackgroundFailure.getSnapshot(), notificationFailure);
+    await sound.setSoundEnabled(true);
+    assert.equal(sound.soundBackgroundFailure.getSnapshot(), null);
+    assert.equal(module.notifyBackgroundFailure.getSnapshot(), notificationFailure);
+    sound.soundBackgroundFailure.publish(true);
+    const soundFailure = sound.soundBackgroundFailure.getSnapshot();
+    await module.setNotifyEnabled(true);
+    assert.equal(module.notifyBackgroundFailure.getSnapshot(), null);
+    assert.equal(sound.soundBackgroundFailure.getSnapshot(), soundFailure);
+  });
+});
+
+test("new background notification failure wins between explicit completion and consumer continuation", async () => {
+  const store = storageFixture();
+  const notify = notificationFixture();
+  await withGlobals({ localStorage: { value: store.storage }, Notification: { value: notify.NotificationFake },
+    document: { value: { hidden: true } }, window: { value: windowFixture() } }, async () => {
+    const module = await freshModule("notify.ts");
+    const enabling = module.setNotifyEnabled(true);
+    const background = enabling.then(() => {
+      notify.behavior.constructorError = true;
+      module.notifyWarning("fixture", "fixture", () => {});
+    });
+    const feedback = await enabling.then(result => preferenceFailure.withBackgroundPreferenceFailure(
+      "notify", module.notifyBackgroundFailure.getSnapshot(), {
+        enabled: result.enabled, failed: !result.persisted || !result.enabled,
+        message: module.notifyToggleMessage(true, result),
+      }));
+    await background;
+    assert.equal(feedback.enabled, false);
+    assert.equal(feedback.failed, true);
+    assert.doesNotMatch(feedback.message, /alerts enabled/i);
+    assert.equal(module.notifyWanted(), false);
+    assert.notEqual(module.notifyBackgroundFailure.getSnapshot(), null);
+  });
+});
+
+test("App statically observes both background channels and gives current failures completion priority", () => {
+  // Static wiring and pure-helper evidence, not React lifecycle or native delivery verification.
+  const app = readFileSync(resolve(frontendRoot, "src/App.tsx"), "utf8");
+  assert.equal((app.match(/observePreferenceFailure\(/g) ?? []).length, 2);
+  for (const channel of ["sound", "notify"]) {
+    const store = `${channel}BackgroundFailure`;
+    assert.match(app, new RegExp(`observePreferenceFailure\\(${store},`));
+    assert.equal((app.match(new RegExp(`withBackgroundPreferenceFailure\\(\\s*"${channel}",\\s*${store}\\.getSnapshot\\(\\)`, "g")) ?? []).length, 2,
+      `${channel} success and rejection continuations must both read the current cache`);
+    assert.match(app, new RegExp(`observePreferenceFailure\\(${store}, \\(failure\\) => \\{\\s*if \\(!${channel}MountedRef\\.current\\) return`));
+    assert.ok(app.indexOf(`${channel}MountedRef.current = true`) < app.indexOf(`observePreferenceFailure(${store},`));
+  }
+  assert.match(app, /return \(\) => \{ stopNotify\(\); stopSound\(\); \};\s*\}, \[announceStatus\]\)/);
 });
 
 test("blocked storage still renders GoalRings, DayLanes, and empty Overview", {

@@ -20,9 +20,10 @@ import { FileStory } from "./FileStory";
 import { SessionTimeline } from "./SessionTimeline";
 import { WrappedCard } from "./WrappedCard";
 import { fmtAge, fmtMinutes, fmtRel, fmtTs } from "./format";
-import { notifyPickNeeded, notifyRelease, notifyStatusChange, notifyToggleMessage, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
-import { playChime, playFanfare, playTick, setSoundEnabled, soundToggleMessage, soundWanted } from "./sound";
+import { notifyBackgroundFailure, notifyPickNeeded, notifyRelease, notifyStatusChange, notifyToggleMessage, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
+import { playChime, playFanfare, playTick, setSoundEnabled, soundBackgroundFailure, soundToggleMessage, soundWanted } from "./sound";
 import { readPreference, writePreference } from "./preferences";
+import { backgroundPreferenceFeedback, observePreferenceFailure, withBackgroundPreferenceFailure } from "./preferenceFailure";
 import { copyCommitDraft } from "./draft";
 import { DraftFeedback } from "./draftFeedback";
 import { draftCopyMessage, runDraftCopy } from "./draftRequest";
@@ -1189,15 +1190,24 @@ export default function App () {
     const isCurrent = () => notifyMountedRef.current && notifyOwnerRef.current === owner;
     void setNotifyEnabled(next, owner.signal).then((result) => {
       if (!isCurrent()) return;
-      setNotifyOn(result.enabled);
-      const message = notifyToggleMessage(next, result, owner.didTimeout());
+      const { enabled, message, failed } = withBackgroundPreferenceFailure("notify",
+        notifyBackgroundFailure.getSnapshot(), {
+          enabled: result.enabled,
+          message: notifyToggleMessage(next, result, owner.didTimeout()),
+          failed: owner.didTimeout() || !result.persisted || (next && !result.enabled),
+        });
+      setNotifyOn(enabled);
       setNotifyNote(message);
-      setPreferenceFailure("notify", owner.didTimeout() || !result.persisted || (next && !result.enabled) ? message : "");
+      setPreferenceFailure("notify", failed ? message : "");
       announceStatus(message);
     }, () => {
       if (!isCurrent()) return;
-      setNotifyOn(notifyWanted());
-      const message = "OS alert preference could not be verified. Check browser settings before retrying.";
+      const { enabled, message } = withBackgroundPreferenceFailure("notify",
+        notifyBackgroundFailure.getSnapshot(), {
+          enabled: notifyWanted(), failed: true,
+          message: "OS alert preference could not be verified. Check browser settings before retrying.",
+        });
+      setNotifyOn(enabled);
       setNotifyNote(message);
       setPreferenceFailure("notify", message);
       announceStatus(message);
@@ -1238,15 +1248,24 @@ export default function App () {
     const isCurrent = () => soundMountedRef.current && soundOwnerRef.current === owner;
     void setSoundEnabled(next, owner.signal).then((result) => {
       if (!isCurrent()) return;
-      setSoundOn(result.enabled);
-      const message = soundToggleMessage(next, result, owner.didTimeout());
+      const { enabled, message, failed } = withBackgroundPreferenceFailure("sound",
+        soundBackgroundFailure.getSnapshot(), {
+          enabled: result.enabled,
+          message: soundToggleMessage(next, result, owner.didTimeout()),
+          failed: owner.didTimeout() || !result.persisted || (next && !result.enabled),
+        });
+      setSoundOn(enabled);
       setSoundNote(message);
-      setPreferenceFailure("sound", owner.didTimeout() || !result.persisted || (next && !result.enabled) ? message : "");
+      setPreferenceFailure("sound", failed ? message : "");
       announceStatus(message);
     }, () => {
       if (!isCurrent()) return;
-      setSoundOn(soundWanted());
-      const message = "Sound preference could not be verified. Check browser settings before retrying.";
+      const { enabled, message } = withBackgroundPreferenceFailure("sound",
+        soundBackgroundFailure.getSnapshot(), {
+          enabled: soundWanted(), failed: true,
+          message: "Sound preference could not be verified. Check browser settings before retrying.",
+        });
+      setSoundOn(enabled);
       setSoundNote(message);
       setPreferenceFailure("sound", message);
       announceStatus(message);
@@ -1258,6 +1277,25 @@ export default function App () {
       }
     });
   }, [announceStatus, soundOn]);
+  useEffect(() => {
+    const stopNotify = observePreferenceFailure(notifyBackgroundFailure, (failure) => {
+      if (!notifyMountedRef.current) return;
+      const { message } = backgroundPreferenceFeedback("notify", failure);
+      setNotifyOn(false);
+      setNotifyNote(message);
+      setPreferenceFailures((current) => ({ ...current, notify: message }));
+      announceStatus(message);
+    });
+    const stopSound = observePreferenceFailure(soundBackgroundFailure, (failure) => {
+      if (!soundMountedRef.current) return;
+      const { message } = backgroundPreferenceFeedback("sound", failure);
+      setSoundOn(false);
+      setSoundNote(message);
+      setPreferenceFailures((current) => ({ ...current, sound: message }));
+      announceStatus(message);
+    });
+    return () => { stopNotify(); stopSound(); };
+  }, [announceStatus]);
   // One clipboard observer at a time; native writes cannot be canceled.
   const [draftNote, setDraftNote] = useState<{
     repo: string; result: DraftCopyResult; n: number; scopeKey: string;
