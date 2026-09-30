@@ -12,7 +12,7 @@ for the repository's gated research-to-release process.
 - Sys shows the worker state without treating a surviving built site as proof
   that its worker is live. Older backends and malformed state payloads are
   reported as unavailable health data, not as healthy.
-- [Workflow K](Claude_Info/Workflow_K.md) documents the repeatable CDD 5/5,
+- [Workflow K](../../../Claude_Info/Workflow_K.md) documents the repeatable CDD 5/5,
   implementation, CFT 5/5, verification, restart, and authorized publication
   sequence. Agent Git guidance now consistently lists only the four allowed
   read-only commands by default.

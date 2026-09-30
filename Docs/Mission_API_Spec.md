@@ -277,6 +277,12 @@ Provider facts are independent. Configuration validation is a read-only exact
 registration check against the resolved local hook path and required signatures;
 recent observation means a stored event within 24 hours.
 Health never returns settings content or provider identifiers such as sessions.
+The legacy `server.hook_registered` boolean is a marker-presence check, not
+provider configuration validation. Missing, unreadable, or non-UTF-8 Claude
+settings return `false` for that one fact; the health endpoint still returns
+the remaining independent facts. A `false` value means the marker was not
+verified, not necessarily that the file or registration is absent. Provider
+configuration validity is reported separately in `providers`.
 `registry_revision_mismatch` is a monotonic safe count of newly ingested hook
 records whose check revision is unknown to the running backend; retries do not
 increment it twice.

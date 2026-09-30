@@ -745,6 +745,47 @@ class MissionApiTests(unittest.TestCase):
         self.assertNotIn("session", json.dumps(data["providers"]))
         self.assertEqual(data["chronicle"], {"state": "unavailable"})
 
+    def test_health_degrades_only_hook_marker_on_invalid_settings_encoding (self) -> None:
+        home = self.root / "isolated-home"
+        settings_path = home / ".claude" / "settings.json"
+        settings_path.parent.mkdir(parents=True)
+
+        def health_data () -> dict:
+            response = self.client.get("/api/health")
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertTrue(payload["success"])
+            self.assertEqual(payload["message"], "")
+            return payload["data"]
+
+        providers = [{"provider": "claude", "configuration_state": "isolated"}]
+        with patch.object(routes.Path, "home", return_value=home), \
+             patch.object(routes.provider_health, "provider_health",
+                          return_value=providers):
+            settings_path.write_text("katlab_tracking_hook.py", encoding="utf-8")
+            valid = health_data()
+            self.assertTrue(valid["server"]["hook_registered"])
+            self.assertEqual(valid["server"]["hook_settings_path"], str(settings_path))
+
+            settings_path.write_bytes(b"\xffkatlab_tracking_hook.py")
+            invalid = health_data()
+            self.assertFalse(invalid["server"]["hook_registered"])
+
+            settings_path.unlink()
+            missing = health_data()
+            self.assertFalse(missing["server"]["hook_registered"])
+
+        for degraded in (invalid, missing):
+            for key in ("repos", "activity", "providers", "chronicle"):
+                self.assertEqual(degraded[key], valid[key])
+            self.assertEqual(
+                {key: value for key, value in degraded["server"].items()
+                 if key != "hook_registered"},
+                {key: value for key, value in valid["server"].items()
+                 if key != "hook_registered"},
+            )
+            self.assertEqual(degraded["providers"], providers)
+
     def test_health_chronicle_reports_only_observed_worker_state (self) -> None:
         state = self.app.state
 
@@ -802,6 +843,12 @@ class MissionApiTests(unittest.TestCase):
         self.assertEqual(
             provider_health.validate_provider_settings("codex", broken),
             (False, "registration_incomplete"),
+        )
+        undecodable = self.root / "undecodable.json"
+        undecodable.write_bytes(b"\xff")
+        self.assertEqual(
+            provider_health.validate_provider_settings("claude", undecodable),
+            (False, "settings_invalid"),
         )
 
         lookalike = render_config("codex")

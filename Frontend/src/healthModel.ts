@@ -6,6 +6,11 @@ export type ChronicleHealthStatus =
   | { kind: "missing" }
   | { kind: "invalid" };
 
+/** A false marker check cannot distinguish a missing line from unreadable settings. */
+export function hookRegistrationLabel (registered: boolean): string {
+  return registered ? "line present ✓" : "line not verified";
+}
+
 /** Decode the untrusted JSON boundary before displaying a positive state. */
 export function decodeChronicleHealth (payload: unknown): ChronicleHealthStatus {
   if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {

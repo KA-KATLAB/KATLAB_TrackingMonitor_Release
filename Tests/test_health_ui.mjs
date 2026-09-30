@@ -12,7 +12,7 @@ const source = readFileSync(resolve(root, "Frontend/src/healthModel.ts"), "utf8"
 const emitted = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const { decodeChronicleHealth } = await import(
+const { decodeChronicleHealth, hookRegistrationLabel } = await import(
   `data:text/javascript;base64,${Buffer.from(emitted).toString("base64")}`
 );
 
@@ -41,4 +41,9 @@ test("null and malformed responses never report a running worker", () => {
   for (const payload of invalid) {
     assert.deepEqual(decodeChronicleHealth(payload), { kind: "invalid" });
   }
+});
+
+test("hook marker labels distinguish presence from an unverified result", () => {
+  assert.equal(hookRegistrationLabel(true), "line present ✓");
+  assert.equal(hookRegistrationLabel(false), "line not verified");
 });

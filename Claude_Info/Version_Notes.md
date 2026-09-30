@@ -1,5 +1,26 @@
 # Version Notes
 
+## v0.3.1.3 — Health Settings Encoding Recovery (2026-09-30)
+
+**Key Highlights**
+
+- `/api/health` remains available when Claude user settings are not valid
+  UTF-8. Only the legacy hook marker fact becomes `false`; provider-health
+  configuration validity and other health facts remain independent.
+- Sys labels an unverified hook line accurately. This does not parse or repair
+  the user's settings and does not change the API shape, Git boundary, or
+  monitored repositories.
+- A focused API regression uses isolated invalid bytes and valid-marker
+  cases; the Node helper test covers both Sys label outputs. See the detailed
+  plan for executed verification and any live/browser limitations.
+
+**Known limits**
+
+- A false marker fact can mean missing, unreadable, undecodable, or simply
+  marker-absent settings; it is not a full registration diagnosis.
+- Sys remains a snapshot at open time. HTTP and pure-helper checks are not
+  an actual browser interaction test.
+
 ## v0.3.1.2 — Chronicle Worker Health (2026-09-29)
 
 **Key Highlights**

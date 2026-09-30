@@ -4,7 +4,7 @@ import { api, createActionDeadline, isAbortError } from "./api";
 import type { HealthPayload } from "./api";
 import { DialogShell } from "./dialog";
 import { fmtMinutes, fmtRel, fmtTs } from "./format";
-import { decodeChronicleHealth } from "./healthModel";
+import { decodeChronicleHealth, hookRegistrationLabel } from "./healthModel";
 import { CollectionPager, useBoundedPage } from "./ui";
 
 function fmtBytes (bytes: number): string {
@@ -82,7 +82,7 @@ export function HealthBody ({ data }: { data: HealthPayload }): JSX.Element {
           title={server.hook_settings_path}
           className={server.hook_registered ? "text-teal-300" : "text-rose-300"}
         >
-          {server.hook_registered ? "line present ✓" : "line missing ✕"}
+          {hookRegistrationLabel(server.hook_registered)}
         </span>
       </Row>
 

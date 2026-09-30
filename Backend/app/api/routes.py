@@ -174,7 +174,7 @@ def health (request: Request):
     settings_path = Path.home() / ".claude" / "settings.json"
     try:
         hook_registered = _HOOK_MARKER in settings_path.read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, UnicodeError):
         hook_registered = False
     repos = []
     for repo in tracker.config.repos:
