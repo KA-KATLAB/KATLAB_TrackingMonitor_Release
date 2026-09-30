@@ -419,6 +419,15 @@ Do not:
 - Validate after blur or submit, preserve entered values, and state cause plus recovery.
 - Disable every mutable control during a batch action and expose `aria-busy` where appropriate.
 - Prevent silent duplicate submission for assignments, reads, graphs, exports, clipboard, permission, sound, and notification actions.
+- Browser preference storage is optional. Guard both the storage getter and
+  reads/writes; keep existing defaults when reading fails. A failed save keeps
+  the current visual choice but must show visible feedback and announce that
+  it may reset on view remount (or page reload for attract).
+- Sound and OS alerts stay off if opt-in cannot be stored/verified. A failed
+  disable still blocks new sound/alerts for the current page; explain that
+  persistence failed and an older saved opt-in may remain after reload.
+- Preference failures are visible from both direct controls and palette actions
+  at all shell widths. Do not hide them behind another action's success note.
 - User-triggered REST work owns one absolute 10-second deadline for the complete activation. Retry gets a fresh controller/deadline.
 - Close, unmount, scope change, or supersession aborts silently; only timer-owned abort reports timeout.
 - Background work never inherits a foreground deadline.

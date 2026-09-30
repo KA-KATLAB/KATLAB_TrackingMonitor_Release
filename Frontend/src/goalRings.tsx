@@ -14,6 +14,7 @@ import type { CSSProperties, FormEvent } from "react";
 import type { StatsData } from "./charts";
 import { fmtMinutes } from "./format";
 import { SettingsIcon } from "./icons";
+import { readPreference, writePreference } from "./preferences";
 import { usePrefersReducedMotion } from "./theme";
 import { IconButton, SectionHeading, useDisclosureBehavior } from "./ui";
 
@@ -29,7 +30,7 @@ const fmt = (n: number) => n.toLocaleString("en-US");
 
 function loadGoals (): Goals {
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<Goals>;
+    const raw = JSON.parse(readPreference(KEY) ?? "{}") as Partial<Goals>;
     const pick = (v: unknown, d: number) =>
       typeof v === "number" && Number.isInteger(v) && v > 0 ? v : d;
     return {
@@ -151,9 +152,11 @@ export function GoalRings ({ calendar, scope, compact, onStatus }: {
     // VALUES and the crossing compare reads the goal FRESH via goalsRef,
     // so a lowered goal can never satisfy `prev < goal`.
     setGoals(next);
-    localStorage.setItem(KEY, JSON.stringify(next));
-    setSaveNote("Daily goals saved.");
-    onStatus?.("Daily goals saved.");
+    const saved = writePreference(KEY, JSON.stringify(next));
+    const message = saved ? "Daily goals saved."
+      : "Goals apply to this view only; browser storage could not save them.";
+    setSaveNote(message);
+    onStatus?.(message);
   };
 
   const openGoalEditor = (): void => {

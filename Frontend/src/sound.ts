@@ -9,6 +9,9 @@
 // in the browser -> the toggle honestly stays off (the v0.1.12.0
 // setAppBadge feature-detect precedent).
 
+import { readPreference, writePreference } from "./preferences";
+import type { PreferenceToggleResult } from "./preferences";
+
 const KEY = "katlab.sound";
 const MASTER_GAIN = 0.15;   // calm-tech: peripheral, never startling
 const TICK_MIN_GAP_MS = 80; // D4: bursts patter — the limiter DROPS
@@ -26,11 +29,15 @@ export const TICK_STEPS = ["A4", "B4", "C#5", "E5", "F#5"] as const;
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let lastTickMs = -Infinity;
+let offVeto = false;
+let preferenceGeneration = 0;
+
+function persistSound (value: "on" | "off"): boolean {
+  return writePreference(KEY, value) && readPreference(KEY) === value;
+}
 
 export function soundWanted (): boolean {
-  // typeof-guarded: the battery imports this module in node (V3 law).
-  return typeof localStorage !== "undefined" &&
-    localStorage.getItem(KEY) === "on";
+  return !offVeto && readPreference(KEY) === "on";
 }
 
 /** RV6/RV10 pitch step (exported PURE for the battery): the HIGH-BITS
@@ -55,15 +62,44 @@ function contextRunning (): boolean {
   return ctx !== null && ctx.state === "running";
 }
 
-function ensureContext (): boolean {
-  if (typeof AudioContext === "undefined") return false; // RV5
-  if (ctx === null) {
-    ctx = new AudioContext();
-    master = ctx.createGain();
-    master.gain.value = MASTER_GAIN;
-    master.connect(ctx.destination);
+async function closeCandidate (candidate: AudioContext | null): Promise<void> {
+  if (!candidate) return;
+  try { await candidate.close(); } catch { /* best-effort cleanup */ }
+}
+
+async function activateContext (owner: number): Promise<boolean> {
+  if (typeof AudioContext === "undefined") return false;
+  const existing = ctx;
+  if (existing && existing.state !== "closed") {
+    try {
+      await existing.resume();
+      return owner === preferenceGeneration && existing.state === "running";
+    } catch {
+      return false;
+    }
   }
-  return true;
+  if (existing) {
+    ctx = null;
+    master = null;
+  }
+  let candidate: AudioContext | null = null;
+  try {
+    candidate = new AudioContext();
+    const candidateMaster = candidate.createGain();
+    candidateMaster.gain.value = MASTER_GAIN;
+    candidateMaster.connect(candidate.destination);
+    await candidate.resume();
+    if (owner !== preferenceGeneration || candidate.state !== "running") {
+      await closeCandidate(candidate);
+      return false;
+    }
+    ctx = candidate;
+    master = candidateMaster;
+    return true;
+  } catch {
+    await closeCandidate(candidate);
+    return false;
+  }
 }
 
 // One enveloped oscillator note into the master gain (craft latitude:
@@ -84,30 +120,41 @@ function note (freq: number, startS: number, durS: number, peak: number,
   o.stop(t0 + durS + 0.05);
 }
 
-/** RV15: the ORDER is load-bearing — (1) write the key FIRST (a
- *  confirmation played before it is swallowed by its own
- *  soundWanted() guard), (2) create/resume (the toggle click IS the
- *  gesture — RV14 path one), (3) the confirmation tick (step 0, A4
- *  exactly — RV13). Returns the effective state. */
-export async function setSoundEnabled (on: boolean): Promise<boolean> {
+/** Persist before activation; only a running context may confirm opt-in. */
+export async function setSoundEnabled (on: boolean): Promise<PreferenceToggleResult> {
+  const owner = ++preferenceGeneration;
   if (!on) {
-    localStorage.setItem(KEY, "off");
-    if (ctx !== null) void ctx.suspend(); // honest instant silence
-    return false;
+    offVeto = true;
+    const persisted = persistSound("off");
+    if (ctx !== null) {
+      try { await ctx.suspend(); } catch { /* veto still prevents new notes */ }
+    }
+    return { enabled: false, persisted };
   }
-  localStorage.setItem(KEY, "on");        // (1)
-  if (!ensureContext()) {                 // RV5: inert-off, no crash
-    localStorage.setItem(KEY, "off");
-    return false;
+  offVeto = true;
+  if (!persistSound("on")) {
+    persistSound("off");
+    return { enabled: false, persisted: false };
   }
+  const running = await activateContext(owner);
+  if (owner !== preferenceGeneration) {
+    return { enabled: soundWanted(), persisted: false };
+  }
+  if (!running) {
+    return { enabled: false, persisted: persistSound("off") };
+  }
+  offVeto = false;
   try {
-    await ctx!.resume();                  // (2)
+    playTick(0); // confirmation = A4, after persistence and activation
   } catch {
-    localStorage.setItem(KEY, "off");
-    return false;
+    offVeto = true;
+    const persisted = persistSound("off");
+    if (ctx !== null) {
+      try { await ctx.suspend(); } catch { /* veto still prevents new notes */ }
+    }
+    return { enabled: false, persisted };
   }
-  playTick(0);                            // (3) confirmation = A4
-  return true;
+  return { enabled: true, persisted: true };
 }
 
 /** The capture rain-drop: a ~50ms pluck, pitch by tickStep (the
@@ -142,9 +189,23 @@ export function playFanfare (): void {
 // inert in node (the battery imports this module).
 if (typeof window !== "undefined" && soundWanted()) {
   const resumeOnce = () => {
-    if (ensureContext()) void ctx!.resume();
     window.removeEventListener("pointerdown", resumeOnce);
     window.removeEventListener("keydown", resumeOnce);
+    const owner = preferenceGeneration;
+    if (!soundWanted()) {
+      offVeto = true;
+      persistSound("off");
+      return;
+    }
+    void activateContext(owner).then((running) => {
+      if (owner !== preferenceGeneration || running) return;
+      offVeto = true;
+      persistSound("off");
+    }, () => {
+      if (owner !== preferenceGeneration) return;
+      offVeto = true;
+      persistSound("off");
+    });
   };
   window.addEventListener("pointerdown", resumeOnce);
   window.addEventListener("keydown", resumeOnce);

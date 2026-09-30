@@ -264,7 +264,7 @@ test("rendered Chronicle states retain the host and show only the ready iframe",
   );
   const vite = await createServer({
     root: resolve(root, "Frontend"),
-    server: { middlewareMode: true },
+    server: { middlewareMode: true, hmr: false, ws: false },
     appType: "custom",
     optimizeDeps: { noDiscovery: true, entries: [] },
   });

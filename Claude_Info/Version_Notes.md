@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.3.1.5 — Browser Preference Recovery (2026-09-30)
+
+- Optional browser storage failures no longer escape from startup preferences
+  or their save handlers. Existing keys, defaults and goal validation remain.
+- Sound/notification opt-in needs verified persistence. Failed opt-out keeps
+  a current-page veto; UI feedback states when a setting could not be saved.
+- Preference failure messages remain visible across menu/palette entry points
+  and small screens. Audio setup/gesture recovery is bounded to the current
+  preference generation, without adding dependencies or backend behavior.
+- A failed save cannot guarantee the next page forgets older persisted values.
+  Browser interaction and capability changes remain separate from mocked/SSR
+  evidence; see the detailed plan for actual verification and limitations.
+
 ## v0.3.1.4 — Chronicle Probe Recovery (2026-09-30)
 
 - Chronicle host checks are bounded and sequential. Timed-out/unmounted

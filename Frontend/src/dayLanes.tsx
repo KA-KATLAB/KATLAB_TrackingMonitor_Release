@@ -17,6 +17,7 @@ import type { ActionDeadline, TrackedEvent } from "./api";
 import { DisclosureTable } from "./accessibleData";
 import { RAMP, rampBucket } from "./calendarHeatmap";
 import { fmtMinutes, fmtTs } from "./format";
+import { readPreference, writePreference } from "./preferences";
 import { EFFORT_GAP_MAX_MIN, EFFORT_TAIL_MIN, eventSessionIdentity,
   MODE_BADGE, MODE_COLOR, sessionColor, usePrefersReducedMotion } from "./theme";
 import { SectionHeading, Surface } from "./ui";
@@ -133,10 +134,15 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
   // v0.1.13.0 D3 (B.3): lanes | clock — a second projection of the SAME
   // fetched rows (the flat|city recipe; persisted, default lanes).
   const [laneView, setLaneView] = useState<"lanes" | "clock">(
-    () => (localStorage.getItem("katlab.dayView") === "clock" ? "clock" : "lanes"));
+    () => (readPreference("katlab.dayView") === "clock" ? "clock" : "lanes"));
+  const [preferenceNote, setPreferenceNote] = useState("");
   const pickLaneView = (v: "lanes" | "clock") => {
     setLaneView(v);
-    localStorage.setItem("katlab.dayView", v);
+    const saved = writePreference("katlab.dayView", v);
+    const message = saved ? ""
+      : "Day view choice applies to this view only; browser storage could not save it.";
+    setPreferenceNote(message);
+    if (message) onStatus(message);
   };
   const [result, setResult] = useState<{
     key: string;
@@ -481,6 +487,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
             className="rounded px-1.5 py-0.5 text-slate-300 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent">▶</button>
         </span>
         )} />
+      {preferenceNote && <p className="mb-2 text-xs text-amber-300">{preferenceNote}</p>}
       {error && (
         <div data-route-hydration-failure tabIndex={-1}
           aria-label="Activity day load failure"

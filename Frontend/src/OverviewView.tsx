@@ -8,6 +8,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { api, createActionDeadline, isAbortError } from "./api";
 import type { ActionDeadline, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
 import { fmtMinutes } from "./format";
+import { readPreference, writePreference } from "./preferences";
 import { CalendarHeatmap, RAMP, RampLegend, streakOf } from "./calendarHeatmap";
 import { Skyline } from "./skyline";
 import { IdentityCard } from "./identityCard";
@@ -99,25 +100,33 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
 }) {
 
   const totalEvents = stats ? Object.values(stats.mode_counts).reduce((a, b) => a + b, 0) : 0;
+  const [preferenceNotes, setPreferenceNotes] = useState<Record<string, string>>({});
+  const saveViewPreference = (key: string, value: string, label: string) => {
+    const saved = writePreference(key, value);
+    const message = saved ? ""
+      : `${label} applies to this view only; browser storage could not save it.`;
+    setPreferenceNotes((current) => ({ ...current, [key]: message }));
+    if (message) onStatus(message);
+  };
   // v0.1.9.0 D1 (B.1): flat | city calendar toggle — DEFAULT city,
   // persisted under the notify.ts key convention. v0.1.13.0 D1 (B.1):
   // the union widens with "snake" — legacy stored values stay valid,
   // unknown/absent still defaults "city".
   const [calView, setCalView] = useState<"city" | "flat" | "snake">(() => {
-    const v = localStorage.getItem("katlab.calendarView");
+    const v = readPreference("katlab.calendarView");
     return v === "flat" || v === "snake" ? v : "city";
   });
   const pickCalView = (v: "city" | "flat" | "snake") => {
     setCalView(v);
-    localStorage.setItem("katlab.calendarView", v);
+    saveViewPreference("katlab.calendarView", v, "Calendar choice");
   };
   // v0.1.11.0 D2 (B.2): list | arcs coupling toggle — DEFAULT arcs (the
   // flat|city recipe verbatim).
   const [couplingView, setCouplingView] = useState<"arcs" | "list">(
-    () => (localStorage.getItem("katlab.couplingView") === "list" ? "list" : "arcs"));
+    () => (readPreference("katlab.couplingView") === "list" ? "list" : "arcs"));
   const pickCouplingView = (v: "arcs" | "list") => {
     setCouplingView(v);
-    localStorage.setItem("katlab.couplingView", v);
+    saveViewPreference("katlab.couplingView", v, "Coupling choice");
   };
   // Coupling rank display: rows arrive API-ranked (-shared, repo, a, b) —
   // make the ranking VISIBLE: #n numeral + ×N badge tinted by strength
@@ -278,6 +287,9 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
                       }))} />
                   </>
                 )} />
+              {preferenceNotes["katlab.calendarView"] && (
+                <p className="mb-2 text-xs text-amber-300">{preferenceNotes["katlab.calendarView"]}</p>
+              )}
               <div className="ui-local-scroller overflow-x-auto" role="region"
                 aria-label="Activity calendar visualization" tabIndex={0}>
                 {calView === "city"
@@ -334,6 +346,9 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
                           label: value,
                         }))} />
                     )} />
+                  {preferenceNotes["katlab.couplingView"] && (
+                    <p className="mb-2 text-xs text-amber-300">{preferenceNotes["katlab.couplingView"]}</p>
+                  )}
                   {couplingView === "arcs" && (
                     <div className="ui-local-scroller overflow-x-auto" role="region"
                       aria-label="File coupling constellation" tabIndex={0}>

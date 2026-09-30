@@ -22,6 +22,7 @@ import { WrappedCard } from "./WrappedCard";
 import { fmtAge, fmtMinutes, fmtRel, fmtTs } from "./format";
 import { notifyPickNeeded, notifyRelease, notifyStatusChange, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
 import { playChime, playFanfare, playTick, setSoundEnabled, soundWanted } from "./sound";
+import { readPreference, writePreference } from "./preferences";
 import { copyCommitDraft } from "./draft";
 import type { StatsData } from "./charts";
 import { useReveal } from "./reveal";
@@ -1154,7 +1155,11 @@ export default function App () {
   // v0.1.5.0 D5 (D.1): OS-notification toggle — lives in the attention
   // panel FOOTER (user 2026-07-19: one bell in the header). RV21: any
   // non-granted permission snaps it back off with an inline note.
-  const [notifyOn, setNotifyOn] = useState(notifyWanted());
+  const [preferenceFailures, setPreferenceFailures] = useState<Record<string, string>>({});
+  const setPreferenceFailure = (key: string, message: string) => {
+    setPreferenceFailures((current) => ({ ...current, [key]: message }));
+  };
+  const [notifyOn, setNotifyOn] = useState(notifyWanted);
   const [notifyNote, setNotifyNote] = useState("");
   const [notifyBusy, setNotifyBusy] = useState(false);
   const notifyBusyRef = useRef(false);
@@ -1163,18 +1168,22 @@ export default function App () {
     notifyBusyRef.current = true;
     setNotifyBusy(true);
     const next = !notifyOn;
-    void setNotifyEnabled(next).then((granted) => {
-      setNotifyOn(granted);
-      const message = next
-        ? granted
+    void setNotifyEnabled(next).then((result) => {
+      setNotifyOn(result.enabled);
+      const message = !result.persisted
+        ? "OS alerts are off for this page; saving failed. An older opt-in may return after reload."
+        : next
+        ? result.enabled
           ? "OS alerts enabled."
-          : "Notification permission was denied or dismissed; alerts remain off."
+          : "OS alerts are unavailable or permission was denied; alerts remain off."
         : "OS alerts disabled.";
       setNotifyNote(message);
+      setPreferenceFailure("notify", !result.persisted || (next && !result.enabled) ? message : "");
       announceStatus(message);
     }, (errorValue) => {
       const message = `OS alerts could not change: ${String(errorValue).slice(0, 80)}.`;
       setNotifyNote(message);
+      setPreferenceFailure("notify", message);
       announceStatus(message);
     }).finally(() => {
       notifyBusyRef.current = false;
@@ -1183,7 +1192,7 @@ export default function App () {
   }, [announceStatus, notifyOn]);
   // v0.2.8.0 D5 (A.2, R-BH): the sound toggle — notifyOn's twin (the
   // click IS the AudioContext gesture; sound.ts owns the RV15 order).
-  const [soundOn, setSoundOn] = useState(soundWanted());
+  const [soundOn, setSoundOn] = useState(soundWanted);
   const [soundNote, setSoundNote] = useState("");
   const [soundBusy, setSoundBusy] = useState(false);
   const soundBusyRef = useRef(false);
@@ -1192,16 +1201,20 @@ export default function App () {
     soundBusyRef.current = true;
     setSoundBusy(true);
     const next = !soundOn;
-    void setSoundEnabled(next).then((effective) => {
-      setSoundOn(effective);
-      const message = next
-        ? effective ? "Sounds enabled." : "Audio is unavailable; sounds remain off."
+    void setSoundEnabled(next).then((result) => {
+      setSoundOn(result.enabled);
+      const message = !result.persisted
+        ? "Sounds are off for this page; saving failed. An older opt-in may return after reload."
+        : next
+        ? result.enabled ? "Sounds enabled." : "Audio is unavailable; sounds remain off."
         : "Sounds disabled.";
       setSoundNote(message);
+      setPreferenceFailure("sound", !result.persisted || (next && !result.enabled) ? message : "");
       announceStatus(message);
     }, (errorValue) => {
       const message = `Sounds could not change: ${String(errorValue).slice(0, 80)}.`;
       setSoundNote(message);
+      setPreferenceFailure("sound", message);
       announceStatus(message);
     }).finally(() => {
       soundBusyRef.current = false;
@@ -1265,13 +1278,16 @@ export default function App () {
 
   const lastInputRef = useRef(Date.now());
   const [attractOn, setAttractOn] = useState(
-    localStorage.getItem("katlab.attract") !== "off");
+    () => readPreference("katlab.attract") !== "off");
   const toggleAttract = useCallback(() => {
-    setAttractOn((on) => {
-      localStorage.setItem("katlab.attract", on ? "off" : "on");
-      return !on;
-    });
-  }, []);
+    const next = !attractOn;
+    setAttractOn(next);
+    const saved = writePreference("katlab.attract", next ? "on" : "off");
+    const message = saved ? ""
+      : "Attract preference applies to this page only; browser storage could not save it.";
+    setPreferenceFailure("attract", message);
+    if (message) announceStatus(message);
+  }, [announceStatus, attractOn]);
   const [dreaming, setDreaming] = useState(false);
   const dreamSnapRef = useRef<AppRoute | null>(null);
   const dreamIdxRef = useRef(0);
@@ -1960,16 +1976,21 @@ export default function App () {
                     <ControlButton onClick={toggleAttract}>
                       Attract mode: turn {attractOn ? "off" : "on"}
                     </ControlButton>
-                    <ControlButton disabled={soundBusy} aria-busy={soundBusy} onClick={toggleSound}>
+                    {preferenceFailures.attract && <p className="break-words text-xs text-amber-300">{preferenceFailures.attract}</p>}
+                    <ControlButton disabled={soundBusy} aria-busy={soundBusy} onClick={toggleSound}
+                      aria-describedby={soundNote ? "more-sound-note" : undefined}>
                       {soundBusy ? "Changing sounds…" : `Sounds: turn ${soundOn ? "off" : "on"}`}
                     </ControlButton>
-                    <ControlButton disabled={notifyBusy} aria-busy={notifyBusy} onClick={toggleNotify}>
+                    {soundNote && <p id="more-sound-note" className="break-words text-xs text-amber-300">{soundNote}</p>}
+                    <ControlButton disabled={notifyBusy} aria-busy={notifyBusy} onClick={toggleNotify}
+                      aria-describedby={notifyNote ? "more-notify-note" : undefined}>
                       {notifyBusy ? "Changing OS alerts…" : `OS alerts: turn ${notifyOn ? "off" : "on"}`}
                     </ControlButton>
+                    {notifyNote && <p id="more-notify-note" className="break-words text-xs text-amber-300">{notifyNote}</p>}
                   </div>
-                  {(digestNote || notifyNote || soundNote) && (
+                  {digestNote && (
                     <p className="mt-2 break-words text-xs text-amber-300">
-                      {digestNote || notifyNote || soundNote}
+                      {digestNote}
                     </p>
                   )}
                 </div>
@@ -2001,6 +2022,9 @@ export default function App () {
           </div>
         </div>
         {digestNote && <p className="hidden text-xs text-amber-300 lg:block">{digestNote}</p>}
+        {Object.entries(preferenceFailures).map(([key, message]) => message
+          ? <p key={key} className={`${moreOpen ? "hidden lg:block " : ""}mt-1 break-words text-xs text-amber-300`}>{message}</p>
+          : null)}
       </header>
 
       {dreaming && ( /* v0.2.9.0 D5 (C.1, RV4b/RV6): the daydream's

@@ -6,38 +6,75 @@
 // Transitions masked by an F29 reconnect re-snapshot do not notify (RV10 —
 // accepted, documented).
 
+import { readPreference, writePreference } from "./preferences";
+import type { PreferenceToggleResult } from "./preferences";
+
 const KEY = "katlab.notify";
 const COALESCE_MS = 5000;
 
 const pickBursts = new Map<string, { count: number }>(); // repo -> 5s burst
 const prevClean = new Map<string, boolean>();            // RV9 transition map
+let offVeto = false;
+
+function persistNotify (value: "on" | "off"): boolean {
+  return writePreference(KEY, value) && readPreference(KEY) === value;
+}
 
 export function notifyWanted (): boolean {
-  return localStorage.getItem(KEY) === "on";
+  return !offVeto && readPreference(KEY) === "on";
 }
 
 function canFire (): boolean {
-  return notifyWanted() && typeof Notification !== "undefined" &&
-    Notification.permission === "granted";
-}
-
-/** Enable/disable; returns the effective state. RV21: anything other than
- *  "granted" — denied OR a dismissed prompt ("default") — snaps off. */
-export async function setNotifyEnabled (on: boolean): Promise<boolean> {
-  if (!on || typeof Notification === "undefined") {
-    localStorage.setItem(KEY, "off");
+  if (!notifyWanted() || typeof Notification === "undefined") return false;
+  try {
+    return Notification.permission === "granted";
+  } catch {
+    offVeto = true;
+    persistNotify("off");
     return false;
   }
-  const permission = await Notification.requestPermission();
-  const granted = permission === "granted";
-  localStorage.setItem(KEY, granted ? "on" : "off");
-  return granted;
+}
+
+/** Opt-in only after storage and permission are both verified. RV21:
+ *  denied or dismissed permission leaves alerts off. */
+export async function setNotifyEnabled (on: boolean): Promise<PreferenceToggleResult> {
+  offVeto = true;
+  if (!on) {
+    return { enabled: false, persisted: persistNotify("off") };
+  }
+  // A failed storage preflight must never open a browser permission prompt.
+  if (!persistNotify("off")) {
+    persistNotify("off");
+    return { enabled: false, persisted: false };
+  }
+  if (typeof Notification === "undefined") {
+    return { enabled: false, persisted: true };
+  }
+  let granted = false;
+  try {
+    granted = (await Notification.requestPermission()) === "granted"
+      && Notification.permission === "granted";
+  } catch { /* permission API unavailable or rejected */ }
+  if (!granted) {
+    return { enabled: false, persisted: persistNotify("off") };
+  }
+  if (!persistNotify("on")) {
+    persistNotify("off");
+    return { enabled: false, persisted: false };
+  }
+  offVeto = false;
+  return { enabled: true, persisted: true };
 }
 
 function fire (tag: string, body: string, onclick: () => void): void {
   if (!canFire() || !document.hidden) return; // background-only (D5)
-  const n = new Notification("KATLAB Tracking Monitor", { body, tag });
-  n.onclick = () => { window.focus(); onclick(); };
+  try {
+    const n = new Notification("KATLAB Tracking Monitor", { body, tag });
+    n.onclick = () => { window.focus(); onclick(); };
+  } catch {
+    offVeto = true;
+    persistNotify("off");
+  }
 }
 
 /** Trigger (1): queue-lander — coalesced per repo in a 5s window. */
