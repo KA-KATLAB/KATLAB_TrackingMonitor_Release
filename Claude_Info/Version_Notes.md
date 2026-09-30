@@ -1,5 +1,21 @@
 # Version Notes
 
+## v0.3.1.28 — Overview Stats Recovery (2026-10-01)
+
+- Overview offers a stable Refresh/Retry stats action even when its initial
+  request failed. Keep accepted same-scope data and label retained responses.
+- Each manual attempt owns a fresh 10-second deadline and duplicate guard.
+  Shared publication tokens reject obsolete automatic/manual results; committed
+  scope/view exit, membership change, unmount and supersession cancel silently.
+- Canceling a first load in the same scope settles to neutral unavailable,
+  not endless Loading. Scope exit preserves a possible accepted target cache.
+  Same-context navigation remains valid; exact-owner cleanup releases busy
+  independently of result freshness. Removed-error focus recovery is bounded
+  by the current target, temporary busy state, inertness and modal ownership.
+- Stats recovery does not rescan Git, invalidate wardrobe or reload all views.
+  Existing UTC/background triggers and City identity behavior remain intact.
+  Controlled request/hook/SSR checks are not native browser/keyboard/AT proof.
+
 ## v0.3.1.27 — Button Busy Semantics (2026-10-01)
 
 - Preserve native `aria-busy` through `ControlButton` and `IconButton`, including

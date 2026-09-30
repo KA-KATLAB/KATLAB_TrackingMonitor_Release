@@ -29,6 +29,7 @@ import { copyCommitDraft } from "./draft";
 import { DraftFeedback } from "./draftFeedback";
 import { draftCopyMessage, runDraftCopy } from "./draftRequest";
 import type { DraftCopyResult } from "./draftRequest";
+import { runStatsRefresh } from "./statsRequest";
 import type { StatsData } from "./charts";
 import { useReveal } from "./reveal";
 import {
@@ -108,6 +109,11 @@ type DigestState =
   | { kind: "preparing"; scopeKey: string }
   | { kind: "ready"; scopeKey: string; prepared: PreparedDownload }
   | { kind: "downloading"; scopeKey: string; prepared: PreparedDownload };
+
+interface StatsRefreshOwner {
+  key: string;
+  action: ActionDeadline;
+}
 
 interface HistoryUiState {
   repoId: string;
@@ -503,26 +509,101 @@ export default function App () {
     error: string;
     settled: boolean;
   }>({ key: "", data: null, error: "", settled: false });
+  const statsRepoId = scopeApiId(scope);
   const [cityRefreshIdentity, setCityRefreshIdentity] = useState(0);
+  const statsOwnerRef = useRef<object | null>(null);
+  const statsRefreshOwnerRef = useRef<StatsRefreshOwner | null>(null);
+  const statsMountedRef = useRef(false);
+  const [statsRefreshBusy, setStatsRefreshBusy] = useState(false);
+  const releaseStatsRefresh = useCallback((owner: StatsRefreshOwner) => {
+    if (statsRefreshOwnerRef.current !== owner) return;
+    statsRefreshOwnerRef.current = null;
+    if (statsOwnerRef.current === owner) {
+      statsOwnerRef.current = null;
+      // A canceled first load must not leave the same scope waiting for no owner.
+      // On scope exit, preserve a possible accepted cache for the target scope.
+      if (statsMountedRef.current && scopeKey(currentRouteRef.current.scope) === owner.key) {
+        setStatsState((previous) => previous.key === owner.key
+          ? previous.settled ? previous : { ...previous, settled: true }
+          : { key: owner.key, data: null, error: "", settled: true });
+      }
+    }
+    if (statsMountedRef.current) setStatsRefreshBusy(false);
+  }, []);
+  const cancelStatsRefresh = useCallback(() => {
+    const owner = statsRefreshOwnerRef.current;
+    if (!owner) return;
+    releaseStatsRefresh(owner);
+    owner.action.controller.abort();
+    owner.action.clear();
+  }, [releaseStatsRefresh]);
+  useLayoutEffect(() => {
+    statsMountedRef.current = true;
+    setStatsRefreshBusy(false);
+    return () => {
+      statsMountedRef.current = false;
+      cancelStatsRefresh();
+    };
+  }, [cancelStatsRefresh]);
+  useLayoutEffect(() => cancelStatsRefresh,
+    [cancelStatsRefresh, currentScopeKey, membershipReady, view]);
   useEffect(() => {
     if (!membershipReady) return;
+    cancelStatsRefresh();
     let alive = true;
     const key = currentScopeKey;
-    api.stats(scopeApiId(scope)).then(
+    const owner = {};
+    statsOwnerRef.current = owner;
+    api.stats(statsRepoId).then(
       (data) => {
-        if (!alive) return;
+        if (!alive || statsOwnerRef.current !== owner) return;
         setStatsState({ key, data, error: "", settled: true });
         setCityRefreshIdentity((identity) => identity + 1);
       },
       (errorValue) => {
-        if (!alive) return;
+        if (!alive || statsOwnerRef.current !== owner) return;
         setStatsState((previous) => previous.key === key
           ? { ...previous, error: String(errorValue), settled: true }
           : { key, data: null, error: String(errorValue), settled: true });
       },
     );
-    return () => { alive = false; };
-  }, [currentScopeKey, membershipReady, scope, statsNonce]);
+    return () => {
+      alive = false;
+      if (statsOwnerRef.current === owner) statsOwnerRef.current = null;
+    };
+  }, [cancelStatsRefresh, currentScopeKey, membershipReady, statsRepoId, statsNonce]);
+  const refreshStats = useCallback(() => {
+    const route = currentRouteRef.current;
+    if (!statsMountedRef.current || !membershipReadyRef.current
+        || route.view !== "overview" || statsRefreshOwnerRef.current) return;
+    const owner: StatsRefreshOwner = { key: scopeKey(route.scope), action: createActionDeadline() };
+    statsRefreshOwnerRef.current = owner;
+    statsOwnerRef.current = owner;
+    setStatsRefreshBusy(true);
+    announceStatus("Refreshing Overview stats.");
+    const isCurrent = () => statsMountedRef.current && membershipReadyRef.current
+      && statsRefreshOwnerRef.current === owner && statsOwnerRef.current === owner
+      && currentRouteRef.current.view === "overview"
+      && scopeKey(currentRouteRef.current.scope) === owner.key;
+    void runStatsRefresh({
+      action: owner.action,
+      request: (signal) => api.stats(scopeApiId(route.scope), signal),
+      isCurrent,
+      onResult: (result) => {
+        if (result.ok) {
+          setStatsState({ key: owner.key, data: result.data, error: "", settled: true });
+          setCityRefreshIdentity((identity) => identity + 1);
+          announceStatus("Overview stats refreshed.");
+        } else {
+          setStatsState((previous) => previous.key === owner.key
+            ? { ...previous, error: result.error, settled: true }
+            : { key: owner.key, data: null, error: result.error, settled: true });
+          announceStatus(result.error);
+        }
+      },
+      onSettled: () => releaseStatsRefresh(owner),
+    });
+  }, [announceStatus, releaseStatsRefresh]);
   const statsEligible = membershipReady && statsState.key === currentScopeKey;
   const stats = statsEligible ? statsState.data : null;
   const statsError = statsEligible ? statsState.error : "";
@@ -2385,6 +2466,8 @@ export default function App () {
                 <LazyOverviewView scope={scopeApiId(scope)} tasks={visibleTasks}
                   uncommitted={visibleEvents} repos={visibleRepos.filter((r) => !r.offline)}
                   stats={stats} statsError={statsError}
+                  statsSettled={statsEligible && statsState.settled}
+                  statsRefreshBusy={statsRefreshBusy} onRefreshStats={refreshStats}
                   entryState={overviewUi} onEntryStateChange={setOverviewUi}
                   onStatus={announceStatus}
                   reportBusy={reportBusy}

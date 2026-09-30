@@ -42,7 +42,7 @@ function effects (ast) {
 }
 const minuteEffect = effects(app).find((text) => text.includes("setInterval") && text.includes("setTick"));
 assert.ok(minuteEffect, "actual existing App minute effect exists");
-const scopedEffect = effects(app).find((text) => text.includes("api.stats(scopeApiId(scope))"));
+const scopedEffect = effects(app).find((text) => text.includes("api.stats(statsRepoId)"));
 assert.ok(scopedEffect, "actual scoped statistics effect exists");
 const goalAst = parse("goalRings.tsx");
 const goalSource = goalAst.statements.filter((node) => !ts.isImportDeclaration(node))
@@ -75,6 +75,9 @@ export function createSubject(hooks, env, React, format, calendarDay) {
   }
   function ScopedStats({membershipReady, currentScopeKey, scope, statsNonce}) {
     const api = env.api, scopeApiId = env.scopeApiId;
+    const statsRepoId = scopeApiId(scope);
+    const statsOwnerRef = useRef(null);
+    const cancelStatsRefresh = env.cancelStatsRefresh ??= () => {};
     const setStatsState = next => { env.statsState = typeof next === "function" ? next(env.statsState) : next; };
     const setCityRefreshIdentity = next => { env.cityIdentity = next(env.cityIdentity); };
     ${scopedEffect}
@@ -408,14 +411,14 @@ test("actual ring editor survives rollover; edits, hidden state and reduced moti
 });
 
 test("actual App stats ownership and wardrobe throttle remain separate from the minute tick", () => {
-  const scoped = effects(app).find((text) => text.includes("api.stats(scopeApiId(scope))"));
+  const scoped = effects(app).find((text) => text.includes("api.stats(statsRepoId)"));
   const wardrobe = effects(app).find((text) => text.includes("lastStarted = -Infinity"));
   assert.ok(scoped && wardrobe);
   assert.match(scoped, /if \(!membershipReady\) return/);
-  assert.match(scoped, /if \(!alive\) return/g);
+  assert.match(scoped, /if \(!alive \|\| statsOwnerRef\.current !== owner\) return/g);
   assert.match(scoped, /previous\.key === key/);
-  assert.match(scoped, /return \(\) => \{ alive = false; \}/);
-  assert.match(scoped, /\[currentScopeKey, membershipReady, scope, statsNonce\]/);
+  assert.match(scoped, /alive = false;[\s\S]*if \(statsOwnerRef\.current === owner\) statsOwnerRef\.current = null/);
+  assert.match(scoped, /\[cancelStatsRefresh, currentScopeKey, membershipReady, statsRepoId, statsNonce\]/);
   assert.match(wardrobe, /60_000 - \(Date\.now\(\) - lastStarted\)/);
   assert.match(wardrobe, /live && generation === currentGeneration/);
   assert.match(wardrobe, /setAllCal\(result\.activity_calendar\)/);

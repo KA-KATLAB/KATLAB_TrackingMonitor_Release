@@ -1,10 +1,10 @@
 // v0.1.3.0 D2 (dashboard) + D4 (Mermaid relationship graph). v0.1.6.0 C.1
 // (RV1): the /api/stats fetch LIFTED to App (sidebar/groups need effort on
-// the Changes view) — this view renders {stats, statsError} props; the R12
-// trigger semantics live in App's [tab, statsNonce] effect. The graph
+// the Changes view) — this view renders stats/error and delegates recovery.
+// Automatic triggers and manual request ownership live in App. The graph
 // lazy-loads mermaid on first open.
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, createActionDeadline, isAbortError } from "./api";
 import type { ActionDeadline, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
 import { fmtMinutes } from "./format";
@@ -31,7 +31,7 @@ import type { BackboneRow } from "./mermaidGraph";
 import { useReveal } from "./reveal";
 import { MODE_CHART_LABEL, MODE_ORDER, prefersReducedMotion,
   subscribeReducedMotion, usePrefersReducedMotion } from "./theme";
-import { BoundedChoiceDialog, DialogShell } from "./dialog";
+import { BoundedChoiceDialog, DialogShell, hasOverlayLease } from "./dialog";
 import { DisclosureTable, activitySummary, eventsPerTaskSummary,
   modeDistributionSummary } from "./accessibleData";
 import { ControlButton, SectionHeading, SegmentedControl, Surface } from "./ui";
@@ -74,6 +74,7 @@ function calendarAlternativeSummary (calendar: StatsData["activity_calendar"]): 
 }
 
 export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsError,
+  statsSettled = false, statsRefreshBusy = false, onRefreshStats,
   onOpenFileStory, onOpenWrapped, onExportReport, reportBusy = false,
   initialDayScopeAction = false, onInitialDayScopeActionConsumed, onStatus, entryState,
   onEntryStateChange }: {
@@ -86,6 +87,9 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
   // local error did before the lift.
   stats: StatsData | null;
   statsError: string;
+  statsSettled?: boolean;
+  statsRefreshBusy?: boolean;
+  onRefreshStats?: () => void;
   // v0.1.7.0 D1/D2 (B.1/B.2): coupling-row file names open the file story.
   onOpenFileStory?: (repo: string, file: string) => void;
   // v0.1.8.0 D3 (C.1): the header button lifts the open to App (the modal
@@ -99,6 +103,25 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
   entryState: OverviewEntryState;
   onEntryStateChange: (state: OverviewEntryState) => void;
 }) {
+
+  const statsRefreshButtonRef = useRef<HTMLButtonElement | null>(null);
+  const focusedStatsErrorRef = useRef<HTMLParagraphElement | null>(null);
+  useLayoutEffect(() => {
+    const previous = focusedStatsErrorRef.current;
+    if (!previous || previous.isConnected) return;
+    const target = statsRefreshButtonRef.current;
+    const active = document.activeElement;
+    if (!onRefreshStats || !target?.isConnected || target.closest("[inert]")
+        || hasOverlayLease() || (active !== document.body
+          && active !== document.documentElement && active !== previous)) {
+      focusedStatsErrorRef.current = null;
+      return;
+    }
+    // A success render can remove the error before its finally clears busy.
+    if (statsRefreshBusy) return;
+    focusedStatsErrorRef.current = null;
+    if (!target.disabled) target.focus({ preventScroll: true });
+  }, [onRefreshStats, statsError, statsRefreshBusy]);
 
   const totalEvents = stats ? Object.values(stats.mode_counts).reduce((a, b) => a + b, 0) : 0;
   const [preferenceNotes, setPreferenceNotes] = useState<Record<string, string>>({});
@@ -144,25 +167,45 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
         description="Live work, trends, exploration, and task relationships in the current scope."
         headingProps={{ "data-view-heading": true, tabIndex: -1 }}
         className="!mb-0 border-l-4 border-teal-500 pl-3"
-        actions={stats && (
+        actions={(
           <>
-            {onOpenWrapped && ( /* v0.1.8.0 D3 (C.1) */
-              <ControlButton onClick={onOpenWrapped}>Your week ✨</ControlButton>
-            )}
-            {/* v0.2.0.1 D1 (B.1): the 7d report, current scope */}
-            <ControlButton onClick={() => onExportReport?.(7)} disabled={reportBusy}
-              aria-busy={reportBusy}
-              title="download this scope's 7-day report as one self-contained HTML file">
-              {reportBusy ? "Starting…" : "Report ⬇"}
+            <ControlButton ref={statsRefreshButtonRef} onClick={onRefreshStats}
+              disabled={statsRefreshBusy || !onRefreshStats} aria-busy={statsRefreshBusy}>
+              {statsRefreshBusy ? "Refreshing…" : statsError ? "Retry stats" : "Refresh stats"}
             </ControlButton>
+            {stats && (
+              <>
+                {onOpenWrapped && ( /* v0.1.8.0 D3 (C.1) */
+                  <ControlButton onClick={onOpenWrapped}>Your week ✨</ControlButton>
+                )}
+                {/* v0.2.0.1 D1 (B.1): the 7d report, current scope */}
+                <ControlButton onClick={() => onExportReport?.(7)} disabled={reportBusy}
+                  aria-busy={reportBusy}
+                  title="download this scope's 7-day report as one self-contained HTML file">
+                  {reportBusy ? "Starting…" : "Report ⬇"}
+                </ControlButton>
+              </>
+            )}
           </>
         )}
       />
       {statsError && (
         <p data-route-hydration-failure tabIndex={-1}
           aria-label="Overview data load failure"
-          className="rounded-control border border-rose-500/40 bg-rose-950/30 px-3 py-2 text-sm text-rose-200">
+          onFocus={(event) => { focusedStatsErrorRef.current = event.currentTarget; }}
+          onBlur={(event) => {
+            if (event.relatedTarget && event.relatedTarget !== event.currentTarget) {
+              focusedStatsErrorRef.current = null;
+            }
+          }}
+          className="break-words [overflow-wrap:anywhere] rounded-control border border-rose-500/40 bg-rose-950/30 px-3 py-2 text-sm text-rose-200">
           {statsError}
+        </p>
+      )}
+      {stats && (statsRefreshBusy || statsError) && (
+        <p className="text-sm text-amber-300">
+          {statsRefreshBusy ? "Refreshing. " : "Refresh failed. "}
+          Showing the last successful stats response; it has not been updated.
         </p>
       )}
 
@@ -172,7 +215,9 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
           className="!mb-0" />
         {!stats && !statsError && (
           <p className="rounded-control border border-ui-border bg-ui-surface px-3 py-2 text-sm text-ui-muted">
-            Loading overview data…
+            {statsSettled
+              ? "Overview stats are unavailable. Refresh stats to try again."
+              : "Loading overview data…"}
           </p>
         )}
         {stats && <KpiRow stats={stats} repos={repos} uncommitted={uncommitted} />}

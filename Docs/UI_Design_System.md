@@ -603,6 +603,22 @@ Do not:
 - Offline/stale states keep accepted data when safe and label it honestly.
 - Error panels name the cause class and offer only a recovery that can work. A cached lazy-import failure says Reload, not Retry.
 - Never hide an error by substituting empty data or let stale async completion overwrite a newer scope.
+- Overview keeps a stable Refresh/Retry stats control, available without a prior
+  snapshot. Manual attempts have their own 10-second deadline, duplicate guard
+  and shared publication ownership with automatic stats requests. Retain and
+  label accepted same-scope data during refresh/failure. Do not reset hydration
+  settlement at start, trigger wardrobe/Git refresh or treat this as an all-view
+  freshness guarantee. Same effective Overview context remains valid across
+  history changes and reselecting an equal repo/all scope. Background triggers
+  use semantic scope identity, not object identity. Committed scope/view exit, membership loss, unmount and
+  supersession cancel silently. Exact-owner cleanup is separate from freshness.
+  A canceled first load in the same scope settles to neutral unavailable with
+  retry, not orphaned Loading; scope exit preserves any accepted target cache.
+  If a remembered focused error is removed, recover to the stable enabled
+  control only while focus is body/root/the removed node. Wait through temporary
+  busy, never override another active target, inert ancestor or modal, and clear
+  stale focus ownership. Wrap long unbroken error tokens inside the panel.
+  This does not establish native assistive behavior.
 - During a live frontend/backend rollout skew, keep accepted established fields
   visible, label unavailable additive fields, and give the operator a working
   restart path. Never coerce missing extensions into zero/empty success data or
