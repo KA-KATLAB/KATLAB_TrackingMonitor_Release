@@ -1,5 +1,17 @@
 # Version Notes
 
+## v0.3.1.16 — Sound Confirmation Truth (2026-10-01)
+
+- Revalidate saved on after explicit audio activation, before confirmation.
+  If that snapshot is unverified, keep the page off, retire its context and
+  report whether off was saved. Never reassert on after preference drift.
+- Distinct recovery text avoids claiming unavailable audio or successful
+  activation when the saved choice could not be verified. Retry is explicit;
+  failed off saving retains older-opt-in/reload guidance.
+- Current generation/cancellation guards protect the final read and cleanup.
+  This adds no continuous storage/background synchronization and no guarantee
+  against later changes. Native cleanup and browser-verification limits remain.
+
 ## v0.3.1.15 — Sound Toggle Recovery (2026-10-01)
 
 - Explicit sound activation owns a 10-second observation deadline and current

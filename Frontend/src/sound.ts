@@ -13,6 +13,10 @@ import { readPreference, writePreference } from "./preferences";
 import type { PreferenceToggleResult } from "./preferences";
 import { raceWithSignal } from "./api";
 
+export interface SoundToggleResult extends PreferenceToggleResult {
+  preferenceUnconfirmed?: boolean;
+}
+
 const KEY = "katlab.sound";
 const MASTER_GAIN = 0.15;   // calm-tech: peripheral, never startling
 const TICK_MIN_GAP_MS = 80; // D4: bursts patter — the limiter DROPS
@@ -135,7 +139,7 @@ function note (freq: number, startS: number, durS: number, peak: number,
 
 /** Persist before activation; only a running context may confirm opt-in. */
 export async function setSoundEnabled (on: boolean,
-  signal?: AbortSignal): Promise<PreferenceToggleResult> {
+  signal?: AbortSignal): Promise<SoundToggleResult> {
   if (signal?.aborted) return { enabled: soundWanted(), persisted: false };
   const owner = ++preferenceGeneration;
   offVeto = true;
@@ -155,6 +159,18 @@ export async function setSoundEnabled (on: boolean,
     retireContext(ctx, master);
     return { enabled: false, persisted: persistSound("off") };
   }
+  // Activation can outlast the saved opt-in; never reassert on after drift.
+  const savedOn = readPreference(KEY) === "on";
+  if (owner !== preferenceGeneration) {
+    return { enabled: soundWanted(), persisted: false };
+  }
+  if (signal?.aborted || !savedOn) {
+    retireContext(ctx, master);
+    const persisted = persistSound("off");
+    return signal?.aborted
+      ? { enabled: false, persisted }
+      : { enabled: false, persisted, preferenceUnconfirmed: true };
+  }
   offVeto = false;
   try {
     playTick(0); // confirmation = A4, after persistence and activation
@@ -166,12 +182,17 @@ export async function setSoundEnabled (on: boolean,
   return { enabled: true, persisted: true };
 }
 
-export function soundToggleMessage (on: boolean, result: PreferenceToggleResult,
+export function soundToggleMessage (on: boolean, result: SoundToggleResult,
   timedOut = false): string {
   const saveFailure = "Saving failed. An older opt-in may return after reload.";
   if (timedOut) {
     return "Sounds remain off for this page: activation was not confirmed within 10 seconds. "
       + "Retry explicitly to opt in."
+      + (result.persisted ? "" : ` ${saveFailure}`);
+  }
+  if (result.preferenceUnconfirmed) {
+    return "The saved sound choice could not be verified at activation. "
+      + "Sounds remain off for this page. Retry explicitly to opt in."
       + (result.persisted ? "" : ` ${saveFailure}`);
   }
   if (!result.persisted) {

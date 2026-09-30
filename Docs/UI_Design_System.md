@@ -503,6 +503,12 @@ Do not:
   their registration generation and cannot override an accepted explicit choice.
   Background first-gesture activation has no foreground deadline; its existing
   preference-to-UI synchronization gap remains separate from explicit recovery.
+- Before confirming an otherwise successful explicit sound activation, verify
+  saved on again while retaining the page veto. Recheck owner/cancellation after
+  that read. An unverified snapshot retires its context and stays off without
+  reasserting on; report the unverified saved choice separately from unavailable
+  audio, whether off was saved, and explicit retry guidance. This is not
+  continuous cross-tab synchronization or a guarantee against later changes.
 - OS-alert opt-in owns a shared 10-second observation deadline. Request browser
   permission synchronously in the user's gesture after verifying saved off.
   Timeout/unmount cannot cancel the native prompt or revoke origin permission;

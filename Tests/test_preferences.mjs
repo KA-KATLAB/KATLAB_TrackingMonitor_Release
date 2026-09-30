@@ -876,6 +876,109 @@ test("audio capability, running-state and confirmation exceptions fail closed", 
   }
 });
 
+test("sound completion revalidates opt-in without reasserting on after storage drift", async () => {
+  for (const drift of ["read-denied", "off", "missing", "unknown"]) {
+    for (const rollbackFails of [false, true]) {
+      const store = storageFixture();
+      const audio = audioFixture();
+      const pending = deferred();
+      audio.behavior.resume = context => pending.promise.then(() => { context.state = "running"; });
+      audio.behavior.close = () => new Promise(() => {});
+      await withGlobals({ localStorage: { value: store.storage },
+        AudioContext: { value: audio.AudioContextFake } }, async () => {
+        const sound = await freshModule("sound.ts");
+        const enabling = sound.setSoundEnabled(true);
+        if (drift === "read-denied") store.failure.read = true;
+        else if (drift === "missing") store.values.delete("katlab.sound");
+        else store.values.set("katlab.sound", drift);
+        store.failure.write = rollbackFails;
+        pending.resolve();
+        const result = await enabling;
+        assert.deepEqual(result, { enabled: false,
+          persisted: !rollbackFails && drift !== "read-denied", preferenceUnconfirmed: true });
+        assert.equal(audio.calls.notes, 0);
+        assert.equal(audio.calls.disconnected, 1);
+        assert.equal(audio.calls.closed, 1, "hanging close must not delay completion");
+        assert.equal(store.calls.filter(call => call === "write:katlab.sound:on").length, 1);
+        store.failure.read = false;
+        store.failure.write = false;
+        store.values.set("katlab.sound", "on");
+        assert.equal(sound.soundWanted(), false, "recovered storage cannot bypass the veto");
+        sound.playChime();
+        assert.equal(audio.calls.notes, 0);
+        audio.behavior.resume = null;
+        assert.deepEqual(await sound.setSoundEnabled(true), { enabled: true, persisted: true });
+        assert.equal(sound.soundWanted(), true);
+        assert.equal(audio.calls.created, 2);
+      });
+    }
+  }
+});
+
+test("sound final preference read rechecks cancellation and newer ownership", async () => {
+  for (const interruption of ["abort", "new-owner"]) {
+    const store = storageFixture();
+    const audio = audioFixture();
+    const pending = deferred();
+    const owner = new AbortController();
+    audio.behavior.resume = (context, call) => {
+      if (call === 1) return pending.promise.then(() => { context.state = "running"; });
+      context.state = "running";
+      return Promise.resolve();
+    };
+    await withGlobals({ localStorage: { value: store.storage },
+      AudioContext: { value: audio.AudioContextFake } }, async () => {
+      const sound = await freshModule("sound.ts");
+      const first = sound.setSoundEnabled(true, owner.signal);
+      const originalRead = store.storage.getItem;
+      let armed = true, newer;
+      store.storage.getItem = key => {
+        if (armed) {
+          armed = false;
+          if (interruption === "abort") owner.abort();
+          else newer = sound.setSoundEnabled(true);
+          return "off";
+        }
+        return originalRead(key);
+      };
+      pending.resolve();
+      const result = await first;
+      assert.equal(result.preferenceUnconfirmed, undefined);
+      if (interruption === "abort") {
+        assert.deepEqual(result, { enabled: false, persisted: true });
+        assert.equal(sound.soundWanted(), false);
+        assert.equal(audio.calls.notes, 0);
+        assert.equal(audio.calls.closed, 1);
+      } else {
+        assert.equal(result.persisted, false);
+        assert.deepEqual(await newer, { enabled: true, persisted: true });
+        assert.equal(sound.soundWanted(), true);
+        assert.equal(store.values.get("katlab.sound"), "on");
+        assert.equal(store.calls.filter(call => call === "write:katlab.sound:off").length, 0);
+        assert.equal(audio.calls.instances[1].state, "running");
+        assert.equal(audio.calls.closed, 1, "old final read must not retire the new context");
+      }
+    });
+  }
+});
+
+test("sound storage-revalidation feedback is distinct and timeout retains precedence", async () => {
+  const sound = await freshModule("sound.ts");
+  for (const persisted of [false, true]) {
+    const result = { enabled: false, persisted, preferenceUnconfirmed: true };
+    const message = sound.soundToggleMessage(true, result);
+    assert.match(message, /saved sound choice could not be verified at activation/);
+    assert.match(message, /off for this page/);
+    assert.match(message, /Retry explicitly/);
+    assert.equal(message.includes("older opt-in"), !persisted);
+    assert.doesNotMatch(message, /audio is unavailable|denied|Sounds enabled/);
+    const timeout = sound.soundToggleMessage(true, result, true);
+    assert.match(timeout, /10 seconds/);
+    assert.doesNotMatch(timeout, /saved sound choice/);
+    assert.equal(timeout.includes("older opt-in"), !persisted);
+  }
+});
+
 test("sound feedback distinguishes confirmation, timeout and failed persistence", async () => {
   const sound = await freshModule("sound.ts");
   assert.equal(sound.soundToggleMessage(true, { enabled: true, persisted: true }), "Sounds enabled.");
