@@ -68,7 +68,7 @@ export function observePreferenceFailure (store: PreferenceFailureStore,
 export function backgroundPreferenceFeedback (channel: PreferenceChannel,
   failure: PreferenceFailure): PreferenceFeedback {
   const reason = channel === "sound"
-    ? "Sounds are off for this page: the saved sound opt-in could not be restored."
+    ? "Sounds are off for this page: audio activation or playback could not be confirmed."
     : "OS alerts are off for this page: browser notification access or delivery could not be confirmed.";
   return {
     enabled: false,

@@ -140,6 +140,17 @@ function note (freq: number, startS: number, durS: number, peak: number,
   o.stop(t0 + durS + 0.05);
 }
 
+/** Confirmation rollback must not retire or overwrite a newer choice. */
+function rollbackSoundConfirmation (owner: number): SoundToggleResult {
+  if (owner !== preferenceGeneration) return { enabled: soundWanted(), persisted: false };
+  offVeto = true;
+  retireContext(ctx, master);
+  if (owner !== preferenceGeneration) return { enabled: soundWanted(), persisted: false };
+  const persisted = persistSound("off");
+  if (owner !== preferenceGeneration) return { enabled: soundWanted(), persisted: false };
+  return { enabled: false, persisted };
+}
+
 /** Persist before activation; only a running context may confirm opt-in. */
 export async function setSoundEnabled (on: boolean,
   signal?: AbortSignal): Promise<SoundToggleResult> {
@@ -177,12 +188,12 @@ export async function setSoundEnabled (on: boolean,
   }
   offVeto = false;
   try {
-    playTick(0); // confirmation = A4, after persistence and activation
+    playTickCore(0); // throwing confirmation path; live cues fail softly
   } catch {
-    offVeto = true;
-    retireContext(ctx, master);
-    return { enabled: false, persisted: persistSound("off") };
+    return rollbackSoundConfirmation(owner);
   }
+  if (owner !== preferenceGeneration) return { enabled: soundWanted(), persisted: false };
+  if (signal?.aborted) return rollbackSoundConfirmation(owner);
   return { enabled: true, persisted: true };
 }
 
@@ -209,9 +220,7 @@ export function soundToggleMessage (on: boolean, result: SoundToggleResult,
     : "Sounds disabled.";
 }
 
-/** The capture rain-drop: a ~50ms pluck, pitch by tickStep (the
- *  stars law — deterministic, never Math.random). */
-export function playTick (id: number): void {
+function playTickCore (id: number): void {
   if (!soundWanted() || !contextRunning()) return;
   const now = performance.now();
   if (!tickAllowed(now, lastTickMs)) return; // D4: drop, never queue
@@ -219,20 +228,37 @@ export function playTick (id: number): void {
   note(NOTES[TICK_STEPS[tickStep(id)]], 0, 0.05, 1);
 }
 
+/** Optional live audio must not interrupt its caller's core event processing. */
+function runLiveCue (play: () => void): void {
+  const owner = preferenceGeneration;
+  try { play(); }
+  catch { failBackgroundSound(owner); }
+}
+
+/** The capture rain-drop: a ~50ms pluck, pitch by tickStep (the
+ *  stars law — deterministic, never Math.random). */
+export function playTick (id: number): void {
+  runLiveCue(() => playTickCore(id));
+}
+
 /** CLEAN ✓ — two warm notes, E5 -> A5 (~400ms; the RV4 A family). */
 export function playChime (): void {
-  if (!soundWanted() || !contextRunning()) return;
-  note(NOTES.E5, 0, 0.28, 0.8);
-  note(NOTES.A5, 0.12, 0.3, 0.8);
+  runLiveCue(() => {
+    if (!soundWanted() || !contextRunning()) return;
+    note(NOTES.E5, 0, 0.28, 0.8);
+    note(NOTES.A5, 0.12, 0.3, 0.8);
+  });
 }
 
 /** The release moment — A4 -> C#5 -> E5 (the A-major triad, ~600ms,
  *  triangle = slightly brighter; a desk fanfare, not a stadium). */
 export function playFanfare (): void {
-  if (!soundWanted() || !contextRunning()) return;
-  note(NOTES.A4, 0, 0.22, 0.9, "triangle");
-  note(NOTES["C#5"], 0.14, 0.22, 0.9, "triangle");
-  note(NOTES.E5, 0.28, 0.34, 0.9, "triangle");
+  runLiveCue(() => {
+    if (!soundWanted() || !contextRunning()) return;
+    note(NOTES.A4, 0, 0.22, 0.9, "triangle");
+    note(NOTES["C#5"], 0.14, 0.22, 0.9, "triangle");
+    note(NOTES.E5, 0.28, 0.34, 0.9, "triangle");
+  });
 }
 
 function failBackgroundSound (owner: number): void {

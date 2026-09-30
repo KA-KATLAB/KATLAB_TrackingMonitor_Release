@@ -509,6 +509,18 @@ Do not:
   reasserting on; report the unverified saved choice separately from unavailable
   audio, whether off was saved, and explicit retry guidance. This is not
   continuous cross-tab synchronization or a guarantee against later changes.
+- Public live tick/chime/fanfare calls isolate audio exceptions so optional
+  sound cannot suppress downstream event processing. Current failures stop the
+  remaining cue body, retain the page veto, retire output/context best effort
+  and report fresh off-save truth through existing background feedback. Never
+  replay failed notes or automatically retry. Non-running contexts still no-op;
+  silent context-state drift is not newly detected. Existing cue content and
+  tick rate/drop behavior remain unchanged. Explicit enable calls a private
+  throwing confirmation path: a current failure must return disabled, not
+  success after a swallowed exception. Fence owned rollback before/after cleanup
+  and after persistence; recheck owner/cancellation after successful confirmation.
+  Do not retire or overwrite a newer choice, and do not claim physical silence
+  or native resource release from a best-effort cleanup attempt.
 - OS-alert opt-in owns a shared 10-second observation deadline. Request browser
   permission synchronously in the user's gesture after verifying saved off.
   Timeout/unmount cannot cancel the native prompt or revoke origin permission;
@@ -522,7 +534,7 @@ Do not:
   one busy/result owner; stale work cannot release a newer owner.
 - Preference failures are visible from both direct controls and palette actions
   at all shell widths. Do not hide them behind another action's success note.
-- Same-page sound-restoration and notification-access/delivery failures retain
+- Same-page sound-activation/playback and notification-access/delivery failures retain
   one immutable, non-private failure fact per channel, after current-owner
   validation, off veto, owned cleanup and a fresh off-save attempt. Publication
   rechecks ownership after persistence; sound also rechecks before persistence

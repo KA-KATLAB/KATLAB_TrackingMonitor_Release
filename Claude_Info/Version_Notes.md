@@ -1,5 +1,20 @@
 # Version Notes
 
+## v0.3.1.18 — Live Audio Failure Isolation (2026-10-01)
+
+- Public tick, chime and fanfare failures no longer escape into the WebSocket
+  callback and skip downstream tracker work. Current live failures keep the
+  page off, retire output/context best effort and report verified off-save truth
+  through existing background preference feedback. Retry remains explicit.
+- Explicit enable uses a private throwing confirmation path so a failed cue
+  cannot silently become a successful opt-in. Owned rollback and result checks
+  preserve newer choices and handle cancellation during confirmation.
+- Recovery copy covers activation or playback without exposing native errors.
+  Default off, cue content, rate/drop behavior and non-running-context no-op
+  remain. No general WebSocket error-policy or frame-validation change is made.
+- Native cleanup and silent external context drift remain limited. Controlled
+  valid-frame continuation tests are not real browser/audio/UI/AT verification.
+
 ## v0.3.1.17 — Background Preference Feedback (2026-10-01)
 
 - Reported background sound-restoration and notification-access/delivery

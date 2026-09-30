@@ -192,6 +192,57 @@ function audioFixture () {
   return { AudioContextFake, calls, behavior };
 }
 
+// Controlled native boundaries only; no real audio context or timer is created.
+function liveAudioFixture () {
+  const audio = audioFixture();
+  const events = [];
+  const frequencies = [];
+  let fault = null;
+  const hit = stage => {
+    events.push(stage);
+    if (!fault || fault.stage !== stage || --fault.remaining !== 0) return;
+    const current = fault;
+    fault = null;
+    current.before?.();
+    if (current.throws) throw new Error(`private native ${stage} failure`);
+  };
+  class LiveAudioContext extends audio.AudioContextFake {
+    get state() { hit("state"); return this.savedState; }
+    set state(value) { this.savedState = value; }
+    get currentTime() { hit("time"); return this.savedTime; }
+    set currentTime(value) { this.savedTime = value; }
+    createOscillator() {
+      hit("oscillator");
+      const oscillator = super.createOscillator();
+      Object.defineProperty(oscillator, "type", { set() { hit("type"); } });
+      Object.defineProperty(oscillator.frequency, "value", {
+        set(value) { hit("frequency"); frequencies.push(value); },
+      });
+      oscillator.connect = () => hit("oscillatorConnect");
+      const start = oscillator.start;
+      oscillator.start = () => { hit("start"); start(); };
+      oscillator.stop = () => hit("stop");
+      return oscillator;
+    }
+    createGain() {
+      this.gainCount = (this.gainCount ?? 0) + 1;
+      if (this.gainCount > 1) hit("gain");
+      const gain = super.createGain();
+      gain.gain.setValueAtTime = () => hit("envelope");
+      gain.gain.linearRampToValueAtTime = () => hit("attack");
+      gain.gain.exponentialRampToValueAtTime = () => hit("release");
+      if (this.gainCount > 1) gain.connect = () => hit("gainConnect");
+      const disconnect = gain.disconnect;
+      gain.disconnect = () => { hit("disconnect"); disconnect(); };
+      return gain;
+    }
+  }
+  return { ...audio, AudioContextFake: LiveAudioContext, events, frequencies, hit,
+    arm(stage, { nth = 1, before, throws = true } = {}) {
+      fault = { stage, remaining: nth, before, throws };
+    } };
+}
+
 function notificationFixture (permission = "granted") {
   const calls = { prompts: 0, shown: 0 };
   const behavior = { permission, promptError: false, permissionError: false,
@@ -1746,6 +1797,344 @@ test("App statically observes both background channels and gives current failure
     assert.ok(app.indexOf(`${channel}MountedRef.current = true`) < app.indexOf(`observePreferenceFailure(${store},`));
   }
   assert.match(app, /return \(\) => \{ stopNotify\(\); stopSound\(\); \};\s*\}, \[announceStatus\]\)/);
+});
+
+test("all live sound cues isolate native synthesis stages and publish one owned failure", async () => {
+  const stages = ["state", "oscillator", "gain", "type", "frequency", "time", "envelope",
+    "attack", "release", "oscillatorConnect", "gainConnect", "start", "stop"];
+  for (const cue of ["playTick", "playChime", "playFanfare"]) {
+    for (const stage of [...stages, ...(cue === "playTick" ? ["clock"] : [])]) {
+      const store = storageFixture();
+      const audio = liveAudioFixture();
+      let now = 0;
+      await withGlobals({ localStorage: { value: store.storage },
+        AudioContext: { value: audio.AudioContextFake },
+        performance: { value: { now() { audio.hit("clock"); return now; } } } }, async () => {
+        const sound = await freshModule("sound.ts");
+        assert.deepEqual(await sound.setSoundEnabled(true), { enabled: true, persisted: true });
+        const reports = [];
+        const stop = preferenceFailure.observePreferenceFailure(sound.soundBackgroundFailure,
+          failure => reports.push({ failure, wanted: sound.soundWanted() }));
+        const before = audio.events.filter(value => value === stage).length;
+        now = 100;
+        audio.arm(stage);
+        assert.doesNotThrow(() => sound[cue](17), `${cue}: ${stage}`);
+        assert.equal(audio.events.filter(value => value === stage).length, before + 1,
+          `${cue}: the armed native fault must actually be reached`);
+        assert.equal(sound.soundWanted(), false);
+        assert.equal(store.values.get("katlab.sound"), "off");
+        assert.deepEqual(reports, [{ failure: { persisted: true }, wanted: false }]);
+        assert.equal(audio.calls.closed, 1);
+        assert.equal(audio.calls.disconnected, 1);
+        const count = audio.events.length;
+        sound.playTick(3); sound.playChime(); sound.playFanfare();
+        assert.equal(audio.events.length, count, "page veto prevents further native work");
+        assert.equal(reports.length, 1, "subsequent cues do not republish");
+        stop();
+      });
+    }
+  }
+});
+
+test("live sound failure retains off-save truth, preabort cache and explicit retry", async () => {
+  for (const cue of ["playTick", "playChime", "playFanfare"]) {
+    for (const failedSave of [false, true]) {
+      const store = storageFixture();
+      const audio = liveAudioFixture();
+      let now = 0;
+      await withGlobals({ localStorage: { value: store.storage },
+        AudioContext: { value: audio.AudioContextFake }, performance: { value: { now: () => now } } }, async () => {
+        const sound = await freshModule("sound.ts");
+        await sound.setSoundEnabled(true);
+        now = 100; store.failure.write = failedSave;
+        audio.arm("oscillator");
+        sound[cue](1);
+        assert.equal(sound.soundWanted(), false);
+        assert.deepEqual(sound.soundBackgroundFailure.getSnapshot(), { persisted: !failedSave });
+        assert.equal(store.values.get("katlab.sound"), failedSave ? "on" : "off");
+        const cached = sound.soundBackgroundFailure.getSnapshot();
+        const message = preferenceFailure.backgroundPreferenceFeedback("sound", cached).message;
+        assert.match(message, /audio activation or playback could not be confirmed/i);
+        assert.equal(message.includes("older opt-in"), failedSave);
+        assert.doesNotMatch(message, /private native|fixture|oscillator|restored/);
+        const aborted = new AbortController(); aborted.abort();
+        await sound.setSoundEnabled(true, aborted.signal);
+        assert.equal(sound.soundBackgroundFailure.getSnapshot(), cached);
+        store.failure.write = false; now = 200;
+        assert.deepEqual(await sound.setSoundEnabled(true), { enabled: true, persisted: true });
+        assert.equal(sound.soundBackgroundFailure.getSnapshot(), null);
+        assert.equal(sound.soundWanted(), true);
+        assert.equal(audio.calls.instances[1].state, "running");
+        const notes = audio.calls.notes;
+        now = 300; sound[cue](2);
+        assert.equal(audio.calls.notes - notes, cue === "playTick" ? 1 : cue === "playChime" ? 2 : 3);
+      });
+    }
+  }
+});
+
+test("partial multi-note failure stops remaining notes and cleanup never blocks the caller", async () => {
+  for (const cue of ["playChime", "playFanfare"]) {
+    for (const cleanup of ["normal", "disconnect", "throw", "reject", "pending"]) {
+      const store = storageFixture();
+      const audio = liveAudioFixture();
+      await withGlobals({ localStorage: { value: store.storage },
+        AudioContext: { value: audio.AudioContextFake }, performance: { value: { now: () => 0 } } }, async () => {
+        const sound = await freshModule("sound.ts");
+        await sound.setSoundEnabled(true);
+        if (cleanup === "throw") audio.behavior.close = () => { throw new Error("private close failure"); };
+        if (cleanup === "reject") audio.behavior.close = () => Promise.reject(new Error("private close rejection"));
+        if (cleanup === "pending") audio.behavior.close = () => new Promise(() => {});
+        const notes = audio.calls.notes;
+        const oscillators = audio.events.filter(value => value === "oscillator").length;
+        audio.arm("oscillator", { nth: 2,
+          before: cleanup === "disconnect" ? () => audio.arm("disconnect") : undefined });
+        let continued = false;
+        assert.doesNotThrow(() => { sound[cue](); continued = true; });
+        assert.equal(continued, true, `${cleanup}: no native cleanup await`);
+        assert.equal(audio.calls.notes - notes, 1, "the first note may already have started");
+        assert.equal(audio.events.filter(value => value === "oscillator").length - oscillators, 2);
+        assert.equal(audio.calls.closed, 1);
+        assert.equal(sound.soundWanted(), false);
+        assert.deepEqual(sound.soundBackgroundFailure.getSnapshot(), { persisted: true });
+        await flush(); // Observe rejected cleanup without native timers or unhandled rejection.
+      });
+    }
+  }
+});
+
+test("live sound failure cannot roll back newer choices at cue, cleanup or off verification", async () => {
+  for (const boundary of ["cue", "cleanup", "offRead"]) {
+    for (const next of [false, true]) {
+      const store = storageFixture();
+      const audio = liveAudioFixture();
+      let now = 0;
+      await withGlobals({ localStorage: { value: store.storage },
+        AudioContext: { value: audio.AudioContextFake }, performance: { value: { now: () => now } } }, async () => {
+        const sound = await freshModule("sound.ts");
+        await sound.setSoundEnabled(true);
+        let newer, accepted = false;
+        const choose = () => {
+          if (accepted) return;
+          accepted = true; now += 100;
+          newer = sound.setSoundEnabled(next);
+        };
+        if (boundary === "cleanup") audio.behavior.close = context => {
+          choose(); context.state = "closed"; return Promise.resolve();
+        };
+        if (boundary === "offRead") {
+          const get = store.storage.getItem;
+          store.storage.getItem = key => {
+            const value = get(key);
+            if (key === "katlab.sound" && value === "off") choose();
+            return value;
+          };
+        }
+        audio.arm("oscillator", { before: boundary === "cue" ? choose : undefined });
+        now = 100; sound.playFanfare();
+        assert.equal(accepted, true, `${boundary}: newer choice must be exercised`);
+        assert.deepEqual(await newer, { enabled: next, persisted: true });
+        assert.equal(sound.soundWanted(), next);
+        assert.equal(store.values.get("katlab.sound"), next ? "on" : "off");
+        assert.equal(sound.soundBackgroundFailure.getSnapshot(), null);
+        assert.equal(audio.calls.closed, 1, "obsolete cleanup cannot close the replacement context");
+      });
+    }
+  }
+});
+
+test("explicit confirmation synthesis failure remains foreground and reports off-save truth", async () => {
+  for (const failedSave of [false, true]) {
+    const store = storageFixture();
+    const audio = liveAudioFixture();
+    const write = store.storage.setItem;
+    store.storage.setItem = (key, value) => {
+      if (failedSave && value === "off") throw new Error("private failed off save");
+      write(key, value);
+    };
+    audio.arm("oscillator");
+    await withGlobals({ localStorage: { value: store.storage },
+      AudioContext: { value: audio.AudioContextFake }, performance: { value: { now: () => 0 } } }, async () => {
+      const sound = await freshModule("sound.ts");
+      assert.deepEqual(await sound.setSoundEnabled(true), { enabled: false, persisted: !failedSave });
+      assert.equal(audio.events.filter(value => value === "oscillator").length, 1);
+      assert.equal(sound.soundWanted(), false);
+      assert.equal(store.values.get("katlab.sound"), failedSave ? "on" : "off");
+      assert.equal(sound.soundBackgroundFailure.getSnapshot(), null);
+      assert.equal(audio.calls.closed, 1);
+    });
+  }
+});
+
+test("explicit confirmation fences newer intent across success, failure, cleanup and off persistence", async () => {
+  for (const boundary of ["failure", "success", "cleanup", "offRead"]) {
+    for (const next of [false, true]) {
+      const store = storageFixture();
+      const audio = liveAudioFixture();
+      let now = 0;
+      await withGlobals({ localStorage: { value: store.storage },
+        AudioContext: { value: audio.AudioContextFake }, performance: { value: { now: () => now } } }, async () => {
+        const sound = await freshModule("sound.ts");
+        let newer, accepted = false;
+        const choose = () => {
+          if (accepted) return;
+          accepted = true; now = 100;
+          newer = sound.setSoundEnabled(next);
+        };
+        if (boundary === "cleanup") audio.behavior.close = context => {
+          choose(); context.state = "closed"; return Promise.resolve();
+        };
+        if (boundary === "offRead") {
+          const get = store.storage.getItem;
+          store.storage.getItem = key => {
+            const value = get(key);
+            if (key === "katlab.sound" && value === "off") choose();
+            return value;
+          };
+        }
+        // Stop is the last native operation, so the success case genuinely returns normally.
+        audio.arm(boundary === "success" ? "stop" : "oscillator", {
+          before: boundary === "success" || boundary === "failure" ? choose : undefined,
+          throws: boundary !== "success",
+        });
+        const old = await sound.setSoundEnabled(true);
+        assert.equal(accepted, true, `${boundary}: newer choice must be exercised`);
+        assert.equal(old.persisted, false, "superseded confirmation cannot report ownership of a save");
+        assert.equal(old.preferenceUnconfirmed, undefined);
+        assert.deepEqual(await newer, { enabled: next, persisted: true });
+        assert.equal(sound.soundWanted(), next);
+        assert.equal(store.values.get("katlab.sound"), next ? "on" : "off");
+        assert.equal(sound.soundBackgroundFailure.getSnapshot(), null);
+        assert.equal(audio.calls.closed, 1);
+      });
+    }
+  }
+});
+
+test("cancellation during successful or throwing confirmation rolls its owner off", async () => {
+  for (const throws of [false, true]) {
+    for (const failedSave of [false, true]) {
+      const store = storageFixture();
+      const audio = liveAudioFixture();
+      const owner = new AbortController();
+      audio.arm("stop", { throws, before() { owner.abort(); store.failure.write = failedSave; } });
+      await withGlobals({ localStorage: { value: store.storage },
+        AudioContext: { value: audio.AudioContextFake }, performance: { value: { now: () => 0 } } }, async () => {
+        const sound = await freshModule("sound.ts");
+        assert.deepEqual(await sound.setSoundEnabled(true, owner.signal), {
+          enabled: false, persisted: !failedSave,
+        });
+        assert.equal(owner.signal.aborted, true);
+        assert.equal(audio.calls.notes, 1, "already-started work is not claimed to be canceled");
+        assert.equal(audio.calls.closed, 1);
+        assert.equal(sound.soundWanted(), false);
+        assert.equal(sound.soundBackgroundFailure.getSnapshot(), null);
+      });
+    }
+  }
+});
+
+test("live cue wrapping preserves defaults, non-running no-ops, pitches, counts and tick drop limits", async () => {
+  const store = storageFixture();
+  const audio = liveAudioFixture();
+  let now = 0;
+  await withGlobals({ localStorage: { value: store.storage },
+    AudioContext: { value: audio.AudioContextFake }, performance: { value: { now: () => now } } }, async () => {
+    const sound = await freshModule("sound.ts");
+    sound.playTick(1); sound.playChime(); sound.playFanfare();
+    assert.equal(audio.calls.created, 0);
+    await sound.setSoundEnabled(true);
+    assert.equal(audio.calls.notes, 1);
+    sound.playTick(1); now = 79; sound.playTick(2);
+    assert.equal(audio.calls.notes, 1);
+    now = 80; sound.playTick(3);
+    assert.equal(audio.calls.notes, 2);
+    sound.playChime(); sound.playFanfare();
+    assert.equal(audio.calls.notes, 7);
+    assert.deepEqual(audio.frequencies, [sound.NOTES.A4,
+      sound.NOTES[sound.TICK_STEPS[sound.tickStep(3)]], sound.NOTES.E5, sound.NOTES.A5,
+      sound.NOTES.A4, sound.NOTES["C#5"], sound.NOTES.E5]);
+    for (const state of ["suspended", "closed", "interrupted"]) {
+      audio.calls.instances[0].state = state;
+      now += 100; sound.playTick(1); sound.playChime(); sound.playFanfare();
+      assert.equal(audio.calls.notes, 7);
+      assert.equal(sound.soundWanted(), true, "silent context drift remains explicitly out of scope");
+      assert.equal(sound.soundBackgroundFailure.getSnapshot(), null);
+    }
+    assert.deepEqual(sound.NOTES, { A4: 440, B4: 493.88, "C#5": 554.37, E5: 659.25, "F#5": 739.99, A5: 880 });
+    assert.deepEqual(sound.TICK_STEPS, ["A4", "B4", "C#5", "E5", "F#5"]);
+    assert.equal(audio.calls.closed, 0);
+  });
+});
+
+test("actual WS callback continues after each isolated live audio failure", async () => {
+  for (const cue of ["playTick", "playChime", "playFanfare"]) {
+    const store = storageFixture();
+    const audio = liveAudioFixture();
+    const sockets = [], intervals = new Map(), timeouts = new Map();
+    let now = 0, timer = 0;
+    class FakeWebSocket {
+      static OPEN = 1;
+      constructor() { this.readyState = 1; this.closed = false; sockets.push(this); }
+      send() {}
+      close() { this.closed = true; this.onclose?.(); }
+    }
+    await withGlobals({ localStorage: { value: store.storage },
+      AudioContext: { value: audio.AudioContextFake }, performance: { value: { now: () => now } },
+      WebSocket: { value: FakeWebSocket }, location: { value: { protocol: "http:", host: "fixture.invalid" } },
+      setInterval: { value: fn => { intervals.set(++timer, fn); return timer; } },
+      clearInterval: { value: id => intervals.delete(id) },
+      setTimeout: { value: fn => { timeouts.set(++timer, fn); return timer; } },
+      clearTimeout: { value: id => timeouts.delete(id) } }, async () => {
+      const sound = await freshModule("sound.ts");
+      const ws = await import(`${dataUrl(transpile("ws.ts"))}#ws-${++moduleSerial}`);
+      await sound.setSoundEnabled(true);
+      let before = 0, after = 0, syncs = 0;
+      const stop = ws.connectWs(message => {
+        assert.equal(message.type, "event_resolved");
+        before++; sound[cue](42); after++;
+      }, () => { syncs++; });
+      try {
+        assert.equal(sockets.length, 1);
+        sockets[0].onopen();
+        assert.equal(syncs, 1);
+        now = 100; audio.arm("oscillator");
+        const previous = audio.events.filter(value => value === "oscillator").length;
+        assert.doesNotThrow(() => sockets[0].onmessage({ data: JSON.stringify({
+          type: "event_resolved", id: "fixture", data: { id: 42 },
+        }) }));
+        assert.equal(audio.events.filter(value => value === "oscillator").length, previous + 1);
+        assert.equal(before, 1);
+        assert.equal(after, 1, "the real ws callback must reach work after its failed audio cue");
+        assert.equal(sound.soundWanted(), false);
+        assert.deepEqual(sound.soundBackgroundFailure.getSnapshot(), { persisted: true });
+      } finally { stop(); }
+      assert.equal(sockets[0].closed, true);
+      assert.equal(intervals.size, 0);
+      assert.equal(timeouts.size, 0, "teardown must not schedule reconnect");
+    });
+  }
+});
+
+test("App static sound ordering identifies core work protected by the live boundary", () => {
+  // Static caller evidence only; the WS probe above is not a mounted React/browser test.
+  const app = readFileSync(resolve(frontendRoot, "src/App.tsx"), "utf8");
+  const handler = app.slice(app.indexOf("const close = connectWs((msg) => {"));
+  const eventStart = handler.indexOf('if (msg.type === "event_resolved")');
+  const statusStart = handler.indexOf('if (msg.type === "repo_status_changed")');
+  const warningStart = handler.indexOf('if (msg.type === "warning")');
+  assert.ok(eventStart >= 0 && statusStart > eventStart && warningStart > statusStart);
+  const event = handler.slice(eventStart, statusStart);
+  const status = handler.slice(statusStart, warningStart);
+  for (const token of ["playTick(", "setComboCount(next)", "setGuardEvent(",
+    "playChime()", "window.setTimeout(() => setOdoNote"]) assert.ok(event.includes(token), token);
+  for (const token of ["playChime()", "setRepos((prev)"]) assert.ok(status.includes(token), token);
+  assert.ok(event.indexOf("playTick(") < event.indexOf("setComboCount(next)"));
+  assert.ok(event.indexOf("playTick(") < event.indexOf("setGuardEvent("));
+  assert.ok(event.indexOf("playChime()") < event.indexOf("window.setTimeout(() => setOdoNote"));
+  assert.ok(status.indexOf("playChime()") < status.indexOf("setRepos((prev)"));
+  assert.match(handler, /if \(msg\.type === "event_resolved" \|\| msg\.type === "commit_detected"\) debouncedSync\(\)/);
+  assert.doesNotMatch(status, /debouncedSync\(/);
 });
 
 test("blocked storage still renders GoalRings, DayLanes, and empty Overview", {
