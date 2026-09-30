@@ -69,6 +69,85 @@ test("draft composition preserves identity, chronology, placeholders and immutab
     "KATLAB EA: vX.Y.Z.W - (+1 unattributed) - vX.Y.Z.W");
 });
 
+test("draft subjects collapse whitespace without rewriting Unicode or quoted punctuation", () => {
+  for (const gap of ["\n", "\r\n", "\t", "   ", "\u2028", "\u2029", "\u00a0", "\u202f", "\u2003"]) {
+    const rawTitle = `  Add${gap}可靠${gap}"two${gap}words" + O'Brien /path:v5.9.0.0  `;
+    const captured = Object.freeze([Object.freeze(event(1, "EA_Dev", "A.1"))]);
+    const tasks = Object.freeze([Object.freeze({ repo: "EA_Dev", task_ref: "A.1", title: rawTitle })]);
+    const before = structuredClone({ captured, tasks });
+    const result = draft.buildCommitDraft("EA_Dev", captured, tasks);
+    assert.equal(result,
+      'KATLAB EA: vX.Y.Z.W - Add 可靠 "two words" + O\'Brien /path:v5.9.0.0 - vX.Y.Z.W');
+    assert.equal((result.match(/vX\.Y\.Z\.W/g) ?? []).length, 2);
+    assert.deepEqual({ captured, tasks }, before);
+    assert.equal(tasks[0].title, rawTitle);
+  }
+});
+
+test("draft display collisions never change raw-ref lookup, deduplication or first-touch order", () => {
+  const firstRef = "task\nA";
+  const secondRef = "task A";
+  const staleRef = "stale\r\n\tmission";
+  const captured = Object.freeze([
+    event(8, "Repo_A", secondRef), event(7), event(6, "Repo_B", firstRef),
+    event(5, "Repo_A", staleRef), event(4, "Repo_A", secondRef), event(3),
+    event(2, "Repo_A", firstRef), event(1, "Repo_A", firstRef),
+  ].map(Object.freeze));
+  const tasks = Object.freeze([
+    { repo: "Repo_B", task_ref: firstRef, title: "Wrong repo" },
+    { repo: "Repo_A", task_ref: firstRef, title: "First\nmission" },
+    { repo: "Repo_A", task_ref: secondRef, title: "First mission" },
+  ].map(Object.freeze));
+  const before = structuredClone({ captured, tasks });
+  assert.equal(draft.buildCommitDraft("Repo_A", captured, tasks),
+    "KATLAB Repo_A: vX.Y.Z.W - First mission + First mission + stale mission (+2 unattributed) - vX.Y.Z.W");
+  assert.deepEqual({ captured, tasks }, before);
+  assert.deepEqual(captured.map((row) => row.id), [8, 7, 6, 5, 4, 3, 2, 1]);
+  assert.equal(tasks[1].task_ref, firstRef);
+  assert.equal(tasks[2].task_ref, secondRef);
+  assert.equal(draft.buildCommitDraft("Repo_C", captured, tasks), "");
+});
+
+test("ordinary single-line, empty and all-unattributed draft cases stay exact", () => {
+  const captured = Object.freeze([Object.freeze(event(1, "Repo_A", "A.1"))]);
+  const tasks = Object.freeze([Object.freeze({ repo: "Repo_A", task_ref: "A.1", title: "Keep café + O'Brien: [x]" })]);
+  assert.equal(draft.buildCommitDraft("Repo_A", captured, tasks),
+    "KATLAB Repo_A: vX.Y.Z.W - Keep café + O'Brien: [x] - vX.Y.Z.W");
+  assert.equal(draft.buildCommitDraft("Repo_A", Object.freeze([]), tasks), "");
+  assert.equal(draft.buildCommitDraft("Repo_B", captured, tasks), "");
+  const unattributed = Object.freeze([Object.freeze(event(2)), Object.freeze(event(1))]);
+  assert.equal(draft.buildCommitDraft("Repo_A", unattributed, Object.freeze([])),
+    "KATLAB Repo_A: vX.Y.Z.W - (+2 unattributed) - vX.Y.Z.W");
+});
+
+test("copy writes the normalized subject once in the same stack without fetching or reading", async () => {
+  const captured = Object.freeze([Object.freeze(event(1, "EA_Dev", "A.1"))]);
+  const tasks = Object.freeze([Object.freeze({ repo: "EA_Dev", task_ref: "A.1", title: "Keep\r\n  café\t'quoted  words'" })]);
+  const before = structuredClone({ captured, tasks });
+  const pending = deferred();
+  const calls = [];
+  let fetchCalls = 0, readCalls = 0;
+  const clipboard = {
+    writeText (text) { calls.push({ text, receiver: this }); return pending.promise; },
+    readText () { readCalls += 1; throw new Error("must not read clipboard"); },
+    read () { readCalls += 1; throw new Error("must not read clipboard"); },
+  };
+  await withGlobal("fetch", { value() { fetchCalls += 1; throw new Error("must not fetch"); } }, async () => {
+    await withGlobal("navigator", { value: { clipboard } }, async () => {
+      const running = draft.copyCommitDraft("EA_Dev", captured, tasks);
+      assert.equal(calls.length, 1, "write invocation precedes returning to the click caller");
+      assert.equal(calls[0].receiver, clipboard);
+      pending.resolve();
+      assert.equal(await running, "copied");
+      assert.equal(calls[0].text, "KATLAB EA: vX.Y.Z.W - Keep café 'quoted words' - vX.Y.Z.W");
+      assert.equal(calls.length, 1);
+      assert.equal(fetchCalls, 0);
+      assert.equal(readCalls, 0);
+      assert.deepEqual({ captured, tasks }, before);
+    });
+  });
+});
+
 test("dirty repo absent from captured page is empty without touching clipboard", async () => {
   const captured = Array.from({ length: 500 }, (_, index) => event(501 - index));
   await withGlobal("navigator", { get() { throw new Error("must not inspect clipboard"); } }, async () => {

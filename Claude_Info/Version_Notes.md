@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.3.1.23 — Single-Line Commit Drafts (2026-10-01)
+
+- Format the final copied commit subject as one compact line by collapsing
+  JavaScript whitespace runs to ASCII spaces and trimming. This applies even
+  inside quoted summary text; non-whitespace Unicode/punctuation is preserved.
+- Original task titles, raw repo/ref identity, chronology, deduplication and
+  unattributed counts remain unchanged. Keep the KATLAB frame, both version
+  placeholders, empty-window behavior and captured-data scope; no truncation.
+- Clipboard remains one synchronous gesture-bound write with the existing
+  outcomes and cancellation ownership. No new fetch, clipboard read, dependency
+  or UI surface. This is a new draft-formatting policy, not a parser bug fix.
+- Actual-source and mocked clipboard regressions do not replace native browser,
+  keyboard/AT or physical clipboard verification, which remain unrun.
+
 ## v0.3.1.22 — Preabort Promise Observation (2026-10-01)
 
 - When a supplied promise is observed with an already-aborted signal, attach a

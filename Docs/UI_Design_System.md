@@ -478,6 +478,10 @@ Do not:
 - Disable every mutable control during a batch action and expose `aria-busy` where appropriate.
 - Prevent silent duplicate submission for assignments, reads, graphs, exports, clipboard, permission, sound, and notification actions.
 - Commit-draft copy keeps the existing global captured-event window and starts
+  with a compact single-line subject: collapse JavaScript whitespace runs to
+  ASCII spaces and trim only the final composed text, including quoted text.
+  Keep raw titles, identity, attribution, ordering and version placeholders
+  unchanged; do not truncate or impose a subject-length cap. The copy starts
   one `writeText` call synchronously in the user gesture, with no extra fetch or
   clipboard read. Report distinct copied, empty-window, unavailable and failed
   outcomes; an empty draft is not a blocked clipboard. One App-level owner

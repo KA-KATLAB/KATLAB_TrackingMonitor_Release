@@ -41,7 +41,8 @@ export function buildCommitDraft (repoId: string, events: TrackedEvent[],
   const suffix = unattributed > 0 ? `(+${unattributed} unattributed)` : "";
   const summary = [parts.join(" + "), suffix].filter(Boolean).join(" ");
   const tag = repoId.replace(/_Dev$/, ""); // probed: EA_Dev->EA; verbatim fallback
-  return `KATLAB ${tag}: ${VER} - ${summary} - ${VER}`;
+  // Compact the copied subject, not the stored titles or attribution keys.
+  return `KATLAB ${tag}: ${VER} - ${summary} - ${VER}`.replace(/\s+/g, " ").trim();
 }
 
 export type DraftCopyOutcome = "copied" | "empty" | "unavailable" | "failed";
