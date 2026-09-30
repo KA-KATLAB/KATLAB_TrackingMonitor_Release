@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.3.1.24 — Repository Scope Paging (2026-10-01)
+
+- Fix the scope rail's automatic page snap-back: manual Next/Previous can leave
+  the selected repo's page. Explicit remembered pages take precedence over the
+  selected-choice fallback, including Back/Forward restoration.
+- Without a remembered rail page, follow the selected choice through initial
+  loading and membership hydration. Scope-changing navigation clears only the
+  rail's same-view memory; view changes keep the existing full memory reset.
+- Preserve exact scope ids/labels, pressed semantics, missing-choice placeholder,
+  the visible selected label, 50-choice bound, clamping and other collections.
+  No new state, effect, dependency, storage, remount or backend/API change.
+- Actual-source controlled lifecycle and navigation checks are not native
+  browser pagination, Back/Forward, keyboard/AT or visual-layout verification.
+
 ## v0.3.1.23 — Single-Line Commit Drafts (2026-10-01)
 
 - Format the final copied commit subject as one compact line by collapsing

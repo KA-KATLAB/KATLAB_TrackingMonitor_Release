@@ -48,6 +48,18 @@ export function routeEquals (left: AppRoute, right: AppRoute): boolean {
   return left.view === right.view && scopeEquals(left.scope, right.scope);
 }
 
+export function pagePositionsForNavigation (
+  currentRoute: AppRoute,
+  target: AppRoute,
+  pages: Readonly<Record<string, number>>,
+): Record<string, number> {
+  if (currentRoute.view !== target.view) return {};
+  const next = { ...pages };
+  // A new scope follows its selection; the previous entry keeps its browsing page.
+  if (!scopeEquals(currentRoute.scope, target.scope)) delete next["repo-scopes"];
+  return next;
+}
+
 export function scopeApiId (scope: Scope): string | undefined {
   return scope.kind === "repo" ? scope.id : undefined;
 }

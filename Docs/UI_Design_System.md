@@ -113,6 +113,15 @@ At very short viewport heights, an explicitly opened warning detail panel may sh
 
 Repo scopes are a labelled selection group with `aria-pressed`. The workspace control is visibly “All repos” and named “Scope: all repos.” A configured repo retains its exact visible id and is named “Scope: repo <id>”; a repo literally named `ALL` remains distinguishable.
 
+Scope choices use a bounded 50-choice pager. Manual browsing must not snap back
+to the selected scope's page; the selected scope label remains visible even
+when its button is off-page. Without a remembered rail page, follow the selected
+choice, including delayed membership hydration. Explicit scope navigation clears
+only the rail's same-view page memory; view changes retain their existing full
+page-memory reset. Back/Forward restores the saved page, not forced selection
+visibility. Preserve valid explicit pages on refresh/reordering and clamp after
+list shrink without changing the shared pager or other collection policies.
+
 The six top-level views are Changes, Mission, Overview, History, City, and Chronicle. Put them in a `nav` landmark and mark the active link/control with `aria-current="page"`. Do not claim tab semantics without a complete tab/tabpanel model.
 
 Below 1024px, replace the 18rem task sidebar with a labelled Tasks button and modal drawer. Keep repo scope, current view, Tasks, Attention, and More reachable. More owns secondary utilities once each; no responsive mode may show the same utility twice.

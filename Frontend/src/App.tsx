@@ -61,6 +61,7 @@ import { normalizeMissionEntry } from "./missionModel";
 import type { MissionEntryState } from "./missionModel";
 import {
   formatRouteUrl,
+  pagePositionsForNavigation,
   parseRouteSearch,
   repairRouteMembership,
   routeEquals,
@@ -1026,7 +1027,7 @@ export default function App () {
         ? null
         : { ...ui.sessionFilter };
       const nextGroupMode = options.groupMode ?? ui.groupMode;
-      const nextPages = currentRoute.view === target.view ? { ...ui.pagePositions } : {};
+      const nextPages = pagePositionsForNavigation(currentRoute, target, ui.pagePositions);
       const nextHistory = currentRoute.view === "history" && target.view === "history"
         ? { ...ui.historyUi }
         : { ...DEFAULT_HISTORY_UI };
@@ -2447,13 +2448,9 @@ function RepoScopeRail ({
     identity: ["repo-scopes"],
     totalItems: choices.length,
     pageSize: 50,
-    defaultPage: Math.floor(Math.max(0, activeIndex) / 50) + 1,
+    // Explicit browsing/history memory takes precedence over this selection fallback.
+    page: Math.floor(Math.max(0, activeIndex) / 50) + 1,
   });
-  useEffect(() => {
-    if (activeIndex < pager.start || activeIndex >= pager.end) {
-      pager.setPage(Math.floor(Math.max(0, activeIndex) / 50) + 1);
-    }
-  }, [activeIndex, pager.end, pager.setPage, pager.start]);
   const visible = choices.slice(pager.start, pager.end);
   return (
     <div className="mt-1 min-w-0">
