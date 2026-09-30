@@ -12,10 +12,13 @@
 // while replay is armed. B.2 owns the replay engine in this same file.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, createActionDeadline, isAbortError } from "./api";
+import { createActionDeadline, isAbortError } from "./api";
 import type { ActionDeadline, TrackedEvent } from "./api";
 import { DisclosureTable } from "./accessibleData";
 import { RAMP, rampBucket } from "./calendarHeatmap";
+import { loadDayEvents } from "./dayEvents";
+import { localDayLabel, shiftDayLabel } from "./dayWindow";
+import { EventWindowNotice } from "./dialogStatus";
 import { fmtMinutes, fmtTs } from "./format";
 import { readPreference, writePreference } from "./preferences";
 import { EFFORT_GAP_MAX_MIN, EFFORT_TAIL_MIN, eventSessionIdentity,
@@ -24,13 +27,7 @@ import { SectionHeading, Surface } from "./ui";
 
 const LANE_H = 26, GAP_Y = 8, LEFT = 76, TOP = 18, HOUR_W = 34;
 const WIDTH = LEFT + 24 * HOUR_W + 8;
-const PAGE = 500, MAX_PAGES = 3;
 const DAY_S = 86_400;
-
-function localDayISO (d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-` +
-    `${String(d.getDate()).padStart(2, "0")}`;
-}
 
 interface Block { start: number; rawEnd: number; events: TrackedEvent[] }
 
@@ -125,7 +122,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
     onDayChange: (day: string) => void; onSpeedChange: (speed: 1 | 2 | 4) => void;
     initialScopeAction?: boolean; onInitialScopeActionConsumed?: () => void;
     onStatus: (message: string) => void }) {
-  const today = localDayISO(new Date());
+  const today = localDayLabel(new Date());
   const reducedMotion = usePrefersReducedMotion();
   const requestKey = JSON.stringify([
     scope === undefined ? ["all"] : ["repo", scope],
@@ -147,10 +144,10 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
   const [result, setResult] = useState<{
     key: string;
     rows: TrackedEvent[];
-    truncated: boolean;
+    limitReached: boolean;
   } | null>(null);
   const rows = result?.key === requestKey ? result.rows : null;
-  const truncated = result?.key === requestKey ? result.truncated : false;
+  const limitReached = result?.key === requestKey ? result.limitReached : false;
   const [failure, setFailure] = useState<{ key: string; message: string } | null>(null);
   const error = failure?.key === requestKey ? failure.message : "";
   const errorRef = useRef("");
@@ -175,8 +172,9 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
   replayRef.current = replay;
   const isToday = day === today;
 
-  const [y, m, d] = day.split("-").map(Number);
-  const dayStartMs = new Date(y, m - 1, d).getTime();
+  const dayStartMs = new Date(`${day}T00:00:00`).getTime();
+  const previousDay = shiftDayLabel(day, -1);
+  const nextDay = shiftDayLabel(day, 1);
 
   const cancelRequest = useCallback(() => {
     generationRef.current += 1;
@@ -198,30 +196,15 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
     const request: LaneRequest = { key, generation, ...owner };
     requestRef.current = request;
     setBusy(true);
-    const [requestYear, requestMonth, requestDate] = requestDay.split("-").map(Number);
     void (async () => {
       try {
-        const since = new Date(requestYear, requestMonth - 1, requestDate).toISOString();
-        const until = new Date(requestYear, requestMonth - 1, requestDate + 1).toISOString();
-        const all: TrackedEvent[] = [];
-        let trunc = false;
-        for (let pageIndex = 0; pageIndex < MAX_PAGES; pageIndex += 1) {
-          const page = await api.events({
-            repo: requestScope,
-            since,
-            until,
-            limit: PAGE,
-            offset: pageIndex * PAGE,
-          }, request.controller.signal);
-          all.push(...page);
-          if (page.length < PAGE) break;
-          if (pageIndex === MAX_PAGES - 1) trunc = true;
-        }
-        all.sort((left, right) => left.ts.localeCompare(right.ts));
+        const { rows: all, limitReached: reached } = await loadDayEvents(
+          requestScope, requestDay, request.controller.signal,
+        );
         if (!mountedRef.current || requestRef.current?.generation !== generation
             || currentKeyRef.current !== key || request.controller.signal.aborted) return;
         const recovered = !!errorRef.current;
-        setResult({ key, rows: all, truncated: trunc });
+        setResult({ key, rows: all, limitReached: reached });
         errorRef.current = "";
         setFailure(null);
         setSettledKey(key);
@@ -244,7 +227,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
         if (!mountedRef.current || requestRef.current?.generation !== generation) return;
         requestRef.current = null;
         setBusy(false);
-        const stillToday = requestDay === localDayISO(new Date());
+        const stillToday = requestDay === localDayLabel(new Date());
         if (trailingRefreshRef.current && currentKeyRef.current === key
             && stillToday && !replayRef.current) {
           trailingRefreshRef.current = false;
@@ -356,18 +339,18 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
 
   const exitReplay = () => { setReplay(false); setPlaying(false); };
   const shift = (delta: number) => {
+    const targetDay = delta < 0 ? previousDay : nextDay;
+    if (targetDay === null) return;
     exitReplay(); // RV9: a day switch exits replay FIRST (one day, one stage)
-    const next = new Date(y, m - 1, d + delta);
-    const nextDay = localDayISO(next);
     const nextKey = JSON.stringify([
       scope === undefined ? ["all"] : ["repo", scope],
-      nextDay,
+      targetDay,
     ]);
     cancelRequest();
     pendingActionRef.current?.action.controller.abort();
     pendingActionRef.current?.action.clear();
     pendingActionRef.current = { key: nextKey, action: createActionDeadline() };
-    onDayChange(nextDay); // month/year roll-over free (V3)
+    onDayChange(targetDay); // calendar labels remain navigable across skipped local dates
   };
 
   const retryDay = (): void => {
@@ -449,7 +432,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
         description={(
           <>
             Activity lanes (local time)
-            {truncated && <span className="ml-1 text-amber-300">· fetched window</span>}
+            {limitReached && <span className="ml-1 text-amber-300">· fetched window</span>}
             {busy && <span className="ml-1 text-ui-muted">· loading…</span>}
           </>
         )}
@@ -480,10 +463,10 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
               ▶ Replay
             </button>
           )}
-          <button onClick={() => shift(-1)} aria-label="previous day"
-            className="rounded px-1.5 py-0.5 text-slate-300 hover:bg-slate-700">◀</button>
+          <button onClick={() => shift(-1)} disabled={previousDay === null} aria-label="previous day"
+            className="rounded px-1.5 py-0.5 text-slate-300 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent">◀</button>
           <span className="font-mono">{day}</span>
-          <button onClick={() => shift(1)} disabled={isToday} aria-label="next day"
+          <button onClick={() => shift(1)} disabled={isToday || nextDay === null} aria-label="next day"
             className="rounded px-1.5 py-0.5 text-slate-300 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent">▶</button>
         </span>
         )} />
@@ -652,11 +635,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
           className="mt-3 border-t border-slate-800 pt-3"
         />
       )}
-      {truncated && (
-        <p className="mt-1 text-[11px] text-amber-300">
-          ⚠ Only the newest {PAGE * MAX_PAGES} events of this day were fetched.
-        </p>
-      )}
+      {rows && <EventWindowNotice limitReached={limitReached} count={rows.length} />}
       {!rows && busy && <p className="text-xs text-slate-500">Loading…</p>}
     </Surface>
   );

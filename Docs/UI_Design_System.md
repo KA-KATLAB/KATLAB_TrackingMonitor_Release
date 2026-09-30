@@ -377,6 +377,20 @@ For Day Lanes at 1,000 or more events, or more than 20 exact repo ids, use the p
 - name each repo or repo-range and expose its count;
 - keep calculations, replay, and the paged exact-event drill-down complete.
 
+Day Lanes queries one selected local calendar day with six-digit UTC-Z bounds,
+filters returned rows to that half-open numeric window, then orders accepted
+events by timestamp milliseconds and ID. A short raw page ends the bounded
+three-by-500 fetch; a full final raw page only proves the fetch cap was reached.
+Show the shared wrapped cap notice with the actual accepted count, never a
+"newest" or known-more claim. This fixes query boundaries and replay input
+ordering, not the existing 24-hour sparse-lane axis/replay assumption: on a
+25-hour DST day late events can still plot outside the lane or be unreachable
+by replay. Density uses 48 half-hour wall-time bins; the standard clock uses
+24 hourly wedges. A coordinated DST rendering/replay correction remains separate.
+Day arrows shift date labels with UTC calendar arithmetic, while event bounds
+stay local. A skipped local date shows the existing load error and remains
+navigable in both directions; unsupported calendar-boundary arrows are disabled.
+
 ## 8. Bounded rendering and performance
 
 Any semantic row/item collection whose source can exceed 50 must use the shared dependency-free pager. Scrolling, collapsing, `content-visibility`, or being offscreen does not bound mounted DOM.

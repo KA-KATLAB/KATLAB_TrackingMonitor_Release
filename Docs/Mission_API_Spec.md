@@ -257,9 +257,10 @@ providers.
 This endpoint returns rows, not a total or `has_more`. The database orders by
 ingestion ID descending, not event timestamp. A full final page at a client
 fetch cap cannot distinguish exactly that many matches from additional rows;
-File Story, Session Timeline and Digest therefore say "More may exist" at their
-three-page cap. A shorter fetched window is not a guarantee of complete history
-or snapshot-consistent offset pagination during concurrent ingestion.
+File Story, Session Timeline, Digest and Day Lanes therefore say "More may
+exist" at their three-page cap. A shorter fetched window is not a guarantee
+of complete history or snapshot-consistent offset pagination during concurrent
+ingestion.
 
 `since` is inclusive and `until` exclusive. The existing file-event query
 compares timestamp TEXT. Digest sends both bounds on every page for one captured
@@ -269,6 +270,14 @@ microsecond records; next calendar midnight also preserves DST day length.
 It defensively filters returned rows to the same numeric half-open window and
 does not stop because an older event appears in ingestion order. Legacy malformed
 or non-UTC timestamps are not normalized or repaired by this client change.
+
+Day Lanes reuses the six-digit UTC-Z bounds for its selected local day. It
+rejects invalid or nonexistent local dates before requesting events, filters
+each raw page to the numeric half-open day, and sorts accepted rows by epoch
+milliseconds then ID for replay input. Only a short raw page ends the bounded
+fetch early; a full third page proves a cap, not additional matching rows.
+DST-safe query bounds do not repair the separate 24-hour sparse-axis/replay
+assumption on a 25-hour day.
 
 ## `GET /api/health` additions
 

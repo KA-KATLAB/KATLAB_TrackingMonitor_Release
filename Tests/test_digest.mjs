@@ -28,29 +28,45 @@ const pagesFrom = (html) => JSON.parse(
 test("actual day helper uses calendar midnights and six-digit UTC bounds across DST", () => {
   const ts = frontendRequire("typescript");
   const code = ts.transpileModule(
-    readFileSync(resolve(root, "Frontend/src/digestWindow.ts"), "utf8"),
+    readFileSync(resolve(root, "Frontend/src/dayWindow.ts"), "utf8"),
     { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } },
   ).outputText;
   const moduleUrl = `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`;
-  for (const [tz, expected] of [
-    ["Asia/Bangkok", [
+  for (const [tz, days, expected] of [
+    ["Asia/Bangkok", ["2026-03-08", "2026-11-01"], [
       [24, "2026-03-07T17:00:00.000000Z", "2026-03-08T17:00:00.000000Z"],
       [24, "2026-10-31T17:00:00.000000Z", "2026-11-01T17:00:00.000000Z"],
     ]],
-    ["America/New_York", [
+    ["America/New_York", ["2026-03-08", "2026-11-01"], [
       [23, "2026-03-08T05:00:00.000000Z", "2026-03-09T04:00:00.000000Z"],
       [25, "2026-11-01T04:00:00.000000Z", "2026-11-02T05:00:00.000000Z"],
     ]],
+    ["America/Santiago", ["2026-09-06", "2026-09-07"], [
+      [23, "2026-09-06T04:00:00.000000Z", "2026-09-07T03:00:00.000000Z"],
+      [24, "2026-09-07T03:00:00.000000Z", "2026-09-08T03:00:00.000000Z"],
+    ]],
+    ["Pacific/Apia", ["2011-12-29", "2011-12-31"], [
+      [24, "2011-12-29T10:00:00.000000Z", "2011-12-30T10:00:00.000000Z"],
+      [24, "2011-12-30T10:00:00.000000Z", "2011-12-31T10:00:00.000000Z"],
+    ]],
+    ["UTC", ["0042-05-02", "0099-12-31"], [
+      [24, "0042-05-02T00:00:00.000000Z", "0042-05-03T00:00:00.000000Z"],
+      [24, "0099-12-31T00:00:00.000000Z", "0100-01-01T00:00:00.000000Z"],
+    ]],
   ]) {
     const result = spawnSync(process.execPath, ["--input-type=module", "-e", `
-      const { digestDayWindow } = await import(${JSON.stringify(moduleUrl)});
-      const windows = [new Date(2026, 2, 8, 12), new Date(2026, 10, 1, 12)]
-        .map(digestDayWindow);
+      const { localDayWindow } = await import(${JSON.stringify(moduleUrl)});
+      const dates = ${JSON.stringify(days)}.map(day => new Date(day + "T12:00:00"));
+      const before = dates.map(date => date.getTime());
+      const windows = dates.map(localDayWindow);
+      if (dates.some((date, index) => date.getTime() !== before[index])) {
+        throw new Error("Input date was mutated");
+      }
       process.stdout.write(JSON.stringify(windows));
     `], { env: { ...process.env, TZ: tz }, encoding: "utf8", timeout: 10_000 });
     assert.equal(result.status, 0, result.stderr);
     const windows = JSON.parse(result.stdout);
-    assert.deepEqual(windows.map((window) => window.day), ["2026-03-08", "2026-11-01"]);
+    assert.deepEqual(windows.map((window) => window.day), days);
     assert.deepEqual(windows.map((window) => [
       (window.endMs - window.startMs) / 3_600_000, window.since, window.until,
     ]), expected);

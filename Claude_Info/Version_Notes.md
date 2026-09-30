@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.3.1.11 — Day Lanes Window Accuracy (2026-09-30)
+
+- Day Lanes and Digest share local calendar-day bounds with six-digit UTC-Z
+  precision. Day Lanes rejects invalid/nonexistent local dates before fetching,
+  filters returned rows to the selected day and orders them by numeric time/ID.
+- A full third raw page marks a reached fetch limit, not proven additional
+  events; the shared visible notice uses the accepted captured-row count.
+- Calendar-label navigation can cross skipped local dates without a same-day
+  no-op; invalid/out-of-range arrows are disabled before changing request owners.
+- Existing request bounds, ownership, replay coordination and exact-data pager
+  remain. Controlled loader/TZ/API tests are not real-browser or AT tests.
+- DST-safe query bounds do not fix Day Lanes' 24-hour sparse axis/replay
+  assumption; 25-hour-day late events need a separate coherent design cycle.
+
 ## v0.3.1.10 — Digest Day Window (2026-09-30)
 
 - Digest captures one local day and sends precision-safe UTC-Z since/until on

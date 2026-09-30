@@ -9,8 +9,8 @@
 import { abortError, api } from "./api";
 import type { Repo, Task, TrackedEvent } from "./api";
 import type { PreparedDownload } from "./download";
-import { digestDayWindow } from "./digestWindow";
-import type { DigestDayWindow } from "./digestWindow";
+import { localDayWindow } from "./dayWindow";
+import type { LocalDayWindow } from "./dayWindow";
 import { fmtMinutes, fmtTs } from "./format";
 import { scopeFileToken } from "./navigation";
 import {
@@ -73,7 +73,7 @@ function scriptSafeJson (value: unknown): string {
 
 /** Fetch one captured local day in bounded ingestion-ID order. */
 async function fetchToday (scope: string | undefined, signal: AbortSignal,
-  window: DigestDayWindow): Promise<{ todays: TrackedEvent[]; limitReached: boolean }> {
+  window: LocalDayWindow): Promise<{ todays: TrackedEvent[]; limitReached: boolean }> {
   const todays: TrackedEvent[] = [];
   for (let p = 0; p < MAX_PAGES; p++) {
     if (signal.aborted) throw abortError();
@@ -94,7 +94,7 @@ async function fetchToday (scope: string | undefined, signal: AbortSignal,
 
 export async function prepareDigest (scope: string | undefined, repos: Repo[],
   tasks: Task[], uncommitted: TrackedEvent[], signal: AbortSignal): Promise<PreparedDownload> {
-  const window = digestDayWindow(new Date());
+  const window = localDayWindow(new Date());
   const { todays, limitReached } = await fetchToday(scope, signal, window);
   if (signal.aborted) throw abortError();
   // v0.1.6.0 D1 (C.1): effort KPI reads the SAME backend value as the
