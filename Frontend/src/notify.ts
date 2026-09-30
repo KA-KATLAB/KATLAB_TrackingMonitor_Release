@@ -8,6 +8,7 @@
 
 import { readPreference, writePreference } from "./preferences";
 import type { PreferenceToggleResult } from "./preferences";
+import { raceWithSignal } from "./api";
 
 const KEY = "katlab.notify";
 const COALESCE_MS = 5000;
@@ -15,6 +16,7 @@ const COALESCE_MS = 5000;
 const pickBursts = new Map<string, { count: number }>(); // repo -> 5s burst
 const prevClean = new Map<string, boolean>();            // RV9 transition map
 let offVeto = false;
+let preferenceGeneration = 0;
 
 function persistNotify (value: "on" | "off"): boolean {
   return writePreference(KEY, value) && readPreference(KEY) === value;
@@ -37,7 +39,10 @@ function canFire (): boolean {
 
 /** Opt-in only after storage and permission are both verified. RV21:
  *  denied or dismissed permission leaves alerts off. */
-export async function setNotifyEnabled (on: boolean): Promise<PreferenceToggleResult> {
+export async function setNotifyEnabled (on: boolean,
+  signal?: AbortSignal): Promise<PreferenceToggleResult> {
+  if (signal?.aborted) return { enabled: notifyWanted(), persisted: false };
+  const owner = ++preferenceGeneration;
   offVeto = true;
   if (!on) {
     return { enabled: false, persisted: persistNotify("off") };
@@ -47,15 +52,28 @@ export async function setNotifyEnabled (on: boolean): Promise<PreferenceToggleRe
     persistNotify("off");
     return { enabled: false, persisted: false };
   }
-  if (typeof Notification === "undefined") {
-    return { enabled: false, persisted: true };
-  }
   let granted = false;
   try {
-    granted = (await Notification.requestPermission()) === "granted"
-      && Notification.permission === "granted";
-  } catch { /* permission API unavailable or rejected */ }
-  if (!granted) {
+    if (typeof Notification === "undefined") return { enabled: false, persisted: true };
+    const capability = Notification;
+    const request = capability.requestPermission;
+    if (signal?.aborted) return { enabled: false, persisted: persistNotify("off") };
+    let resolvePermission!: (value: NotificationPermission | PromiseLike<NotificationPermission>) => void;
+    let rejectPermission!: (error: unknown) => void;
+    const pending = new Promise<NotificationPermission>((resolve, reject) => {
+      resolvePermission = resolve;
+      rejectPermission = reject;
+    });
+    // Observe before invoking, without moving the browser prompt out of the click.
+    const observed = raceWithSignal(pending, signal);
+    try { resolvePermission(request.call(capability)); }
+    catch (error) { rejectPermission(error); }
+    const permission = await observed;
+    if (owner !== preferenceGeneration) return { enabled: notifyWanted(), persisted: false };
+    granted = !signal?.aborted && permission === "granted" && capability.permission === "granted";
+  } catch { /* unavailable, rejected or application observation canceled */ }
+  if (owner !== preferenceGeneration) return { enabled: notifyWanted(), persisted: false };
+  if (!granted || signal?.aborted) {
     return { enabled: false, persisted: persistNotify("off") };
   }
   if (!persistNotify("on")) {
@@ -64,6 +82,24 @@ export async function setNotifyEnabled (on: boolean): Promise<PreferenceToggleRe
   }
   offVeto = false;
   return { enabled: true, persisted: true };
+}
+
+export function notifyToggleMessage (on: boolean, result: PreferenceToggleResult,
+  timedOut = false): string {
+  const saveFailure = "Saving failed. An older opt-in may return after reload.";
+  if (timedOut) {
+    return "OS alerts remain off for this page: permission was not confirmed within 10 seconds. "
+      + "The browser prompt may still finish. Complete or dismiss it, then retry to opt in."
+      + (result.persisted ? "" : ` ${saveFailure}`);
+  }
+  if (!result.persisted) {
+    return result.enabled
+      ? "OS alert preference could not be verified. Check the current setting before retrying."
+      : `OS alerts are off for this page. ${saveFailure}`;
+  }
+  return on
+    ? result.enabled ? "OS alerts enabled." : "OS alert permission was not confirmed or alerts are unavailable; alerts remain off."
+    : "OS alerts disabled.";
 }
 
 function fire (tag: string, body: string, onclick: () => void): void {

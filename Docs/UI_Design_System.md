@@ -491,6 +491,17 @@ Do not:
 - Sound and OS alerts stay off if opt-in cannot be stored/verified. A failed
   disable still blocks new sound/alerts for the current page; explain that
   persistence failed and an older saved opt-in may remain after reload.
+- OS-alert opt-in owns a shared 10-second observation deadline. Request browser
+  permission synchronously in the user's gesture after verifying saved off.
+  Timeout/unmount cannot cancel the native prompt or revoke origin permission;
+  late results must not opt in or overwrite a newer choice. A current canceled
+  operation keeps the page veto and freshly verifies off persistence before
+  returning. Show timeout separately from other non-confirmation, never infer
+  denial from a dismissed/default or failed request, include failed-save advice
+  when needed, and require an explicit retry. App unmount revokes its owner;
+  repo/view navigation does not cancel this page-global preference. Existing
+  controls, persistent preference feedback and the single announcer share
+  one busy/result owner; stale work cannot release a newer owner.
 - Preference failures are visible from both direct controls and palette actions
   at all shell widths. Do not hide them behind another action's success note.
 - User-triggered REST work owns one absolute 10-second deadline for the complete activation. Retry gets a fresh controller/deadline.

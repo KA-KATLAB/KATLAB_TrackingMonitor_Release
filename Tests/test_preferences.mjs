@@ -24,12 +24,19 @@ function dataUrl (code) {
 
 const preferenceUrl = dataUrl(transpile("preferences.ts"));
 const preferences = await import(preferenceUrl);
+const apiUrl = dataUrl(transpile("api.ts"));
+const api = await import(apiUrl);
 
 async function freshModule (name) {
   const emitted = transpile(name);
   const imports = emitted.match(/from ["']\.\/preferences["']/g) ?? [];
   assert.equal(imports.length, 1, `${name} must use the shared preference boundary`);
-  const linked = emitted.replace(imports[0], `from "${preferenceUrl}"`);
+  let linked = emitted.replace(imports[0], `from "${preferenceUrl}"`);
+  if (name === "notify.ts") {
+    const apiImports = linked.match(/from ["']\.\/api["']/g) ?? [];
+    assert.equal(apiImports.length, 1, "notification observation must reuse the shared race");
+    linked = linked.replace(apiImports[0], `from "${apiUrl}"`);
+  }
   return import(`${dataUrl(linked)}#fixture-${++moduleSerial}`);
 }
 
@@ -540,19 +547,21 @@ test("notification storage failure never prompts and failed disable vetoes old o
 });
 
 test("notification denial differs from failed final on persistence", async () => {
-  const deniedStore = storageFixture();
-  const denied = notificationFixture("denied");
-  await withGlobals({
-    localStorage: { value: deniedStore.storage },
-    Notification: { value: denied.NotificationFake },
-  }, async () => {
-    const module = await freshModule("notify.ts");
-    assert.deepEqual(await module.setNotifyEnabled(true), {
-      enabled: false, persisted: true,
+  for (const permission of ["denied", "default"]) {
+    const deniedStore = storageFixture();
+    const denied = notificationFixture(permission);
+    await withGlobals({
+      localStorage: { value: deniedStore.storage },
+      Notification: { value: denied.NotificationFake },
+    }, async () => {
+      const module = await freshModule("notify.ts");
+      const result = await module.setNotifyEnabled(true);
+      assert.deepEqual(result, { enabled: false, persisted: true });
+      assert.doesNotMatch(module.notifyToggleMessage(true, result), /denied/);
+      assert.equal(denied.calls.prompts, 1);
+      assert.equal(deniedStore.values.get("katlab.notify"), "off");
     });
-    assert.equal(denied.calls.prompts, 1);
-    assert.equal(deniedStore.values.get("katlab.notify"), "off");
-  });
+  }
   const failedStore = storageFixture();
   const granted = notificationFixture("granted");
   failedStore.failure.onWrite = true;
@@ -621,6 +630,178 @@ test("missing or failing Notification capability leaves alerts off", async () =>
       assert.equal(store.values.get("katlab.notify"), "off");
     });
   }
+});
+
+test("notification prompt starts synchronously with its receiver and supports a pre-abort no-op", async () => {
+  const store = storageFixture({ "katlab.notify": "on" });
+  const notify = notificationFixture();
+  const pending = deferred();
+  let calls = 0;
+  notify.NotificationFake.requestPermission = function () {
+    assert.equal(this, notify.NotificationFake);
+    calls++;
+    return pending.promise;
+  };
+  await withGlobals({ localStorage: { value: store.storage },
+    Notification: { value: notify.NotificationFake } }, async () => {
+    const module = await freshModule("notify.ts");
+    const aborted = new AbortController(); aborted.abort();
+    assert.deepEqual(await module.setNotifyEnabled(false, aborted.signal), {
+      enabled: true, persisted: false,
+    });
+    assert.equal(calls, 0);
+    assert.ok(!store.calls.some(call => call.startsWith("write:")));
+    const enabling = module.setNotifyEnabled(true);
+    assert.equal(calls, 1, "permission request must start in the original call stack");
+    assert.equal(store.values.get("katlab.notify"), "off");
+    // A canceled new call must not supersede the valid pending generation.
+    await module.setNotifyEnabled(false, aborted.signal);
+    pending.resolve("granted");
+    assert.deepEqual(await enabling, { enabled: true, persisted: true });
+  });
+});
+
+test("notification deadline settles once with fresh persistence and ignores late native outcomes", async () => {
+  for (const late of ["granted", "rejected"]) {
+    for (const storageFailsAfterPrompt of [false, true]) {
+      const store = storageFixture();
+      const notify = notificationFixture();
+      const pending = deferred();
+      notify.NotificationFake.requestPermission = () => pending.promise;
+      let now = 0, serial = 0;
+      const timers = new Map();
+      const window = { ...windowFixture(),
+        setTimeout(callback, delay) { const id = ++serial; timers.set(id, { callback, at: now + delay }); return id; },
+        clearTimeout(id) { timers.delete(id); },
+      };
+      const advance = milliseconds => {
+        now += milliseconds;
+        for (const [id, timer] of [...timers]) {
+          if (timer.at <= now) { timers.delete(id); timer.callback(); }
+        }
+      };
+      await withGlobals({ localStorage: { value: store.storage },
+        Notification: { value: notify.NotificationFake }, window: { value: window } }, async () => {
+        const module = await freshModule("notify.ts");
+        const owner = api.createActionDeadline();
+        let settlements = 0;
+        const running = module.setNotifyEnabled(true, owner.signal).then(result => {
+          settlements++;
+          return result;
+        }).finally(() => owner.clear());
+        advance(9_999); await flush(); assert.equal(settlements, 0);
+        store.failure.write = storageFailsAfterPrompt;
+        advance(1);
+        const result = await running;
+        assert.deepEqual(result, { enabled: false, persisted: !storageFailsAfterPrompt });
+        assert.equal(owner.didTimeout(), true);
+        assert.equal(module.notifyWanted(), false);
+        assert.equal(settlements, 1);
+        assert.equal(timers.size, 0);
+        const message = module.notifyToggleMessage(true, result, owner.didTimeout());
+        assert.match(message, /browser prompt may still finish/);
+        assert.equal(message.includes("Saving failed"), storageFailsAfterPrompt);
+        assert.doesNotMatch(message, /denied|canceled|revoked|enabled\./);
+        const writes = store.calls.filter(call => call.startsWith("write:")).length;
+        if (late === "granted") pending.resolve("granted");
+        else pending.reject(new Error("late native rejection"));
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(settlements, 1);
+        assert.equal(module.notifyWanted(), false);
+        assert.equal(store.calls.filter(call => call.startsWith("write:")).length, writes);
+      });
+    }
+  }
+});
+
+test("newer notification choices dominate stale grants, denials and rejections", async () => {
+  for (const next of [false, true]) {
+    for (const late of ["granted", "denied", "rejected"]) {
+      const store = storageFixture();
+      const notify = notificationFixture();
+      const old = deferred();
+      let calls = 0;
+      notify.NotificationFake.requestPermission = () => ++calls === 1 ? old.promise : Promise.resolve("granted");
+      await withGlobals({ localStorage: { value: store.storage },
+        Notification: { value: notify.NotificationFake } }, async () => {
+        const module = await freshModule("notify.ts");
+        const older = module.setNotifyEnabled(true);
+        assert.deepEqual(await module.setNotifyEnabled(next), { enabled: next, persisted: true });
+        const writes = store.calls.filter(call => call.startsWith("write:")).length;
+        if (late === "rejected") old.reject(new Error("obsolete"));
+        else old.resolve(late);
+        assert.deepEqual(await older, { enabled: next, persisted: false });
+        assert.equal(module.notifyWanted(), next);
+        assert.equal(store.values.get("katlab.notify"), next ? "on" : "off");
+        assert.equal(store.calls.filter(call => call.startsWith("write:")).length, writes);
+      });
+    }
+  }
+});
+
+test("notification cancellation observes synchronous abort/rejection and skips an aborted getter", async () => {
+  for (const when of ["getter", "call"]) {
+    const store = storageFixture();
+    const owner = new AbortController();
+    let calls = 0;
+    const capability = { permission: "granted", get requestPermission() {
+      if (when === "getter") owner.abort();
+      return function () {
+        calls++;
+        owner.abort();
+        return Promise.reject(new Error("rejected during abort"));
+      };
+    } };
+    await withGlobals({ localStorage: { value: store.storage },
+      Notification: { value: capability } }, async () => {
+      const module = await freshModule("notify.ts");
+      assert.deepEqual(await module.setNotifyEnabled(true, owner.signal), { enabled: false, persisted: true });
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(calls, when === "getter" ? 0 : 1);
+      assert.equal(module.notifyWanted(), false);
+    });
+  }
+});
+
+test("notification capability getters and synchronous methods fail softly", async () => {
+  for (const descriptor of [
+    { get() { throw new Error("private capability error"); } },
+    { value: { get requestPermission() { throw new Error("private getter error"); } } },
+    { value: { requestPermission() { throw new Error("private method error"); } } },
+    { value: { requestPermission: undefined } },
+  ]) {
+    const store = storageFixture();
+    await withGlobals({ localStorage: { value: store.storage }, Notification: descriptor }, async () => {
+      const module = await freshModule("notify.ts");
+      assert.deepEqual(await module.setNotifyEnabled(true), { enabled: false, persisted: true });
+      assert.equal(module.notifyWanted(), false);
+    });
+  }
+});
+
+test("notification feedback distinguishes normal results, storage failure and deadline", async () => {
+  const module = await freshModule("notify.ts");
+  assert.equal(module.notifyToggleMessage(true, { enabled: true, persisted: true }), "OS alerts enabled.");
+  assert.equal(module.notifyToggleMessage(false, { enabled: false, persisted: true }), "OS alerts disabled.");
+  assert.match(module.notifyToggleMessage(true, { enabled: false, persisted: true }), /permission was not confirmed or alerts are unavailable/);
+  assert.match(module.notifyToggleMessage(false, { enabled: false, persisted: false }), /older opt-in may return after reload/);
+  assert.doesNotMatch(module.notifyToggleMessage(true, { enabled: true, persisted: false }), /alerts are off/);
+});
+
+test("App statically owns notification deadline, lifecycle and recovery surfaces", () => {
+  // Wiring evidence only, not React-effect execution or browser permission interaction.
+  const app = readFileSync(resolve(frontendRoot, "src/App.tsx"), "utf8");
+  assert.match(app, /if \(!notifyMountedRef\.current \|\| notifyOwnerRef\.current\) return/);
+  assert.match(app, /notifyOwnerRef\.current = null;\s*owner\?\.controller\.abort\(\);\s*owner\?\.clear\(\)/);
+  assert.match(app, /notifyMountedRef\.current && notifyOwnerRef\.current === owner/);
+  assert.match(app, /setNotifyEnabled\(next, owner\.signal\)\.then\(\(result\) => \{\s*if \(!isCurrent\(\)\) return/);
+  assert.match(app, /notifyToggleMessage\(next, result, owner\.didTimeout\(\)\)/);
+  assert.match(app, /owner\.clear\(\);\s*if \(isCurrent\(\)\) \{\s*notifyOwnerRef\.current = null;\s*setNotifyBusy\(false\)/);
+  assert.match(app, /announceStatus\("Changing OS alerts\."\)/);
+  assert.match(app, /disabledReason: notifyBusy \?/);
+  assert.equal((app.match(/disabled=\{notifyBusy\}/g) ?? []).length, 2);
+  assert.match(app, /Object\.entries\(preferenceFailures\)/);
+  assert.doesNotMatch(app, /notifyBusyRef/);
 });
 
 test("blocked storage still renders GoalRings, DayLanes, and empty Overview", {

@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.3.1.14 — Notification Opt-In Recovery (2026-10-01)
+
+- One App-owned 10-second deadline bounds observation of an OS-alert opt-in.
+  It cannot cancel a native browser prompt or revoke browser/OS permission.
+- A generation fence prevents late permission results from overwriting a newer
+  choice. Timeout keeps application alerts off for this page; a later browser
+  grant is not a new application opt-in. Users must explicitly retry.
+- A current timeout attempts to persist off and reports whether that write
+  succeeded. If it fails, an older saved opt-in may return after reload.
+  Existing background-only delivery, default off, controls and storage key
+  remain unchanged; there is no automatic retry.
+- Controlled tests and static checks do not replace actual browser prompt,
+  OS alert, keyboard, viewport or assistive-technology verification.
+
 ## v0.3.1.13 — Commit Draft Recovery (2026-10-01)
 
 - Commit-draft copy distinguishes copied, empty captured window, unavailable

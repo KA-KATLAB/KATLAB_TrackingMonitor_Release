@@ -20,7 +20,7 @@ import { FileStory } from "./FileStory";
 import { SessionTimeline } from "./SessionTimeline";
 import { WrappedCard } from "./WrappedCard";
 import { fmtAge, fmtMinutes, fmtRel, fmtTs } from "./format";
-import { notifyPickNeeded, notifyRelease, notifyStatusChange, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
+import { notifyPickNeeded, notifyRelease, notifyStatusChange, notifyToggleMessage, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
 import { playChime, playFanfare, playTick, setSoundEnabled, soundWanted } from "./sound";
 import { readPreference, writePreference } from "./preferences";
 import { copyCommitDraft } from "./draft";
@@ -1165,32 +1165,48 @@ export default function App () {
   const [notifyOn, setNotifyOn] = useState(notifyWanted);
   const [notifyNote, setNotifyNote] = useState("");
   const [notifyBusy, setNotifyBusy] = useState(false);
-  const notifyBusyRef = useRef(false);
+  const notifyOwnerRef = useRef<ActionDeadline | null>(null);
+  const notifyMountedRef = useRef(false);
+  useEffect(() => {
+    notifyMountedRef.current = true;
+    return () => {
+      notifyMountedRef.current = false;
+      const owner = notifyOwnerRef.current;
+      notifyOwnerRef.current = null;
+      owner?.controller.abort();
+      owner?.clear();
+    };
+  }, []);
   const toggleNotify = useCallback(() => {
-    if (notifyBusyRef.current) return;
-    notifyBusyRef.current = true;
+    if (!notifyMountedRef.current || notifyOwnerRef.current) return;
+    const owner = createActionDeadline();
+    notifyOwnerRef.current = owner;
     setNotifyBusy(true);
+    setNotifyNote("");
+    setPreferenceFailure("notify", "");
+    announceStatus("Changing OS alerts.");
     const next = !notifyOn;
-    void setNotifyEnabled(next).then((result) => {
+    const isCurrent = () => notifyMountedRef.current && notifyOwnerRef.current === owner;
+    void setNotifyEnabled(next, owner.signal).then((result) => {
+      if (!isCurrent()) return;
       setNotifyOn(result.enabled);
-      const message = !result.persisted
-        ? "OS alerts are off for this page; saving failed. An older opt-in may return after reload."
-        : next
-        ? result.enabled
-          ? "OS alerts enabled."
-          : "OS alerts are unavailable or permission was denied; alerts remain off."
-        : "OS alerts disabled.";
+      const message = notifyToggleMessage(next, result, owner.didTimeout());
       setNotifyNote(message);
-      setPreferenceFailure("notify", !result.persisted || (next && !result.enabled) ? message : "");
+      setPreferenceFailure("notify", owner.didTimeout() || !result.persisted || (next && !result.enabled) ? message : "");
       announceStatus(message);
-    }, (errorValue) => {
-      const message = `OS alerts could not change: ${String(errorValue).slice(0, 80)}.`;
+    }, () => {
+      if (!isCurrent()) return;
+      setNotifyOn(notifyWanted());
+      const message = "OS alert preference could not be verified. Check browser settings before retrying.";
       setNotifyNote(message);
       setPreferenceFailure("notify", message);
       announceStatus(message);
     }).finally(() => {
-      notifyBusyRef.current = false;
-      setNotifyBusy(false);
+      owner.clear();
+      if (isCurrent()) {
+        notifyOwnerRef.current = null;
+        setNotifyBusy(false);
+      }
     });
   }, [announceStatus, notifyOn]);
   // v0.2.8.0 D5 (A.2, R-BH): the sound toggle — notifyOn's twin (the
