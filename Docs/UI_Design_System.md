@@ -564,6 +564,7 @@ Do not:
   watcher, automatic retry or native delivery/physical-silence guarantee is added.
 - User-triggered REST work owns one absolute 10-second deadline for the complete activation. Retry gets a fresh controller/deadline.
 - Close, unmount, scope change, or supersession aborts silently; only timer-owned abort reports timeout.
+- Shared promise observation must consume a supplied stage's later rejection even when its signal is already aborted. Return the existing AbortError immediately without waiting for or canceling native work; the caller still owns that returned rejection.
 - Background work never inherits a foreground deadline.
 - Bulk assignment is non-atomic: stop on first request failure/timeout and report saved, validation-skipped, failed, and unattempted counts separately.
 - Direct downloads use the shared Blob helper in the original user activation. Report “download started,” not completion.

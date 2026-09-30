@@ -1,5 +1,17 @@
 # Version Notes
 
+## v0.3.1.22 — Preabort Promise Observation (2026-10-01)
+
+- When a supplied promise is observed with an already-aborted signal, attach a
+  rejection observer before returning the existing AbortError. A late failure
+  of that supplied stage no longer becomes an orphan rejection in this path.
+- Preserve no-signal promise identity, active-signal settlement/listener behavior,
+  error/value identities and caller-owned cancellation feedback. This does not
+  cancel native work or handle the returned observer rejection for the caller.
+- Actual-source isolated Node strict-rejection checks cover the helper contract.
+  Current callers generally guard preabort; no ordinary UI crash/native browser
+  reproduction was found. No global error filter, retry, dependency or UI change.
+
 ## v0.3.1.21 — Git Graph Branch Quoting (2026-10-01)
 
 - Serialize Git graph init configuration as JSON and unicode-escape literal

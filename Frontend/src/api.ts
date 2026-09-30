@@ -326,7 +326,11 @@ export function remainingDeadlineMs (deadlineAt: number): number {
 /** Race an unabortable stage (for example dynamic import/render) against a signal. */
 export function raceWithSignal<T> (promise: Promise<T>, signal?: AbortSignal): Promise<T> {
   if (!signal) return promise;
-  if (signal.aborted) return Promise.reject(abortError());
+  if (signal.aborted) {
+    // The supplied stage may still reject after its observer is canceled.
+    void promise.catch(() => {});
+    return Promise.reject(abortError());
+  }
   return new Promise<T>((resolve, reject) => {
     const onAbort = () => reject(abortError());
     signal.addEventListener("abort", onAbort, { once: true });
