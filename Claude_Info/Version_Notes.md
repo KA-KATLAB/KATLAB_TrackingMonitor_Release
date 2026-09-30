@@ -1,5 +1,20 @@
 # Version Notes
 
+## v0.3.1.29 — Report Snapshot Dates (2026-10-01)
+
+- Exported reports name the supplied selected and preceding UTC windows,
+  separately from the local generation timestamp. Weekly wrapped uses its own
+  dates and remains exclusive to 7-day reports; all-time sections stay all-time.
+- Calendar coverage is explicit. Missing selected rows show Unavailable,
+  partial rows use their actual sums and active-day denominator, and incomplete
+  paired windows suppress deltas and the split comparison sparkline. Normal
+  zero-filled backend calendars remain measured zeros, not unavailable data.
+- Full-window calculations, units, ranks, date ordering, scope-safe filenames
+  and synchronous gesture-bound downloads remain unchanged. No fresh fetch,
+  dependency, backend shape or interactive Wrapped change is introduced.
+- Actual report-module and controlled download checks are not native browser,
+  layout, keyboard, assistive-technology or completed-download evidence.
+
 ## v0.3.1.28 — Overview Stats Recovery (2026-10-01)
 
 - Overview offers a stable Refresh/Retry stats action even when its initial

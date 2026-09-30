@@ -7,7 +7,8 @@
 // reads sum(calendar[-N:].commits), NEVER the all-time stats.commits);
 // rhythm, identity, and the top tables are served ALL-TIME by design and
 // carry explicit "(all-time)" heading markers (RV2); wrapped appears on
-// the 7d report ONLY (it is served as last-7-UTC-days, never stretched).
+// the 7d report ONLY (the snapshot's seven UTC days, never stretched).
+// Labels use supplied date bounds, not the export clock's current period.
 // The footer is "KATLAB TrackingMonitor — generated <local ts>" — no
 // version claim (RV3).
 
@@ -22,6 +23,13 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const fmt = (n: number) => n.toLocaleString("en-US");
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function dateRangeLabel (rows: readonly { day: string }[]): string {
+  if (rows.length === 0) return "Dates unavailable (UTC)";
+  const first = rows[0].day;
+  const last = rows[rows.length - 1].day;
+  return first === last ? `${first} (UTC)` : `${first} to ${last} (UTC)`;
+}
 
 const CARD = "border:1px solid #334155;border-radius:8px;padding:12px 16px;margin:10px 0;background:#0f172a";
 const H2 = "font-size:14px;margin:20px 0 4px;color:#e2e8f0";
@@ -70,15 +78,22 @@ export function buildReportHtml (stats: StatsData, scope: string | undefined,
   const cal = stats.activity_calendar;
   const tail = cal.slice(-range);
   const prior = cal.slice(-2 * range, -range);
+  const selectedPeriod = dateRangeLabel(tail);
+  const priorPeriod = dateRangeLabel(prior);
+  const hasCalendar = tail.length > 0;
+  const comparisonAvailable = tail.length === range && prior.length === range;
   const scopeLabel = scope ?? "All repos";
   const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   const generated = `${day} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
-  // HERO — all four figures are the range's calendar-tail sums (RV5)
+  // HERO — supplied calendar-tail measurements, never inferred from missing rows.
   const events = tail.reduce((s, d) => s + d.events, 0);
   const minutes = tail.reduce((s, d) => s + d.minutes, 0);
   const commits = tail.reduce((s, d) => s + d.commits, 0);
   const active = tail.filter((d) => d.events > 0).length;
+  const eventValue = hasCalendar ? fmt(events) : "Unavailable";
+  const minuteValue = hasCalendar ? fmtMinutes(minutes) : "Unavailable";
+  const commitValue = hasCalendar ? fmt(commits) : "Unavailable";
 
   // MOMENTUM — range window vs the prior window
   const prevEvents = prior.reduce((s, d) => s + d.events, 0);
@@ -147,20 +162,22 @@ export function buildReportHtml (stats: StatsData, scope: string | undefined,
       `<tr><td>${esc(r.repo)}</td><td><code>${esc(r.file)}</code></td>` +
       `<td style="text-align:right">${fmt(r.events)}</td></tr>`).join("");
 
-  // WRAPPED (7d report only — served as last-7-UTC-days)
+  // WRAPPED (7d report only, with its own supplied snapshot dates).
   const w = stats.wrapped;
+  const wrappedPeriod = dateRangeLabel(w.days);
   const wrappedDayRows = w.days.map((day) =>
     `<tr><th scope="row">${esc(day.day)}</th><td>${fmt(day.events)}</td>` +
     `<td>${fmtMinutes(day.minutes)}</td></tr>`).join("");
   const wrappedBlock = range !== 7 ? "" : `
-<h2 style="${H2}">Your week (UTC)</h2>
+<h2 style="${H2}">Weekly wrapped — ${esc(wrappedPeriod)}</h2>
 <div style="${CARD}">
+<p style="${SUB}">Wrapped coverage: ${w.days.length}/7 supplied UTC day rows.</p>
 ${w.top_task ? `<div>Top task: <b>${esc(w.top_task.task_ref)}</b> (${esc(w.top_task.repo)}) — ${fmtMinutes(w.top_task.minutes)}</div>` : ""}
 ${w.busiest_hour ? `<div>Busiest hour: <b>${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][w.busiest_hour.dow]} ${pad(w.busiest_hour.hour)}:00</b> — ${fmt(w.busiest_hour.events)} events</div>` : ""}
 ${w.top_pair ? `<div>Files that moved together: <code>${esc(w.top_pair.file_a)}</code> + <code>${esc(w.top_pair.file_b)}</code> ×${w.top_pair.shared}</div>` : ""}
 <div>${fmt(w.files_touched)} files touched · ${fmt(w.commits)} commits</div>
 <div class="table-scroll" role="region" aria-label="Wrapped daily values" tabindex="0"><table>
-<caption>Daily values in this weekly snapshot</caption><thead><tr><th scope="col">UTC day</th><th scope="col">Events</th><th scope="col">Effort</th></tr></thead>
+<caption>Daily values — ${esc(wrappedPeriod)}</caption><thead><tr><th scope="col">UTC day</th><th scope="col">Events</th><th scope="col">Effort</th></tr></thead>
 <tbody>${wrappedDayRows}</tbody></table></div>
 </div>`;
 
@@ -188,27 +205,33 @@ body{background:#020617;color:#e2e8f0;font-family:'Plus Jakarta Sans',ui-sans-se
   @media(max-width:480px){th,td{padding:4px;font-size:11px}}
 </style></head>
 <body>
-<h1 style="font-size:22px;margin:0">KATLAB Report <span style="color:#14b8a6">— ${range === 7 ? "your week" : "your month"}</span></h1>
-<p style="${SUB};margin:4px 0 18px">${esc(scopeLabel)} · last ${range} days (UTC day buckets) · generated ${generated} (local)</p>
+<h1 style="font-size:22px;margin:0">KATLAB Report <span style="color:#14b8a6">— ${range}-day snapshot</span></h1>
+<p style="${SUB};margin:4px 0 18px">${esc(scopeLabel)} · ${esc(selectedPeriod)} · generated ${generated} (local)</p>
+<p style="${SUB};margin:0 0 18px">Calendar coverage: ${tail.length}/${range} supplied UTC day rows.</p>
 <div style="display:flex;flex-wrap:wrap;gap:10px">
-${kpi(fmt(events), "events")}
-${kpi(fmtMinutes(minutes), "effort")}
-${kpi(fmt(commits), "commits")}
-${kpi(`${active}/${range}`, "active days")}
+${kpi(eventValue, "events")}
+${kpi(minuteValue, "effort")}
+${kpi(commitValue, "commits")}
+${kpi(hasCalendar ? `${active}/${tail.length}` : "Unavailable", "active observed days")}
 </div>
-<h2 style="${H2}">Momentum — this ${range === 7 ? "week" : "month"} vs the prior</h2>
+<h2 style="${H2}">Momentum — selected window vs preceding window</h2>
 <div style="${CARD}">
+<p style="${SUB}">Selected: ${esc(selectedPeriod)} (${tail.length}/${range} supplied days).<br>
+Preceding: ${esc(priorPeriod)} (${prior.length}/${range} supplied days).</p>
+${comparisonAvailable ? "" : `<p style="${SUB}">Comparison unavailable: incomplete selected or preceding window.</p>`}
 <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">
-<div>captures ${fmt(events)} ${delta(events, prevEvents)}</div>
-<div>effort ${fmtMinutes(minutes)} ${delta(minutes, prevMinutes)}</div>
-<div>commits ${fmt(commits)} ${delta(commits, prevCommits)}</div>
-${spark(sparkValues)}
+<div>captures ${eventValue} ${comparisonAvailable ? delta(events, prevEvents) : ""}</div>
+<div>effort ${minuteValue} ${comparisonAvailable ? delta(minutes, prevMinutes) : ""}</div>
+<div>commits ${commitValue} ${comparisonAvailable ? delta(commits, prevCommits) : ""}</div>
+${comparisonAvailable ? spark(sparkValues) : ""}
 </div></div>
-<h2 style="${H2}">Daily activity — last ${range} days (UTC)</h2>
-<div style="${CARD}"><figure><figcaption class="visual-summary">${fmt(events)} events across ${active} active day${active === 1 ? "" : "s"}.</figcaption>
+<h2 style="${H2}">Daily activity — ${esc(selectedPeriod)}</h2>
+<div style="${CARD}"><figure><figcaption class="visual-summary">${hasCalendar
+    ? `${fmt(events)} events across ${active} active day${active === 1 ? "" : "s"}.`
+    : "No daily values."}</figcaption>
 <svg width="${range * 12}" height="12" aria-hidden="true" focusable="false">${strip}</svg></figure>
 <div class="table-scroll" role="region" aria-label="Daily activity exact values" tabindex="0"><table>
-<caption>Exact daily activity values</caption><thead><tr><th scope="col">UTC day</th><th scope="col">Events</th><th scope="col">Effort</th><th scope="col">Commits</th></tr></thead>
+<caption>Exact daily activity values — ${esc(selectedPeriod)}</caption><thead><tr><th scope="col">UTC day</th><th scope="col">Events</th><th scope="col">Effort</th><th scope="col">Commits</th></tr></thead>
 <tbody>${calendarRows || '<tr><td colspan="4">No daily values.</td></tr>'}</tbody></table></div></div>
 <h2 style="${H2}">Rhythm — server-local hours (all-time)</h2>
 <div style="${CARD}"><figure><figcaption class="visual-summary">Activity by weekday and hour; exact zero and non-zero values follow.</figcaption>

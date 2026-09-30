@@ -645,6 +645,14 @@ For long content, do preserve the full path in selectable/wrapping text or an op
   The existing minute tick invalidates stats once per observed UTC-day change;
   delayed/failed refresh retains the dated snapshot, not a freshness guarantee.
   Historical rolling windows, reports and Wrapped retain their snapshot basis.
+- Exported reports label selected, preceding and weekly wrapped periods with
+  their own supplied absolute UTC bounds, separate from local generation time.
+  Show supplied/requested calendar coverage. Empty selected rows mean unavailable
+  hero/momentum values, not measured zero; partial rows retain their actual sums
+  and active/supplied-day denominator. Deltas and the split comparison sparkline
+  require two complete requested windows. Full zero-filled backend calendars
+  remain measured zeros. Keep all-time sections, synchronous downloads and
+  scope-safe generated filenames unchanged; exporting never fetches fresh stats.
 - Keep exact values in tables, accessible names, or tooltips when a compact visual abbreviates them.
 - Use locale-aware thousands separators for human-facing counts and tabular figures for changing columns.
 - Empty denominators render an honest empty/zero state; never display `NaN`, `Infinity`, or a percentage against an undefined basis.
