@@ -6,10 +6,12 @@
 // nothing downloads (RV20). Labels come from theme.ts MODE_BADGE (RV19 — an
 // App.tsx import here would create an App<->digest cycle).
 
-import { api } from "./api";
+import { abortError, api } from "./api";
 import type { Repo, Task, TrackedEvent } from "./api";
 import type { PreparedDownload } from "./download";
-import { fmtMinutes } from "./format";
+import { digestDayWindow } from "./digestWindow";
+import type { DigestDayWindow } from "./digestWindow";
+import { fmtMinutes, fmtTs } from "./format";
 import { scopeFileToken } from "./navigation";
 import {
   eventSessionIdentity,
@@ -20,9 +22,8 @@ import {
 } from "./theme";
 import { getBoundedPageWindow } from "./ui";
 
-const PAGE = 500, MAX_PAGES = 3; // explicit cap — truncation is footnoted, never silent
+const PAGE = 500, MAX_PAGES = 3; // explicit fetched-window cap, not proof of more rows
 
-const pad = (n: number): string => String(n).padStart(2, "0");
 const esc = (s: string): string =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -70,33 +71,41 @@ function scriptSafeJson (value: unknown): string {
     .replace(/\u2029/g, "\\u2029");
 }
 
-/** Fetch today's events (local day) — up to MAX_PAGES newest-first pages. */
-async function fetchToday (scope: string | undefined, signal: AbortSignal):
-  Promise<{ todays: TrackedEvent[]; truncated: boolean }> {
-  const now = new Date();
-  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+/** Fetch one captured local day in bounded ingestion-ID order. */
+async function fetchToday (scope: string | undefined, signal: AbortSignal,
+  window: DigestDayWindow): Promise<{ todays: TrackedEvent[]; limitReached: boolean }> {
   const todays: TrackedEvent[] = [];
   for (let p = 0; p < MAX_PAGES; p++) {
-    const page = await api.events({ repo: scope, limit: PAGE, offset: p * PAGE }, signal);
-    const fresh = page.filter((e) => new Date(e.ts).getTime() >= midnight);
+    if (signal.aborted) throw abortError();
+    const page = await api.events({
+      repo: scope, limit: PAGE, offset: p * PAGE,
+      since: window.since, until: window.until,
+    }, signal);
+    if (signal.aborted) throw abortError();
+    const fresh = page.filter((e) => {
+      const ts = new Date(e.ts).getTime();
+      return ts >= window.startMs && ts < window.endMs;
+    });
     todays.push(...fresh);
-    if (page.length < PAGE || fresh.length < page.length) return { todays, truncated: false };
+    if (page.length < PAGE) return { todays, limitReached: false };
   }
-  return { todays, truncated: true }; // page 3 came back full and all-today
+  return { todays, limitReached: true };
 }
 
 export async function prepareDigest (scope: string | undefined, repos: Repo[],
   tasks: Task[], uncommitted: TrackedEvent[], signal: AbortSignal): Promise<PreparedDownload> {
-  const { todays, truncated } = await fetchToday(scope, signal); // throws -> caller aborts (RV20)
+  const window = digestDayWindow(new Date());
+  const { todays, limitReached } = await fetchToday(scope, signal, window);
+  if (signal.aborted) throw abortError();
   // v0.1.6.0 D1 (C.1): effort KPI reads the SAME backend value as the
   // Overview (calendar last UTC day) - never re-clusters in TS; the
   // fetch sits BEFORE the Blob build so a failure aborts (RV20).
   const stats = await api.stats(scope, signal);
+  if (signal.aborted) throw abortError();
   const todayMinutes = stats.activity_calendar[stats.activity_calendar.length - 1]?.minutes ?? 0;
 
-  const now = new Date();
-  const day = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  const generated = `${day} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  const day = window.day;
+  const generated = fmtTs(new Date().toISOString());
   const scopeLabel = scope ?? "All repos";
 
   const auto = todays.filter((e) =>
@@ -188,11 +197,11 @@ button:disabled,select:disabled{opacity:.5}.digest-controls{display:flex;flex-wr
 <p style="color:#94a3b8;font-size:12px;margin:4px 0 16px">
 ${day} (local day) · generated ${generated} · scope: ${esc(scopeLabel)}</p>
 <div style="display:flex;flex-wrap:wrap;gap:10px">
-${kpi(String(todays.length), "events today")}
-${kpi(`${autoPct}%`, "auto-attributed today")}
+${kpi(String(todays.length), "events on report day")}
+${kpi(`${autoPct}%`, "auto-attributed on report day")}
 ${kpi(String(picksNow), "picks pending now")}
 ${kpi(`${clean}/${repos.length}`, "repos clean now")}
-${kpi(String(sessions), "sessions today")}
+${kpi(String(sessions), "sessions on report day")}
 ${kpi(fmtMinutes(todayMinutes), "time today (UTC)")}
 </div>
 <section aria-labelledby="digest-details-heading">
@@ -209,8 +218,8 @@ ${kpi(fmtMinutes(todayMinutes), "time today (UTC)")}
 </section>
 <h2 style="font-size:13px;margin:22px 0 4px;color:#94a3b8">Legend</h2>
 <p style="font-size:11px;line-height:1.9">${legend}</p>
-${truncated ? '<p style="color:#fbbf24;font-size:11px">⚠ Truncated: only the newest ' +
-    String(PAGE * MAX_PAGES) + " events were fetched — today had more.</p>" : ""}
+${limitReached ? '<p style="color:#fbbf24;font-size:11px">Fetched-window limit reached: this report contains ' +
+    todays.length.toLocaleString("en-US") + " captured events for the selected local day. More may exist.</p>" : ""}
 </main>
 <script id="digest-data" type="application/json">${digestPagesJson}</script>
 <script>
@@ -239,7 +248,7 @@ ${truncated ? '<p style="color:#fbbf24;font-size:11px">⚠ Truncated: only the n
     var rows=pages[current]||[];
     var before=current>0&&pages[current-1].length>0
       ?pages[current-1][pages[current-1].length-1]:null;
-    if(rows.length===0){root.append(node("p","why","No tracked file summaries today."));}
+    if(rows.length===0){root.append(node("p","why","No tracked file summaries for this report day."));}
     var activeRepo=null,activeTask=null,list=null;
     rows.forEach(function(row,index){
       if(row.repoId!==activeRepo){

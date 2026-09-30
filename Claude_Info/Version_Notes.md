@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.3.1.10 — Digest Day Window (2026-09-30)
+
+- Digest captures one local day and sends precision-safe UTC-Z since/until on
+  every bounded page. Older ingestion-order rows no longer stop the scan;
+  old/future/invalid returned timestamps are excluded defensively.
+- Calendar midnight respects DST. Report date/filename/event KPI/empty labels
+  stay fixed across midnight; generated time and the current UTC effort KPI
+  retain their separate meanings.
+- A full third page describes a reached limit and says "More may exist", not
+  known additional rows. Existing scope ownership, two-stage download, safe
+  embedded JSON, composite identities and 50-summary pager are unchanged.
+- Controlled Blob/TZ and isolated API tests are separate from unrun browser,
+  actual download, keyboard, viewport and assistive-technology checks.
+
 ## v0.3.1.9 — Event Window Accuracy (2026-09-30)
 
 - File Story and Session Timeline describe a reached fetch limit, not proven

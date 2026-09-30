@@ -257,9 +257,18 @@ providers.
 This endpoint returns rows, not a total or `has_more`. The database orders by
 ingestion ID descending, not event timestamp. A full final page at a client
 fetch cap cannot distinguish exactly that many matches from additional rows;
-File Story and Session Timeline therefore say "More may exist" at their
+File Story, Session Timeline and Digest therefore say "More may exist" at their
 three-page cap. A shorter fetched window is not a guarantee of complete history
 or snapshot-consistent offset pagination during concurrent ingestion.
+
+`since` is inclusive and `until` exclusive. The existing file-event query
+compares timestamp TEXT. Digest sends both bounds on every page for one captured
+local calendar day, converted to UTC-Z with six fractional digits at midnight.
+This avoids boundary misordering against supported UTC-Z second/millisecond/
+microsecond records; next calendar midnight also preserves DST day length.
+It defensively filters returned rows to the same numeric half-open window and
+does not stop because an older event appears in ingestion order. Legacy malformed
+or non-UTC timestamps are not normalized or repaired by this client change.
 
 ## `GET /api/health` additions
 

@@ -770,6 +770,48 @@ class MissionApiTests(unittest.TestCase):
                     # 1500 and 1501 are identical within the three-page window.
                     self.assertEqual(page_sizes[3], 1 if total == 1501 else 0)
 
+    def test_digest_day_bounds_keep_mixed_precision_midnight_rows (self) -> None:
+        # Insertion order intentionally differs from timestamp order. The
+        # endpoint filters by TEXT but still pages by ingestion ID descending.
+        fixtures = [
+            ("before", "2026-09-06T23:59:59.999999Z"),
+            ("end_seconds", "2026-09-08T00:00:00Z"),
+            ("start_micros", "2026-09-07T00:00:00.000000Z"),
+            ("mid_late", "2026-09-07T12:00:00Z"),
+            ("start_seconds", "2026-09-07T00:00:00Z"),
+            ("after_end", "2026-09-08T00:00:00.000001Z"),
+            ("start_millis", "2026-09-07T00:00:00.000Z"),
+            ("end_millis", "2026-09-08T00:00:00.000Z"),
+            ("last_micro", "2026-09-07T23:59:59.999999Z"),
+            ("end_micros", "2026-09-08T00:00:00.000000Z"),
+            ("first_micro", "2026-09-07T00:00:00.000001Z"),
+            ("mid_early", "2026-09-07T01:00:00Z"),
+        ]
+        self.db_connection.executemany(
+            "INSERT INTO events "
+            "(repo_id, ts, tool, file, mode, provider, session_id) "
+            "VALUES ('Repo_B', ?, 'Edit', ?, 'B', 'codex', 'digest-window')",
+            ((ts, f"src/{name}.py") for name, ts in fixtures),
+        )
+        self.db_connection.commit()
+
+        response = self.client.get("/api/events", params={
+            "repo": "Repo_B", "provider": "codex", "session": "digest-window",
+            "since": "2026-09-07T00:00:00.000000Z",
+            "until": "2026-09-08T00:00:00.000000Z",
+            "limit": 500, "offset": 0,
+        })
+        self.assertEqual(response.status_code, 200, response.text)
+        rows = response.json()["data"]
+        self.assertEqual([row["file"] for row in rows], [
+            "src/mid_early.py", "src/first_micro.py", "src/last_micro.py",
+            "src/start_millis.py", "src/start_seconds.py", "src/mid_late.py",
+            "src/start_micros.py",
+        ])
+        self.assertEqual([row["id"] for row in rows], sorted(
+            (row["id"] for row in rows), reverse=True,
+        ))
+
     def test_health_has_independent_fixed_provider_and_activity_facts (self) -> None:
         expected = [{
             "provider": "claude", "adapter_present": True,

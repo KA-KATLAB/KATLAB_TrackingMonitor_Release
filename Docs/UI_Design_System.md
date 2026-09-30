@@ -463,6 +463,14 @@ Do not:
 - Bulk assignment is non-atomic: stop on first request failure/timeout and report saved, validation-skipped, failed, and unattempted counts separately.
 - Direct downloads use the shared Blob helper in the original user activation. Report “download started,” not completion.
 - Digest preparation is async; the prepared Blob is downloaded by a second synchronous user activation and remains App-session-only for the same effective scope.
+- Digest captures one local calendar day at preparation start. Query bounds,
+  report date, filename, event KPIs and empty-state copy stay bound to that day,
+  including midnight crossings; generated-at uses completion time. The current
+  UTC effort KPI remains separate and explicitly labelled.
+- Digest filters every page by the same half-open day window and keeps the
+  three-by-500 fetch bound. A full third page says "More may exist", never that
+  unobserved rows definitely exist. Counts describe accepted captured events,
+  not complete or snapshot-consistent history.
 - New-tab actions use real noopener anchors; palette-only launches synchronously create/click/remove an equivalent anchor, never `window.open`.
 
 ## 11. Long content, empty states, and errors
