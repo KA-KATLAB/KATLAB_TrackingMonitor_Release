@@ -8,7 +8,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { api, createActionDeadline, isAbortError } from "./api";
 import type { ActionDeadline, HistoryEntry, Repo, Task, TrackedEvent } from "./api";
 import { fmtMinutes } from "./format";
-import { calendarDayLabel } from "./calendarDay";
+import { calendarDayLabel, calendarRangeLabel } from "./calendarDay";
 import { readPreference, writePreference } from "./preferences";
 import { CalendarHeatmap, RAMP, RampLegend, streakOf } from "./calendarHeatmap";
 import { Skyline } from "./skyline";
@@ -65,11 +65,13 @@ function punchAlternativeSummary (matrix: number[][]): string {
 }
 
 function calendarAlternativeSummary (calendar: StatsData["activity_calendar"]): string {
+  const period = `${calendarRangeLabel(calendar)}; ${calendar.length}/365 days supplied.`;
+  if (calendar.length === 0) return `${period} Calendar day data is unavailable.`;
   const active = calendar.filter((day) => day.events > 0 || day.commits > 0 || day.minutes > 0);
   const events = active.reduce((sum, day) => sum + day.events, 0);
   const commits = active.reduce((sum, day) => sum + day.commits, 0);
-  if (active.length === 0) return "No non-zero UTC days are available in the 365-day window.";
-  return `${active.length} non-zero UTC day${active.length === 1 ? "" : "s"}; `
+  if (active.length === 0) return `${period} No non-zero UTC days in the supplied calendar.`;
+  return `${period} ${active.length} non-zero UTC day${active.length === 1 ? "" : "s"}; `
     + `${events.toLocaleString("en-US")} events and ${commits.toLocaleString("en-US")} commits.`;
 }
 
@@ -314,14 +316,14 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
                 body scrolls horizontally on narrow viewports (RV11). */}
             <Surface data-reveal>
               <SectionHeading level={4} title="Activity calendar"
-                description="Last 365 days (UTC)."
+                description={`${calendarRangeLabel(stats.activity_calendar)}; ${stats.activity_calendar.length}/365 days supplied.`}
                 actions={(
                   <>
                     {/* v0.1.7.0 D4 (C.1): shown only when >= 2 (1-day = noise) */}
                     {streakOf(stats.activity_calendar) >= 2 && (
                       <span className="text-xs font-medium text-amber-300"
-                        title="consecutive UTC days with captured activity">
-                        🔥 {streakOf(stats.activity_calendar)}-day streak
+                        title="consecutive UTC days with captured activity in the calendar snapshot">
+                        🔥 {streakOf(stats.activity_calendar)}-day snapshot streak
                       </span>
                     )}
                     {/* v0.1.9.0 D1 (B.1): instant presentation switch */}

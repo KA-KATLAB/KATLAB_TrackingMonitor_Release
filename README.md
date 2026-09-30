@@ -5,7 +5,7 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current version: **v0.3.1.30 — Weekly Snapshot Visibility**
+Current version: **v0.3.1.31 — Year Snapshot Labels**
 
 ## What v0.3 adds
 
@@ -148,7 +148,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current release notes](TrackingMonitor_v0.3.1.30_Release_Notes.md)
+- [Current release notes](TrackingMonitor_v0.3.1.31_Release_Notes.md)
 
 ## Guarantees
 

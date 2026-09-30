@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.3.1.31 — Year Snapshot Labels (2026-10-01)
+
+- Activity calendar and Personal records name their supplied UTC bounds and
+  row coverage instead of calling retained data the last 365 days.
+- Calendar exact-data summaries identify the same period. Missing day data is
+  distinct from supplied zero rows; capture/commit/effort filtering is unchanged.
+  The existing streak badge is explicitly a calendar snapshot streak.
+- Record helpers, comparisons, timers, reduced motion, scope keys, wardrobe,
+  visualization modes and table behavior remain unchanged. Defensive numeric
+  availability for empty/short Records inputs is separate follow-up, not fixed.
+- Actual-module SSR and source-equivalence checks are not native browser layout,
+  keyboard, focus or assistive-technology verification. No new fetch or API.
+
 ## v0.3.1.30 — Weekly Snapshot Visibility (2026-10-01)
 
 - Momentum labels selected and preceding UTC periods with supplied coverage.

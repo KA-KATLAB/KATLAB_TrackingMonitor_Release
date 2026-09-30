@@ -666,6 +666,12 @@ For long content, do preserve the full path in selectable/wrapping text or an op
   streak is unavailable; an available streak describes its calendar snapshot,
   not current-day activity. Busiest-hour time remains server-local.
 - Use locale-aware thousands separators for human-facing counts and tabular figures for changing columns.
+- Year-calendar and personal-record headings name supplied UTC bounds and row
+  coverage out of 365, not a current-year claim. Calendar exact-data summaries
+  use the same bounds; missing day data differs from supplied all-zero rows.
+  Preserve non-zero-day filtering, including commit-only and effort-only days.
+  The calendar badge is a snapshot streak, not proof of today's activity. Keep
+  record calculations, crossing detection, motion rules and calendar modes intact.
 - Empty denominators render an honest empty/zero state; never display `NaN`, `Infinity`, or a percentage against an undefined basis.
 
 ## 12. Review checklist

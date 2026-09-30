@@ -1,18 +1,14 @@
-// v0.2.1.0 D1 (B.1): personal records — the trophies' memory. Four rows
-// from the served activity_calendar (records reach exactly as far as the
-// calendar: "(last 365d, UTC)"). DISPLAY spans the FULL calendar (a
-// today-break shows immediately); DETECTION compares today against the
-// record-to-beat over calendar[:-1] (today excluded) with the
-// STRICTLY-GREATER law, via a prev-RAW-VALUES ref on stats changes only
-// (the goalRings crossing recipe). The instance is keyed by scope AT THE
-// CALL SITE (key={scope ?? "ALL"}) — tab switches reseed via the
-// first-payload rule and can never false-fire. maxStreakOf is the MAX
-// run over the year; the shipped streakOf answers the CURRENT streak — a
-// different question, never reused.
+// Personal records span the supplied calendar snapshot, not proof of a current
+// year. DISPLAY includes the latest row; DETECTION compares it against the
+// record-to-beat over calendar[:-1] using STRICTLY-GREATER and previous raw
+// values. The caller keys the instance by typed repo/all scope; the first
+// payload seeds detection. maxStreakOf measures the longest run, while
+// streakOf measures the latest run: different questions, never interchanged.
 
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { StatsData } from "./charts";
+import { calendarRangeLabel } from "./calendarDay";
 import { fmtMinutes } from "./format";
 import { usePrefersReducedMotion } from "./theme";
 import { SectionHeading, Surface } from "./ui";
@@ -128,7 +124,7 @@ export function Records ({ calendar }: { calendar: CalDay[] }) {
   return (
     <Surface data-reveal>
       <SectionHeading level={4} title="Personal records"
-        description="Last 365 days (UTC)."
+        description={`${calendarRangeLabel(calendar)}; ${calendar.length}/365 days supplied.`}
         actions={banner !== null ? (
           <span className="rounded bg-amber-900/50 px-2 py-1 text-xs font-bold text-amber-300">
             NEW RECORD 🏆
