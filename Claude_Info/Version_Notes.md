@@ -1,5 +1,21 @@
 # Version Notes
 
+## v0.3.1.15 — Sound Toggle Recovery (2026-10-01)
+
+- Explicit sound activation owns a 10-second observation deadline and current
+  App owner. Timeout keeps the page off, reports whether off was saved and
+  requires manual retry; late native settlement cannot confirm an older choice.
+- Retire the old output/context without awaiting native shutdown. Each new
+  explicit enable uses a fresh context, isolating it from old native work.
+  Cleanup is best effort, not a physical-silence/resource-release guarantee.
+- The initial saved-on gesture listener is bound to its registration generation
+  and becomes inert after any accepted explicit choice. Existing sound content,
+  default off, storage key, rate limiting and background delivery are unchanged.
+- Background first-gesture activation remains unbounded and its failure can
+  leave the displayed choice stale until an explicit action/remount. Cross-tab
+  sync is unchanged. Controlled/static checks do not replace browser audio,
+  autoplay, keyboard, viewport or assistive-technology verification.
+
 ## v0.3.1.14 — Notification Opt-In Recovery (2026-10-01)
 
 - One App-owned 10-second deadline bounds observation of an OS-alert opt-in.

@@ -491,6 +491,18 @@ Do not:
 - Sound and OS alerts stay off if opt-in cannot be stored/verified. A failed
   disable still blocks new sound/alerts for the current page; explain that
   persistence failed and an older saved opt-in may remain after reload.
+- Explicit sound activation owns the shared 10-second observation deadline.
+  Create/resume a fresh context in the original gesture after verified opt-in.
+  Retire prior output/context with best-effort disconnect and nonblocking close;
+  do not reuse a context that older native work could still change. Timeout
+  keeps the page off, reports whether off was saved and requires explicit
+  retry. Never claim that observation cancellation stops native work or proves
+  resource release/physical silence. Generation and mounted-owner checks fence
+  publication, confirmation, feedback and busy release; navigation does not
+  cancel a page-global preference. Initial saved-on gesture listeners capture
+  their registration generation and cannot override an accepted explicit choice.
+  Background first-gesture activation has no foreground deadline; its existing
+  preference-to-UI synchronization gap remains separate from explicit recovery.
 - OS-alert opt-in owns a shared 10-second observation deadline. Request browser
   permission synchronously in the user's gesture after verifying saved off.
   Timeout/unmount cannot cancel the native prompt or revoke origin permission;

@@ -21,7 +21,7 @@ import { SessionTimeline } from "./SessionTimeline";
 import { WrappedCard } from "./WrappedCard";
 import { fmtAge, fmtMinutes, fmtRel, fmtTs } from "./format";
 import { notifyPickNeeded, notifyRelease, notifyStatusChange, notifyToggleMessage, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
-import { playChime, playFanfare, playTick, setSoundEnabled, soundWanted } from "./sound";
+import { playChime, playFanfare, playTick, setSoundEnabled, soundToggleMessage, soundWanted } from "./sound";
 import { readPreference, writePreference } from "./preferences";
 import { copyCommitDraft } from "./draft";
 import { DraftFeedback } from "./draftFeedback";
@@ -1214,30 +1214,48 @@ export default function App () {
   const [soundOn, setSoundOn] = useState(soundWanted);
   const [soundNote, setSoundNote] = useState("");
   const [soundBusy, setSoundBusy] = useState(false);
-  const soundBusyRef = useRef(false);
+  const soundOwnerRef = useRef<ActionDeadline | null>(null);
+  const soundMountedRef = useRef(false);
+  useEffect(() => {
+    soundMountedRef.current = true;
+    return () => {
+      soundMountedRef.current = false;
+      const owner = soundOwnerRef.current;
+      soundOwnerRef.current = null;
+      owner?.controller.abort();
+      owner?.clear();
+    };
+  }, []);
   const toggleSound = useCallback(() => {
-    if (soundBusyRef.current) return;
-    soundBusyRef.current = true;
+    if (!soundMountedRef.current || soundOwnerRef.current) return;
+    const owner = createActionDeadline();
+    soundOwnerRef.current = owner;
     setSoundBusy(true);
+    setSoundNote("");
+    setPreferenceFailure("sound", "");
+    announceStatus("Changing sounds.");
     const next = !soundOn;
-    void setSoundEnabled(next).then((result) => {
+    const isCurrent = () => soundMountedRef.current && soundOwnerRef.current === owner;
+    void setSoundEnabled(next, owner.signal).then((result) => {
+      if (!isCurrent()) return;
       setSoundOn(result.enabled);
-      const message = !result.persisted
-        ? "Sounds are off for this page; saving failed. An older opt-in may return after reload."
-        : next
-        ? result.enabled ? "Sounds enabled." : "Audio is unavailable; sounds remain off."
-        : "Sounds disabled.";
+      const message = soundToggleMessage(next, result, owner.didTimeout());
       setSoundNote(message);
-      setPreferenceFailure("sound", !result.persisted || (next && !result.enabled) ? message : "");
+      setPreferenceFailure("sound", owner.didTimeout() || !result.persisted || (next && !result.enabled) ? message : "");
       announceStatus(message);
-    }, (errorValue) => {
-      const message = `Sounds could not change: ${String(errorValue).slice(0, 80)}.`;
+    }, () => {
+      if (!isCurrent()) return;
+      setSoundOn(soundWanted());
+      const message = "Sound preference could not be verified. Check browser settings before retrying.";
       setSoundNote(message);
       setPreferenceFailure("sound", message);
       announceStatus(message);
     }).finally(() => {
-      soundBusyRef.current = false;
-      setSoundBusy(false);
+      owner.clear();
+      if (isCurrent()) {
+        soundOwnerRef.current = null;
+        setSoundBusy(false);
+      }
     });
   }, [announceStatus, soundOn]);
   // One clipboard observer at a time; native writes cannot be canceled.

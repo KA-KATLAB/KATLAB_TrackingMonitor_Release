@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { getEventListeners } from "node:events";
 import { readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
@@ -32,9 +33,9 @@ async function freshModule (name) {
   const imports = emitted.match(/from ["']\.\/preferences["']/g) ?? [];
   assert.equal(imports.length, 1, `${name} must use the shared preference boundary`);
   let linked = emitted.replace(imports[0], `from "${preferenceUrl}"`);
-  if (name === "notify.ts") {
+  if (name === "notify.ts" || name === "sound.ts") {
     const apiImports = linked.match(/from ["']\.\/api["']/g) ?? [];
-    assert.equal(apiImports.length, 1, "notification observation must reuse the shared race");
+    assert.equal(apiImports.length, 1, `${name} must reuse the shared observation race`);
     linked = linked.replace(apiImports[0], `from "${apiUrl}"`);
   }
   return import(`${dataUrl(linked)}#fixture-${++moduleSerial}`);
@@ -95,6 +96,24 @@ function windowFixture () {
   };
 }
 
+function deadlineWindowFixture () {
+  const window = windowFixture();
+  let now = 0, serial = 0;
+  const timers = new Map();
+  window.setTimeout = (callback, delay) => {
+    const id = ++serial;
+    timers.set(id, { callback, at: now + delay });
+    return id;
+  };
+  window.clearTimeout = id => timers.delete(id);
+  return { window, timers, advance(milliseconds) {
+    now += milliseconds;
+    for (const [id, timer] of [...timers]) {
+      if (timer.at <= now) { timers.delete(id); timer.callback(); }
+    }
+  } };
+}
+
 function deferred () {
   let resolvePromise;
   let rejectPromise;
@@ -110,8 +129,10 @@ async function flush () {
 }
 
 function audioFixture () {
-  const calls = { created: 0, gains: 0, resumed: 0, suspended: 0, closed: 0, notes: 0 };
-  const behavior = { constructorFailures: 0, gainFailures: 0, resume: null, suspend: null };
+  const calls = { created: 0, gains: 0, resumed: 0, suspended: 0,
+    closed: 0, disconnected: 0, notes: 0, instances: [] };
+  const behavior = { constructorFailures: 0, gainFailures: 0,
+    resume: null, suspend: null, close: null };
   class AudioContextFake {
     constructor() {
       calls.created++;
@@ -119,11 +140,12 @@ function audioFixture () {
       this.state = "suspended";
       this.currentTime = 0;
       this.destination = {};
+      calls.instances.push(this);
     }
     createGain() {
       calls.gains++;
       if (behavior.gainFailures-- > 0) throw new Error("gain setup failed");
-      return {
+      const gain = {
         gain: {
           value: 0,
           setValueAtTime() {},
@@ -131,7 +153,10 @@ function audioFixture () {
           exponentialRampToValueAtTime() {},
         },
         connect() {},
+        disconnect() { calls.disconnected++; },
       };
+      this.masterGain = gain;
+      return gain;
     }
     createOscillator() {
       return {
@@ -154,6 +179,7 @@ function audioFixture () {
     }
     close() {
       calls.closed++;
+      if (behavior.close) return behavior.close(this, calls.closed);
       this.state = "closed";
       return Promise.resolve();
     }
@@ -249,7 +275,9 @@ test("sound enables only after verified opt-in and then disables", async () => {
     assert.deepEqual(await sound.setSoundEnabled(false), { enabled: false, persisted: true });
     assert.equal(sound.soundWanted(), false);
     assert.equal(store.values.get("katlab.sound"), "off");
-    assert.equal(audio.calls.suspended, 1);
+    assert.equal(audio.calls.suspended, 0, "retirement never awaits native suspend");
+    assert.equal(audio.calls.disconnected, 1);
+    assert.equal(audio.calls.closed, 1);
   });
 });
 
@@ -308,7 +336,7 @@ test("missing AudioContext leaves sound off without throwing", async () => {
   });
 });
 
-test("audio setup, resume, and suspend failures fail closed without poisoning retry", async () => {
+test("audio setup, resume, and close failures fail closed without poisoning retry", async () => {
   for (const failure of ["constructorFailures", "gainFailures"]) {
     const store = storageFixture();
     const audio = audioFixture();
@@ -350,7 +378,7 @@ test("audio setup, resume, and suspend failures fail closed without poisoning re
   }
   const store = storageFixture();
   const audio = audioFixture();
-  audio.behavior.suspend = () => Promise.reject(new Error("suspend denied"));
+  audio.behavior.close = () => Promise.reject(new Error("close denied"));
   await withGlobals({
     localStorage: { value: store.storage },
     AudioContext: { value: audio.AudioContextFake },
@@ -360,6 +388,9 @@ test("audio setup, resume, and suspend failures fail closed without poisoning re
     assert.deepEqual(await sound.setSoundEnabled(false), { enabled: false, persisted: true });
     await flush();
     assert.equal(sound.soundWanted(), false);
+    assert.equal(audio.calls.disconnected, 1);
+    assert.equal(audio.calls.closed, 1);
+    assert.equal(audio.calls.suspended, 0);
   });
 });
 
@@ -466,6 +497,413 @@ test("older gesture completion cannot undo a newer explicit sound choice", async
     assert.equal(stale.values.get("katlab.sound"), "on");
     assert.equal(sound.soundWanted(), false);
   });
+});
+
+test("pre-aborted sound choices do not mutate saved choice or generation", async () => {
+  const store = storageFixture({ "katlab.sound": "on" });
+  const audio = audioFixture();
+  await withGlobals({ localStorage: { value: store.storage },
+    AudioContext: { value: audio.AudioContextFake } }, async () => {
+    const sound = await freshModule("sound.ts");
+    const aborted = new AbortController(); aborted.abort();
+    assert.deepEqual(await sound.setSoundEnabled(false, aborted.signal), {
+      enabled: true, persisted: false,
+    });
+    assert.deepEqual(await sound.setSoundEnabled(true, aborted.signal), {
+      enabled: true, persisted: false,
+    });
+    assert.equal(store.values.get("katlab.sound"), "on");
+    assert.ok(!store.calls.some(call => call.startsWith("write:")));
+    assert.equal(audio.calls.created, 0);
+  });
+});
+
+test("failed requested sound-on save stays unpersisted after successful off rollback", async () => {
+  const store = storageFixture();
+  const audio = audioFixture();
+  store.failure.onWrite = true;
+  await withGlobals({ localStorage: { value: store.storage },
+    AudioContext: { value: audio.AudioContextFake } }, async () => {
+    const sound = await freshModule("sound.ts");
+    assert.deepEqual(await sound.setSoundEnabled(true), { enabled: false, persisted: false });
+    assert.equal(store.values.get("katlab.sound"), "off");
+    assert.equal(sound.soundWanted(), false);
+    assert.equal(audio.calls.created, 0);
+  });
+});
+
+test("explicit sound resume starts synchronously with its context receiver", async () => {
+  const store = storageFixture();
+  const audio = audioFixture();
+  audio.behavior.resume = context => {
+    assert.equal(context, audio.calls.instances[0]);
+    assert.equal(store.values.get("katlab.sound"), "on");
+    context.state = "running";
+    return Promise.resolve();
+  };
+  await withGlobals({ localStorage: { value: store.storage },
+    AudioContext: { value: audio.AudioContextFake } }, async () => {
+    const sound = await freshModule("sound.ts");
+    const enabling = sound.setSoundEnabled(true);
+    assert.equal(audio.calls.created, 1);
+    assert.equal(audio.calls.resumed, 1, "resume must start in the initiating call stack");
+    assert.equal(sound.soundWanted(), false, "pending activation retains page veto");
+    assert.deepEqual(await enabling, { enabled: true, persisted: true });
+    assert.ok(audio.calls.notes >= 1);
+  });
+});
+
+test("sound deadline settles pending resume and ignores late native outcomes", async () => {
+  for (const late of ["resolve", "reject"]) {
+    for (const storageFailsAfterResume of [false, true]) {
+      const store = storageFixture();
+      const audio = audioFixture();
+      const pending = deferred();
+      audio.behavior.resume = context => pending.promise.then(() => {
+        context.state = "running";
+      });
+      const clock = deadlineWindowFixture();
+      await withGlobals({ localStorage: { value: store.storage },
+        AudioContext: { value: audio.AudioContextFake },
+        window: { value: clock.window } }, async () => {
+        const sound = await freshModule("sound.ts");
+        const owner = api.createActionDeadline();
+        let settlements = 0;
+        const enabling = sound.setSoundEnabled(true, owner.signal).then(result => {
+          settlements++;
+          return result;
+        }).finally(() => owner.clear());
+        assert.equal(audio.calls.resumed, 1);
+        assert.equal(store.values.get("katlab.sound"), "on");
+        clock.advance(9_999); await flush();
+        assert.equal(settlements, 0);
+        store.failure.write = storageFailsAfterResume;
+        clock.advance(1);
+        const result = await enabling;
+        assert.deepEqual(result, { enabled: false, persisted: !storageFailsAfterResume });
+        assert.equal(owner.didTimeout(), true);
+        assert.equal(sound.soundWanted(), false);
+        assert.equal(settlements, 1);
+        assert.equal(clock.timers.size, 0);
+        assert.equal(audio.calls.notes, 0);
+        assert.equal(audio.calls.disconnected, 1);
+        assert.equal(audio.calls.closed, 1);
+        const writes = store.calls.filter(call => call.startsWith("write:")).length;
+        if (late === "resolve") pending.resolve();
+        else pending.reject(new Error("late native resume failure"));
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(settlements, 1);
+        assert.equal(sound.soundWanted(), false);
+        assert.equal(audio.calls.notes, 0);
+        assert.equal(store.calls.filter(call => call.startsWith("write:")).length, writes);
+      });
+    }
+  }
+});
+
+test("sound off does not wait for close and a late old close cannot mute new context", async () => {
+  const store = storageFixture();
+  const audio = audioFixture();
+  const oldClose = deferred();
+  audio.behavior.close = (context, call) => call === 1
+    ? oldClose.promise.then(() => { context.state = "closed"; })
+    : Promise.resolve();
+  await withGlobals({ localStorage: { value: store.storage },
+    AudioContext: { value: audio.AudioContextFake } }, async () => {
+    const sound = await freshModule("sound.ts");
+    assert.deepEqual(await sound.setSoundEnabled(true), { enabled: true, persisted: true });
+    const original = audio.calls.instances[0];
+    assert.deepEqual(await sound.setSoundEnabled(false), { enabled: false, persisted: true });
+    assert.equal(audio.calls.disconnected, 1);
+    assert.equal(audio.calls.closed, 1);
+    assert.equal(audio.calls.suspended, 0);
+    assert.deepEqual(await sound.setSoundEnabled(true), { enabled: true, persisted: true });
+    assert.equal(audio.calls.instances.length, 2);
+    const current = audio.calls.instances[1];
+    assert.notEqual(current, original);
+    const notes = audio.calls.notes;
+    oldClose.resolve();
+    await flush();
+    assert.equal(original.state, "closed");
+    assert.equal(current.state, "running");
+    assert.equal(sound.soundWanted(), true);
+    sound.playChime();
+    assert.ok(audio.calls.notes > notes);
+  });
+});
+
+test("a late old resume cannot replace a newer confirmed sound context", async () => {
+  const store = storageFixture();
+  const audio = audioFixture();
+  const old = deferred();
+  audio.behavior.resume = (context, call) => {
+    if (call === 1) return old.promise.then(() => { context.state = "running"; });
+    context.state = "running";
+    return Promise.resolve();
+  };
+  await withGlobals({ localStorage: { value: store.storage },
+    AudioContext: { value: audio.AudioContextFake } }, async () => {
+    const sound = await freshModule("sound.ts");
+    const owner = new AbortController();
+    const first = sound.setSoundEnabled(true, owner.signal);
+    owner.abort();
+    assert.deepEqual(await first, { enabled: false, persisted: true });
+    assert.deepEqual(await sound.setSoundEnabled(true), { enabled: true, persisted: true });
+    assert.equal(audio.calls.instances.length, 2);
+    const current = audio.calls.instances[1];
+    const notes = audio.calls.notes;
+    old.resolve();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(current.state, "running");
+    assert.equal(sound.soundWanted(), true);
+    assert.equal(audio.calls.notes, notes, "obsolete activation cannot confirm again");
+    sound.playChime();
+    assert.ok(audio.calls.notes > notes);
+  });
+});
+
+test("failed audio setup never waits for a hanging native close", async () => {
+  const store = storageFixture();
+  const audio = audioFixture();
+  audio.behavior.gainFailures = 1;
+  audio.behavior.close = () => new Promise(() => {});
+  await withGlobals({ localStorage: { value: store.storage },
+    AudioContext: { value: audio.AudioContextFake } }, async () => {
+    const sound = await freshModule("sound.ts");
+    assert.deepEqual(await sound.setSoundEnabled(true), { enabled: false, persisted: true });
+    assert.equal(sound.soundWanted(), false);
+    assert.equal(store.values.get("katlab.sound"), "off");
+    assert.equal(audio.calls.closed, 1);
+    assert.deepEqual(await sound.setSoundEnabled(true), { enabled: true, persisted: true });
+    assert.equal(audio.calls.created, 2);
+  });
+});
+
+test("sound resume getter and synchronous call failures fail closed", async () => {
+  for (const failure of ["getter-error", "getter-abort", "call-error", "call-abort"]) {
+    const store = storageFixture();
+    const audio = audioFixture();
+    const owner = new AbortController();
+    let calls = 0;
+    Object.defineProperty(audio.AudioContextFake.prototype, "resume", {
+      configurable: true,
+      get() {
+        if (failure === "getter-error") throw new Error("private resume getter error");
+        if (failure === "getter-abort") owner.abort();
+        return function () {
+          calls++;
+          if (failure === "call-abort") owner.abort();
+          if (failure === "call-error" || failure === "call-abort") {
+            throw new Error("private resume call error");
+          }
+          this.state = "running";
+          return Promise.resolve();
+        };
+      },
+    });
+    await withGlobals({ localStorage: { value: store.storage },
+      AudioContext: { value: audio.AudioContextFake } }, async () => {
+      const sound = await freshModule("sound.ts");
+      assert.deepEqual(await sound.setSoundEnabled(true, owner.signal), {
+        enabled: false, persisted: true,
+      });
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(calls, failure === "getter-abort" || failure === "getter-error" ? 0 : 1);
+      assert.equal(getEventListeners(owner.signal, "abort").length, 0,
+        "settled resume observation must detach its abort listener");
+      assert.equal(sound.soundWanted(), false);
+      assert.equal(store.values.get("katlab.sound"), "off");
+      assert.equal(audio.calls.closed, 1);
+    });
+  }
+});
+
+test("abort between sound candidate publication and caller continuation prevents confirmation", async () => {
+  const store = storageFixture();
+  const audio = audioFixture();
+  const owner = new AbortController();
+  let armed = true;
+  audio.behavior.resume = context => {
+    let state = "running";
+    Object.defineProperty(context, "state", {
+      configurable: true,
+      get() {
+        if (armed) { armed = false; queueMicrotask(() => owner.abort()); }
+        return state;
+      },
+      set(value) { state = value; },
+    });
+    return Promise.resolve();
+  };
+  await withGlobals({ localStorage: { value: store.storage },
+    AudioContext: { value: audio.AudioContextFake } }, async () => {
+    const sound = await freshModule("sound.ts");
+    assert.deepEqual(await sound.setSoundEnabled(true, owner.signal), {
+      enabled: false, persisted: true,
+    });
+    assert.equal(owner.signal.aborted, true);
+    assert.equal(sound.soundWanted(), false);
+    assert.equal(audio.calls.notes, 0);
+    assert.equal(audio.calls.disconnected, 1);
+    assert.equal(store.values.get("katlab.sound"), "off");
+  });
+});
+
+test("first-gesture listener cannot interfere with a pending explicit enable", async () => {
+  const store = storageFixture({ "katlab.sound": "on" });
+  const audio = audioFixture();
+  const win = windowFixture();
+  const pending = deferred();
+  audio.behavior.resume = context => pending.promise.then(() => { context.state = "running"; });
+  await withGlobals({ localStorage: { value: store.storage },
+    AudioContext: { value: audio.AudioContextFake }, window: { value: win } }, async () => {
+    const sound = await freshModule("sound.ts");
+    assert.equal(win.listeners.get("pointerdown")?.size, 1);
+    const explicit = sound.setSoundEnabled(true);
+    assert.equal(audio.calls.created, 1);
+    const writes = store.calls.filter(call => call.startsWith("write:")).length;
+    win.dispatch("pointerdown");
+    await flush();
+    assert.equal(win.listeners.get("pointerdown")?.size, 0);
+    assert.equal(win.listeners.get("keydown")?.size, 0);
+    assert.equal(audio.calls.created, 1);
+    assert.equal(store.calls.filter(call => call.startsWith("write:")).length, writes);
+    pending.resolve();
+    assert.deepEqual(await explicit, { enabled: true, persisted: true });
+    assert.equal(sound.soundWanted(), true);
+  });
+});
+
+test("first-gesture listener captures registration owner across explicit choices", async () => {
+  const store = storageFixture({ "katlab.sound": "on" });
+  const audio = audioFixture();
+  const win = windowFixture();
+  await withGlobals({ localStorage: { value: store.storage },
+    AudioContext: { value: audio.AudioContextFake }, window: { value: win } }, async () => {
+    const sound = await freshModule("sound.ts");
+    const aborted = new AbortController(); aborted.abort();
+    await sound.setSoundEnabled(false, aborted.signal);
+    assert.equal(win.listeners.get("pointerdown")?.size, 1,
+      "pre-aborted no-op must not supersede the registered gesture");
+    assert.deepEqual(await sound.setSoundEnabled(false), { enabled: false, persisted: true });
+    assert.deepEqual(await sound.setSoundEnabled(true), { enabled: true, persisted: true });
+    const writes = store.calls.filter(call => call.startsWith("write:")).length;
+    const created = audio.calls.created;
+    win.dispatch("keydown");
+    await flush();
+    assert.equal(win.listeners.get("keydown")?.size, 0);
+    assert.equal(win.listeners.get("pointerdown")?.size, 0);
+    assert.equal(audio.calls.created, created);
+    assert.equal(store.calls.filter(call => call.startsWith("write:")).length, writes);
+    assert.equal(sound.soundWanted(), true);
+  });
+});
+
+test("pre-aborted choices preserve both the initial gesture and a pending explicit owner", async () => {
+  const store = storageFixture({ "katlab.sound": "on" });
+  const audio = audioFixture();
+  const win = windowFixture();
+  await withGlobals({ localStorage: { value: store.storage },
+    AudioContext: { value: audio.AudioContextFake }, window: { value: win } }, async () => {
+    const sound = await freshModule("sound.ts");
+    const aborted = new AbortController(); aborted.abort();
+    await sound.setSoundEnabled(false, aborted.signal);
+    win.dispatch("keydown");
+    await flush();
+    assert.equal(audio.calls.resumed, 1, "preabort must not invalidate the initial owner");
+    sound.playChime();
+    assert.equal(audio.calls.notes, 2);
+    const pending = deferred();
+    audio.behavior.resume = context => pending.promise.then(() => { context.state = "running"; });
+    const enabling = sound.setSoundEnabled(true);
+    const writes = store.calls.filter(call => call.startsWith("write:")).length;
+    await sound.setSoundEnabled(false, aborted.signal);
+    pending.resolve();
+    assert.deepEqual(await enabling, { enabled: true, persisted: true });
+    assert.equal(store.calls.filter(call => call.startsWith("write:")).length, writes);
+    assert.equal(sound.soundWanted(), true);
+  });
+});
+
+test("throwing audio cleanup remains nonblocking and still attempts close", async () => {
+  for (const failure of ["disconnect", "close"]) {
+    const store = storageFixture();
+    const audio = audioFixture();
+    if (failure === "close") audio.behavior.close = () => { throw new Error("private close error"); };
+    else {
+      const original = audio.AudioContextFake.prototype.createGain;
+      audio.AudioContextFake.prototype.createGain = function () {
+        const gain = original.call(this);
+        gain.disconnect = () => { throw new Error("private disconnect error"); };
+        return gain;
+      };
+    }
+    await withGlobals({ localStorage: { value: store.storage },
+      AudioContext: { value: audio.AudioContextFake } }, async () => {
+      const sound = await freshModule("sound.ts");
+      assert.deepEqual(await sound.setSoundEnabled(true), { enabled: true, persisted: true });
+      assert.deepEqual(await sound.setSoundEnabled(false), { enabled: false, persisted: true });
+      assert.equal(audio.calls.closed, 1);
+      assert.equal(sound.soundWanted(), false);
+      assert.deepEqual(await sound.setSoundEnabled(true), { enabled: true, persisted: true });
+      assert.equal(audio.calls.created, 2);
+    });
+  }
+});
+
+test("audio capability, running-state and confirmation exceptions fail closed", async () => {
+  for (const failure of ["capability", "state", "confirmation"]) {
+    const store = storageFixture();
+    const audio = audioFixture();
+    if (failure === "state") audio.behavior.resume = context => {
+      Object.defineProperty(context, "state", { configurable: true,
+        get() { throw new Error("private state error"); }, set() {} });
+      return Promise.resolve();
+    };
+    if (failure === "confirmation") audio.AudioContextFake.prototype.createOscillator = () => {
+      throw new Error("private confirmation error");
+    };
+    await withGlobals({ localStorage: { value: store.storage }, AudioContext: failure === "capability"
+      ? { get() { throw new Error("private capability error"); } }
+      : { value: audio.AudioContextFake } }, async () => {
+      const sound = await freshModule("sound.ts");
+      assert.deepEqual(await sound.setSoundEnabled(true), { enabled: false, persisted: true });
+      assert.equal(sound.soundWanted(), false);
+      assert.equal(store.values.get("katlab.sound"), "off");
+      assert.equal(audio.calls.notes, 0);
+      assert.equal(audio.calls.closed, failure === "capability" ? 0 : 1);
+    });
+  }
+});
+
+test("sound feedback distinguishes confirmation, timeout and failed persistence", async () => {
+  const sound = await freshModule("sound.ts");
+  assert.equal(sound.soundToggleMessage(true, { enabled: true, persisted: true }), "Sounds enabled.");
+  assert.equal(sound.soundToggleMessage(false, { enabled: false, persisted: true }), "Sounds disabled.");
+  assert.match(sound.soundToggleMessage(true, { enabled: false, persisted: true }), /unavailable|not confirmed/i);
+  assert.match(sound.soundToggleMessage(true, { enabled: false, persisted: false }), /older opt-in may return after reload/i);
+  const timeout = sound.soundToggleMessage(true, { enabled: false, persisted: true }, true);
+  assert.match(timeout, /10 seconds|timed out/i);
+  assert.match(timeout, /off for this page/i);
+  assert.doesNotMatch(timeout, /closed|canceled|revoked|denied/i);
+  assert.match(sound.soundToggleMessage(true, { enabled: false, persisted: false }, true),
+    /older opt-in may return after reload/i);
+});
+
+test("App statically owns sound deadline, lifecycle and shared recovery surfaces", () => {
+  // Wiring evidence only, not React-effect execution or audible browser verification.
+  const app = readFileSync(resolve(frontendRoot, "src/App.tsx"), "utf8");
+  assert.match(app, /if \(!soundMountedRef\.current \|\| soundOwnerRef\.current\) return/);
+  assert.match(app, /soundOwnerRef\.current = null;\s*owner\?\.controller\.abort\(\);\s*owner\?\.clear\(\)/);
+  assert.match(app, /soundMountedRef\.current && soundOwnerRef\.current === owner/);
+  assert.match(app, /setSoundEnabled\(next, owner\.signal\)\.then\(\(result\) => \{\s*if \(!isCurrent\(\)\) return/);
+  assert.match(app, /soundToggleMessage\(next, result, owner\.didTimeout\(\)\)/);
+  assert.match(app, /owner\.clear\(\);\s*if \(isCurrent\(\)\) \{\s*soundOwnerRef\.current = null;\s*setSoundBusy\(false\)/);
+  assert.match(app, /announceStatus\("Changing sounds\."\)/);
+  assert.match(app, /disabledReason: soundBusy \?/);
+  assert.equal((app.match(/disabled=\{soundBusy\}/g) ?? []).length, 2);
+  assert.match(app, /Object\.entries\(preferenceFailures\)/);
+  assert.doesNotMatch(app, /soundBusyRef/);
 });
 
 test("notification permission is requested only after storage preflight", async () => {

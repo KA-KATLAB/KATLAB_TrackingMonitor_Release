@@ -11,6 +11,7 @@
 
 import { readPreference, writePreference } from "./preferences";
 import type { PreferenceToggleResult } from "./preferences";
+import { raceWithSignal } from "./api";
 
 const KEY = "katlab.sound";
 const MASTER_GAIN = 0.15;   // calm-tech: peripheral, never startling
@@ -62,42 +63,54 @@ function contextRunning (): boolean {
   return ctx !== null && ctx.state === "running";
 }
 
-async function closeCandidate (candidate: AudioContext | null): Promise<void> {
+function retireContext (candidate: AudioContext | null, output: GainNode | null): void {
   if (!candidate) return;
-  try { await candidate.close(); } catch { /* best-effort cleanup */ }
-}
-
-async function activateContext (owner: number): Promise<boolean> {
-  if (typeof AudioContext === "undefined") return false;
-  const existing = ctx;
-  if (existing && existing.state !== "closed") {
-    try {
-      await existing.resume();
-      return owner === preferenceGeneration && existing.state === "running";
-    } catch {
-      return false;
-    }
-  }
-  if (existing) {
+  if (ctx === candidate) {
     ctx = null;
     master = null;
   }
+  try { output?.disconnect(); } catch { /* best-effort output isolation */ }
+  // Native shutdown must not hold the toggle or mutate a newer context.
+  try { void Promise.resolve(candidate.close()).catch(() => {}); }
+  catch { /* best-effort resource release */ }
+}
+
+async function activateContext (owner: number, signal?: AbortSignal): Promise<boolean> {
+  if (owner !== preferenceGeneration || signal?.aborted) return false;
   let candidate: AudioContext | null = null;
+  let candidateMaster: GainNode | null = null;
   try {
+    if (typeof AudioContext === "undefined") return false;
     candidate = new AudioContext();
-    const candidateMaster = candidate.createGain();
+    candidateMaster = candidate.createGain();
     candidateMaster.gain.value = MASTER_GAIN;
     candidateMaster.connect(candidate.destination);
-    await candidate.resume();
-    if (owner !== preferenceGeneration || candidate.state !== "running") {
-      await closeCandidate(candidate);
+    const resume = candidate.resume;
+    if (owner !== preferenceGeneration || signal?.aborted) {
+      retireContext(candidate, candidateMaster);
+      return false;
+    }
+    let resolveResume!: (value: void | PromiseLike<void>) => void;
+    let rejectResume!: (error: unknown) => void;
+    const pending = new Promise<void>((resolve, reject) => {
+      resolveResume = resolve;
+      rejectResume = reject;
+    });
+    // Attach observation before calling, while preserving the original gesture.
+    const observed = raceWithSignal(pending, signal);
+    try { resolveResume(resume.call(candidate)); }
+    catch (error) { rejectResume(error); }
+    await observed;
+    const running = candidate.state === "running";
+    if (owner !== preferenceGeneration || signal?.aborted || !running) {
+      retireContext(candidate, candidateMaster);
       return false;
     }
     ctx = candidate;
     master = candidateMaster;
     return true;
   } catch {
-    await closeCandidate(candidate);
+    retireContext(candidate, candidateMaster);
     return false;
   }
 }
@@ -121,26 +134,25 @@ function note (freq: number, startS: number, durS: number, peak: number,
 }
 
 /** Persist before activation; only a running context may confirm opt-in. */
-export async function setSoundEnabled (on: boolean): Promise<PreferenceToggleResult> {
+export async function setSoundEnabled (on: boolean,
+  signal?: AbortSignal): Promise<PreferenceToggleResult> {
+  if (signal?.aborted) return { enabled: soundWanted(), persisted: false };
   const owner = ++preferenceGeneration;
-  if (!on) {
-    offVeto = true;
-    const persisted = persistSound("off");
-    if (ctx !== null) {
-      try { await ctx.suspend(); } catch { /* veto still prevents new notes */ }
-    }
-    return { enabled: false, persisted };
-  }
   offVeto = true;
+  retireContext(ctx, master);
+  if (!on) {
+    return { enabled: false, persisted: persistSound("off") };
+  }
   if (!persistSound("on")) {
     persistSound("off");
     return { enabled: false, persisted: false };
   }
-  const running = await activateContext(owner);
+  const running = await activateContext(owner, signal);
   if (owner !== preferenceGeneration) {
     return { enabled: soundWanted(), persisted: false };
   }
-  if (!running) {
+  if (!running || signal?.aborted) {
+    retireContext(ctx, master);
     return { enabled: false, persisted: persistSound("off") };
   }
   offVeto = false;
@@ -148,13 +160,28 @@ export async function setSoundEnabled (on: boolean): Promise<PreferenceToggleRes
     playTick(0); // confirmation = A4, after persistence and activation
   } catch {
     offVeto = true;
-    const persisted = persistSound("off");
-    if (ctx !== null) {
-      try { await ctx.suspend(); } catch { /* veto still prevents new notes */ }
-    }
-    return { enabled: false, persisted };
+    retireContext(ctx, master);
+    return { enabled: false, persisted: persistSound("off") };
   }
   return { enabled: true, persisted: true };
+}
+
+export function soundToggleMessage (on: boolean, result: PreferenceToggleResult,
+  timedOut = false): string {
+  const saveFailure = "Saving failed. An older opt-in may return after reload.";
+  if (timedOut) {
+    return "Sounds remain off for this page: activation was not confirmed within 10 seconds. "
+      + "Retry explicitly to opt in."
+      + (result.persisted ? "" : ` ${saveFailure}`);
+  }
+  if (!result.persisted) {
+    return result.enabled
+      ? "Sound preference could not be verified. Check the current setting before retrying."
+      : `Sounds are off for this page. ${saveFailure}`;
+  }
+  return on
+    ? result.enabled ? "Sounds enabled." : "Audio activation was not confirmed or audio is unavailable; sounds remain off."
+    : "Sounds disabled.";
 }
 
 /** The capture rain-drop: a ~50ms pluck, pitch by tickStep (the
@@ -188,10 +215,11 @@ export function playFanfare (): void {
 // (the autoplay-policy honest degrade). RV2: typeof-window guarded —
 // inert in node (the battery imports this module).
 if (typeof window !== "undefined" && soundWanted()) {
+  const owner = preferenceGeneration;
   const resumeOnce = () => {
     window.removeEventListener("pointerdown", resumeOnce);
     window.removeEventListener("keydown", resumeOnce);
-    const owner = preferenceGeneration;
+    if (owner !== preferenceGeneration) return;
     if (!soundWanted()) {
       offVeto = true;
       persistSound("off");
