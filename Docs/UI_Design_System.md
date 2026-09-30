@@ -265,6 +265,7 @@ Use one SectionHeading and one Surface vocabulary. Chart canvases and informativ
 - The repo chooser uses the shared bounded choice dialog.
 - Changing repo clears stale rows, graph, loading, exhausted, and error state before the new load.
 - The Mermaid graph retains a structured alternative and an honest Reload path for cached module-load failure.
+- Git graph init configuration must decode to the exact sanitized main name used by merge checkouts, including apostrophes. Serialize the directive as JSON and unicode-escape apostrophes before Mermaid's quote normalization; keep existing label normalization and strict rendering unchanged.
 
 ### 6.4 City
 

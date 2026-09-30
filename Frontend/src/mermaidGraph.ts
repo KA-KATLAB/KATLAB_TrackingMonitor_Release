@@ -196,6 +196,8 @@ export function buildGitGraph (entries: HistoryEntry[], branchName: string): Git
   // (digit-led) and the grammar's bare REFERENCE token requires a leading
   // letter (parse-proven both ways against @mermaid-js/parser).
   const main = safe(branchName || "main").replace(/\s+/g, "_") || "main";
+  // Mermaid normalizes apostrophes before parsing directive JSON.
+  const init = JSON.stringify({ gitGraph: { mainBranchName: main } }).replace(/'/g, "\\u0027");
   const page = entries.slice(0, GIT_CAP).map((e) => e.commit);
   const rows: GitGraphRow[] = entries.slice(0, GIT_CAP).map((entry) => ({
     hash: entry.commit.hash,
@@ -208,7 +210,7 @@ export function buildGitGraph (entries: HistoryEntry[], branchName: string): Git
   const short = (h: string) => h.slice(0, 7);
   const sideSeen = new Map<string, number>(); // RV4: same-tip repeats -> *2, *3
   const lines = [
-    `%%{init: {'gitGraph': {'mainBranchName': '${main}'}}}%%`,
+    `%%{init: ${init}}%%`,
     "gitGraph",
   ];
   walk.forEach((c, i) => {

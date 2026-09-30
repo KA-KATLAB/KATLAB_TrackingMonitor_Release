@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.3.1.21 — Git Graph Branch Quoting (2026-10-01)
+
+- Serialize Git graph init configuration as JSON and unicode-escape literal
+  apostrophes before Mermaid's directive quote normalization. The decoded main
+  label now matches the existing quoted merge checkout for names such as
+  `feature/o'brien`; plain JSON serialization alone would still fail.
+- Preserve existing label normalization, commit order/cap, structured rows,
+  parent decoration, strict nested-lazy rendering and error recovery. No
+  dependency, backbone, backend/API or graph-layout change.
+- Regression checks exercise actual generated directives through public Mermaid
+  configuration parsing and full bodies through its installed grammar parser.
+  These DOM-less checks are not native SVG/browser interaction verification.
+
 ## v0.3.1.20 — Frontend Sanitizer Patch (2026-10-01)
 
 - Patch the frontend's transitive DOMPurify from 3.4.15 to 3.4.16 for
