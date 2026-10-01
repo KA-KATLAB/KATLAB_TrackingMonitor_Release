@@ -28,10 +28,15 @@ class BackendRequirementsTests(unittest.TestCase):
 
     def test_other_backend_requirements_are_unchanged (self):
         entries = [entry for entry in self.requirements()
-                   if not entry.lower().startswith("starlette")]
+                   if not entry.lower().startswith(("starlette", "anyio"))]
         self.assertEqual(entries, [
             "fastapi>=0.115", "uvicorn[standard]>=0.30", "watchfiles>=0.24", "pyyaml>=6.0",
         ])
+
+    def test_reviewed_anyio_floor_is_required_once (self):
+        entries = [entry for entry in self.requirements()
+                   if entry.lower().startswith("anyio")]
+        self.assertEqual(entries, ["anyio>=4.14.2"])
 
     def test_normal_and_demo_install_the_reviewed_manifest (self):
         for relative in ("Scripts/start_tracking_monitor.bat", "Scripts/Demo/start_demo.bat"):

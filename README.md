@@ -5,7 +5,7 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current version: **v0.3.1.31 — Year Snapshot Labels**
+Current version: **v0.3.1.32 — AnyIO Security Baseline**
 
 ## What v0.3 adds
 
@@ -68,13 +68,15 @@ Only an explicit operator choice produces `MANUAL`.
 
 Requirements: Windows, Python 3.10+, and Node.js for the first frontend build.
 
-Backend installation requires the reviewed `starlette>=1.3.1` baseline. Normal
-and demo setup use `Backend/requirements.txt`; an older satisfying FastAPI alone
-is no longer enough to retain an older Starlette. Let pip resolve a compatible
-pair or stop on installation failure; do not bypass dependency constraints.
+Backend installation requires reviewed `starlette>=1.3.1` and `anyio>=4.14.2`
+baselines. Normal and demo setup use `Backend/requirements.txt`; an older
+satisfying FastAPI alone cannot retain dependencies below those floors. Let pip
+resolve a compatible set or stop on failure; do not bypass constraints.
 This does not alter Chronicle's separate dependency set or force a blanket
 upgrade. See the [backend security release notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.3.1.25_Release_Notes.md)
-for the security-policy scope and verification limits.
+and [AnyIO baseline notes](TrackingMonitor_v0.3.1.32_Release_Notes.md) for policy
+scope and verification limits. These minimums are not a reproducible lock or
+a claim that all dependency advisories are resolved.
 
 | Action | Command |
 |---|---|
@@ -148,7 +150,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current release notes](TrackingMonitor_v0.3.1.31_Release_Notes.md)
+- [Current release notes](TrackingMonitor_v0.3.1.32_Release_Notes.md)
 
 ## Guarantees
 

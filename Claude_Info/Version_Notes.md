@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.3.1.32 — AnyIO Security Baseline (2026-10-01)
+
+- Backend explicitly requires `anyio>=4.14.2`, an existing Starlette dependency.
+  This reviewed minimum covers upstream TLS IDNA and process fixes without
+  changing application routes, UI, launchers or Chronicle's dependency set.
+- Actual installed TLSStream regressions exercise Unicode IDNA2008, ASCII,
+  punycode, server/no-hostname and custom-context argument paths with a mocked
+  handshake and no network. Existing StaticFiles/installer policy tests remain.
+- The reviewed deployment uses 4.14.2 under temporary process-scoped constraints,
+  not the newer available 4.15.1. Ordinary future installs retain compatible
+  minimum-based resolution; no permanent lock or global Python change is added.
+- Version matches are not observed exploits. Chronicle and GitHub default-branch
+  alerts remain separate; these focused checks are not a complete security audit.
+
 ## v0.3.1.31 — Year Snapshot Labels (2026-10-01)
 
 - Activity calendar and Personal records name their supplied UTC bounds and
