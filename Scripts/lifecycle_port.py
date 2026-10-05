@@ -241,33 +241,49 @@ def _stop_budget (deadline: float) -> float:
 
 
 def stop (mode: str) -> int:
-    profile = load_profile(mode)
-    deadline = _monotonic() + STOP_TIMEOUT_SECONDS
-    initial = _listening_pids(profile.port, timeout=_stop_budget(deadline))
-    if not initial:
-        print(f"Port {profile.port} is clear.")
-        return 0
-    if mode == "demo" and not profile.config_exists:
-        raise LifecycleError("Demo port is occupied without a verifiable config")
-    if 0 in initial or 4 in initial:
-        raise LifecycleError("System-owned listener cannot be stopped")
+    # Codes identify the last attempted caller phase, not a native root cause.
+    phase = "STOP_CONFIG"
     try:
+        profile = load_profile(mode)
+        phase = "STOP_DISCOVERY"
+        deadline = _monotonic() + STOP_TIMEOUT_SECONDS
+        initial = _listening_pids(profile.port, timeout=_stop_budget(deadline))
+        if not initial:
+            print(f"Port {profile.port} is clear.")
+            return 0
+        if mode == "demo" and not profile.config_exists:
+            raise LifecycleError("Demo port is occupied without a verifiable config")
+        if 0 in initial or 4 in initial:
+            raise LifecycleError("System-owned listener cannot be stopped")
+        phase = "STOP_OWNERSHIP"
         with prepare_owned_processes(REPO_ROOT, initial, deadline) as owned:
             # A port is discovery, never process authority. Every captured handle
             # is verified before any mutation, and no replacement PID is added.
+            phase = "STOP_RECHECK"
             current = _listening_pids(profile.port, timeout=_stop_budget(deadline))
             if current != initial:
                 raise LifecycleError("Tracker listener changed before stop; nothing was stopped")
             _stop_budget(deadline)
+            phase = "STOP_TERMINATE"
             owned.terminate_and_wait(deadline)
+            phase = "STOP_CONFIRM"
             while True:
                 current = _listening_pids(profile.port, timeout=_stop_budget(deadline))
                 if not current:
-                    print(f"Port {profile.port} is clear.")
-                    return 0
+                    break
                 _sleep(min(POLL_SECONDS, _stop_budget(deadline)))
-    except ProcessOwnershipError as exc:
-        raise LifecycleError("Tracker process ownership or stopped state could not be verified") from exc
+            # Set only on normal completion; cleanup may mask a body failure.
+            phase = "STOP_CLEANUP"
+        print(f"Port {profile.port} is clear.")
+        return 0
+    except (LifecycleError, ProcessOwnershipError, OSError, subprocess.TimeoutExpired) as exc:
+        if isinstance(exc, LifecycleError):
+            reason = str(exc)
+        elif isinstance(exc, ProcessOwnershipError):
+            reason = "Tracker process ownership or stopped state could not be verified"
+        else:
+            reason = "Configuration or OS check failed"
+        raise LifecycleError(f"[{phase}] {reason}") from exc
 
 
 def _require_frontend () -> None:

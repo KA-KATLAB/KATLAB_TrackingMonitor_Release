@@ -58,7 +58,7 @@ When prose and running code disagree, do not silently choose one. Establish whet
 | `Scripts/Chronicle/scribe.py` | Intentionally disabled Scribe CLI and inert import-compatibility hook |
 | `Scripts/record_evidence.py` | Validated explicit manual check/review evidence publisher |
 | `Scripts/render_hook_config.py` | Read-only provider preflight and merge-ready hook renderer |
-| `Scripts/lifecycle_port.py` | Configured-port discovery, stop orchestration, readiness and browser handoff |
+| `Scripts/lifecycle_port.py` | Configured-port discovery, phase-labelled stop orchestration, readiness and browser handoff |
 | `Scripts/lifecycle_process.py` | Bounded Windows ownership proof and retained-handle termination |
 | `Scripts/*.bat` | Windows start/stop/restart lifecycle |
 | `Config/repos.yaml` | Server settings, monitored-repo registry, fail-closed capture allowlist |
@@ -295,6 +295,10 @@ Plan-before-catch-up prevents permanent `UNKNOWN` attribution. The dedicated Git
   build, validate, restart and compare served artifacts. This is not an atomic
   lock against concurrent external starts/builds. Existing tabs require reload.
 - Never perform the commit, tag, or push unless the user explicitly requests that exact Git action.
+- Stop errors report the last attempted fixed `[STOP_*]` phase, not a native
+  root cause. Preserve sanitized reasons, one deadline and no automatic retry.
+  Report owned-stop success only after context-managed handle cleanup succeeds;
+  a cleanup error can mask a body failure without changing its caller phase.
 
 ### 5.3 Onboarding contract changes
 

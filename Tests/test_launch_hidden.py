@@ -777,6 +777,168 @@ class LifecyclePortTests(unittest.TestCase):
                     self.assertNotIn("private", errors.getvalue())
                     run.assert_not_called()
 
+    def test_stop_phase_matrix_keeps_expected_failures_public_and_single_attempt (self):
+        phases = ("CONFIG", "DISCOVERY", "OWNERSHIP", "RECHECK", "TERMINATE", "CONFIRM", "CLEANUP")
+        public = "Port enumeration failed"
+        private = r"PRIVATE_PROCESS C:\private\command PID=915001 token=PRIVATE_TOKEN"
+        families = (
+            (lambda: lifecycle.LifecycleError(public), public),
+            (lambda: lifecycle.ProcessOwnershipError(private),
+             "Tracker process ownership or stopped state could not be verified"),
+            (lambda: OSError(private), "Configuration or OS check failed"),
+            (lambda: subprocess.TimeoutExpired(private, 1), "Configuration or OS check failed"),
+        )
+        counts = dict(CONFIG=0, DISCOVERY=1, OWNERSHIP=1, RECHECK=2,
+                      TERMINATE=2, CONFIRM=3, CLEANUP=3)
+        for mode in ("tracker", "demo"):
+            profile = lifecycle.Profile("127.0.0.1", 8100 if mode == "tracker" else 8101, ())
+            for phase in phases:
+                for make_failure, reason in families:
+                    for cli in (False, True):
+                        failure = make_failure()
+                        with self.subTest(mode=mode, phase=phase, family=type(failure).__name__, cli=cli):
+                            output, errors = io.StringIO(), io.StringIO()
+                            owned = MagicMock()
+                            if phase == "TERMINATE":
+                                owned.terminate_and_wait.side_effect = failure
+
+                            @contextlib.contextmanager
+                            def prepared (*_args):
+                                if phase == "OWNERSHIP":
+                                    raise failure
+                                try:
+                                    yield owned
+                                finally:
+                                    if phase == "CLEANUP":
+                                        raise failure
+
+                            snapshots = [{4321}, {4321}, set()]
+                            if phase in {"DISCOVERY", "RECHECK", "CONFIRM"}:
+                                snapshots[counts[phase] - 1] = failure
+                            with (patch.object(lifecycle, "load_profile", return_value=profile,
+                                               side_effect=failure if phase == "CONFIG" else None),
+                                  patch.object(lifecycle, "_listening_pids", side_effect=snapshots) as listeners,
+                                  patch.object(lifecycle, "prepare_owned_processes", side_effect=prepared) as prepare,
+                                  patch.object(lifecycle, "_monotonic", return_value=100),
+                                  patch.object(lifecycle, "_sleep") as sleep,
+                                  patch.object(lifecycle, "_run_command") as command,
+                                  contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors)):
+                                expected = f"[STOP_{phase}] {reason}"
+                                if cli:
+                                    self.assertEqual(lifecycle.main(["stop", mode]), 1)
+                                    self.assertEqual(errors.getvalue(), f"[ABORT] {expected}.\n")
+                                else:
+                                    with self.assertRaises(lifecycle.LifecycleError) as raised:
+                                        lifecycle.stop(mode)
+                                    self.assertEqual(str(raised.exception), expected)
+                                    self.assertIs(raised.exception.__cause__, failure)
+                                    self.assertEqual(errors.getvalue(), "")
+                                self.assertEqual(output.getvalue(), "")
+                                for secret in ("PRIVATE_PROCESS", "PRIVATE_TOKEN", "915001", "Traceback"):
+                                    self.assertNotIn(secret, errors.getvalue())
+                                self.assertEqual(listeners.call_count, counts[phase])
+                                self.assertEqual(prepare.call_count, int(phase not in {"CONFIG", "DISCOVERY"}))
+                                if prepare.called:
+                                    prepare.assert_called_once_with(REPO, {4321}, 115)
+                                self.assertEqual(owned.terminate_and_wait.call_count,
+                                                 int(phase in {"TERMINATE", "CONFIRM", "CLEANUP"}))
+                                if owned.terminate_and_wait.called:
+                                    owned.terminate_and_wait.assert_called_once_with(115)
+                                command.assert_not_called()
+                                sleep.assert_not_called()
+
+    def test_stop_success_is_once_and_after_actual_context_exit_in_both_modes (self):
+        for mode in ("tracker", "demo"):
+            for empty in (False, True):
+                for cli in (False, True):
+                    with self.subTest(mode=mode, empty=empty, cli=cli):
+                        output, events = io.StringIO(), []
+                        profile = lifecycle.Profile("127.0.0.1", 8100 if mode == "tracker" else 8101, ())
+                        owned = MagicMock()
+                        owned.terminate_and_wait.side_effect = lambda _: events.append("terminate")
+
+                        @contextlib.contextmanager
+                        def prepared (*_args):
+                            events.append("enter")
+                            try:
+                                yield owned
+                            finally:
+                                self.assertEqual(output.getvalue(), "", "success preceded cleanup")
+                                events.append("cleanup")
+
+                        with (patch.object(lifecycle, "load_profile", return_value=profile),
+                              patch.object(lifecycle, "_listening_pids",
+                                           side_effect=[set()] if empty else [{4321}, {4321}, set()]),
+                              patch.object(lifecycle, "prepare_owned_processes", side_effect=prepared) as prepare,
+                              patch.object(lifecycle, "_monotonic", return_value=100),
+                              contextlib.redirect_stdout(output)):
+                            result = lifecycle.main(["stop", mode]) if cli else lifecycle.stop(mode)
+                        self.assertEqual(result, 0)
+                        self.assertEqual(output.getvalue(), f"Port {profile.port} is clear.\n")
+                        self.assertEqual(events, [] if empty else ["enter", "terminate", "cleanup"])
+                        self.assertEqual(prepare.call_count, int(not empty))
+
+    def test_stop_body_and_cleanup_failure_keep_body_phase_without_success (self):
+        for mode in ("tracker", "demo"):
+            for phase in ("RECHECK", "TERMINATE", "CONFIRM"):
+                with self.subTest(mode=mode, phase=phase):
+                    output, errors, cleanup = io.StringIO(), io.StringIO(), []
+                    profile = lifecycle.Profile("127.0.0.1", 8100 if mode == "tracker" else 8101, ())
+                    owned = MagicMock()
+                    if phase == "TERMINATE":
+                        owned.terminate_and_wait.side_effect = lifecycle.LifecycleError("Public body failure")
+
+                    @contextlib.contextmanager
+                    def prepared (*_args):
+                        try:
+                            yield owned
+                        finally:
+                            cleanup.append("closed")
+                            raise lifecycle.ProcessOwnershipError("PRIVATE_CLEANUP")
+
+                    snapshots = [{4321}, {9876} if phase == "RECHECK" else {4321},
+                                 OSError("PRIVATE_BODY") if phase == "CONFIRM" else set()]
+                    with (patch.object(lifecycle, "load_profile", return_value=profile),
+                          patch.object(lifecycle, "_listening_pids", side_effect=snapshots),
+                          patch.object(lifecycle, "prepare_owned_processes", side_effect=prepared) as prepare,
+                          contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors)):
+                        self.assertEqual(lifecycle.main(["stop", mode]), 1)
+                    self.assertEqual(output.getvalue(), "")
+                    self.assertIn(f"[STOP_{phase}]", errors.getvalue())
+                    self.assertNotIn("STOP_CLEANUP", errors.getvalue())
+                    self.assertNotIn("PRIVATE_", errors.getvalue())
+                    self.assertNotIn("Public body failure", errors.getvalue())
+                    self.assertEqual(cleanup, ["closed"])
+                    prepare.assert_called_once()
+                    self.assertEqual(owned.terminate_and_wait.call_count, int(phase != "RECHECK"))
+
+    def test_stop_does_not_convert_programmer_errors_or_interruptions (self):
+        for failure in (RuntimeError("programmer failure"), AssertionError("assertion failure"),
+                        KeyboardInterrupt(), SystemExit(7)):
+            for cli in (False, True):
+                with self.subTest(failure=type(failure).__name__, cli=cli):
+                    output, errors, cleanup = io.StringIO(), io.StringIO(), []
+                    owned = MagicMock()
+                    owned.terminate_and_wait.side_effect = failure
+
+                    @contextlib.contextmanager
+                    def prepared (*_args):
+                        try:
+                            yield owned
+                        finally:
+                            cleanup.append("closed")
+
+                    with (patch.object(lifecycle, "load_profile", return_value=self.profile),
+                          patch.object(lifecycle, "_listening_pids", return_value={4321}),
+                          patch.object(lifecycle, "prepare_owned_processes", side_effect=prepared),
+                          contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors)):
+                        with self.assertRaises(type(failure)) as raised:
+                            lifecycle.main(["stop", "tracker"]) if cli else lifecycle.stop("tracker")
+                    self.assertIs(raised.exception, failure)
+                    self.assertEqual(cleanup, ["closed"])
+                    self.assertEqual(output.getvalue(), "")
+                    self.assertEqual(errors.getvalue(), "")
+
     def test_stop_never_kills_new_listener_during_confirmation (self):
         for final_pids in ({4321}, {9999}):
             with self.subTest(final_pids=final_pids):

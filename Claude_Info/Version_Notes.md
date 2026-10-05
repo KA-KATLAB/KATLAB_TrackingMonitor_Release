@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.4.0.3 - Stop Failure Diagnostics (2026-10-05)
+
+- Expected stop failures carry a fixed caller-phase code for configuration,
+  discovery, ownership preparation, listener recheck, termination, port
+  confirmation or normal-path handle cleanup. Native exception text stays hidden.
+- Owned-stop success is printed only after the context finishes cleanup. A
+  cleanup-only failure no longer prints success before aborting. If cleanup masks
+  a body failure, the code retains the last attempted body phase, not a guessed
+  root cause. Empty-port success remains immediate.
+- Ownership authority, target set, deadline, restart cutoff and the UI build gate
+  are unchanged. No automatic retry, dependencies, layout or data/API changes.
+  Native v0.4 rendered acceptance remains separately pending.
+
 ## v0.4.0.2 — UI Build Identity Gate (2026-10-05)
 
 - Production HTML carries a build-only version marker from the same cached

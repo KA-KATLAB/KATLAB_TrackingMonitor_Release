@@ -5,12 +5,13 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.2 — UI Build Identity Gate**
+Current source version: **v0.4.0.3 - Stop Failure Diagnostics**
 
-Start/restart now refuses an existing stale or incomplete UI build before opening
-it. Rebuild after version changes; restarting Python alone does not update UI
-assets. Owned-process stop protection remains. See the
-[current release notes](TrackingMonitor_v0.4.0.2_Release_Notes.md).
+Stop failures now identify the last attempted phase without exposing process
+metadata, and success waits for handle cleanup. Owned-process protection and the
+UI build gate remain. Rebuild after version changes; restarting Python alone
+does not update UI assets. See the
+[current release notes](TrackingMonitor_v0.4.0.3_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -115,6 +116,9 @@ launcher and its captured descendants, retains identity-verified native process
 handles, then confirms their exit and the configured port clear. Foreign or
 unverifiable listeners are refused before termination; restart aborts on failure.
 This is separate from readiness, so an older or unhealthy owned tracker can stop.
+Expected stop failures include a fixed `[STOP_*]` phase code, not a native root
+cause. Successful owned stops report port clearance only after handle cleanup;
+failure never triggers an automatic retry.
 Use the repository scripts; manual/base-Python launches are not supported stop
 targets. See [safe restart guidance](Docs/Installation_Guideline.md#safe-stop-and-restart)
 for proof boundaries and refusal handling. Start verifies the matching app version,
@@ -180,7 +184,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.2_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.3_Release_Notes.md)
 
 ## Guarantees
 

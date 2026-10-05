@@ -245,6 +245,24 @@ and degraded watcher health are valid owned stop targets. A process that takes
 the port afterward is not added to the termination set. Restart never starts a
 replacement after an unsuccessful stop.
 
+Expected stop errors include a fixed code for the last attempted caller phase:
+
+| Code | Phase |
+|---|---|
+| `STOP_CONFIG` | Load and validate the requested profile |
+| `STOP_DISCOVERY` | Initial listener enumeration and discovery refusals |
+| `STOP_OWNERSHIP` | Prepare identity-verified native handles |
+| `STOP_RECHECK` | Recheck the exact listener set and remaining budget |
+| `STOP_TERMINATE` | Terminate and observe captured process handles |
+| `STOP_CONFIRM` | Observe port clearance within the original deadline |
+| `STOP_CLEANUP` | Release handles after normal body completion |
+
+These codes are not Windows error codes or proof of a precise root cause. Cleanup
+can mask an earlier body failure; that case retains the last attempted body phase.
+The CLI hides native exception details and never retries automatically. Owned-stop
+success is printed only after cleanup succeeds; an initially clear port needs no
+handle preparation. Failure can follow partial termination and does not roll it back.
+
 On refusal, inspect the actual listener and launch configuration. Do not kill an
 arbitrary PID, run the script elevated merely to bypass the refusal, or weaken
 ownership checks. Manually launched/base-only processes are intentionally not

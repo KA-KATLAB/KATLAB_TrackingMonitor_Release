@@ -16,7 +16,7 @@
 
 ## Upgrade and limits
 
-Follow the [safe upgrade sequence](Docs/Installation_Guideline.md#safe-stop-and-restart):
+Follow the [safe upgrade sequence](../../../Docs/Installation_Guideline.md#safe-stop-and-restart):
 stop Tracker and any demo, confirm their ports clear, build the shared frontend,
 validate it, then restart. Existing tabs need a reload. The launchers do not
 automatically rebuild existing stale output or coordinate concurrent builds.
@@ -39,5 +39,5 @@ Windows batches, health/browser ordering and independent stop ownership. Full
 suite, CFT, activation and publication evidence is recorded in the ignored plan:
 `temp/Plan/PLAN_v0.4.0.2_UI_Build_Identity_Gate.txt`.
 
-Previous [v0.4.0.1 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.1_Release_Notes.md)
+Previous [v0.4.0.1 notes](TrackingMonitor_v0.4.0.1_Release_Notes.md)
 are archived with only move-affected links rebased.
