@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.4.0.16 - Truthful Workspace Presence (2026-10-06)
+
+- Both existing presence effects share one pure coverage calculation. Only an
+  accepted, error-free workspace with every repository online and strictly valid
+  Git status can claim CLEAN or request a numeric uncommitted badge.
+- Pending, empty, offline, invalid, failed-refresh or unsafe-count data requests
+  badge clearing and a muted '?' favicon. A missing 2d context restores the static
+  brand rather than retaining a misleading live icon. Known clean/dirty geometry,
+  exact badge totals and favicon99+ clamping remain.
+- Actual-source effect/canvas regressions cover supported failure states and
+  recovery. Native favicon/PWA delivery remains unverified; clearing is best-effort,
+  not proof of CLEAN. No request, API, dependency, layout or motion changes.
+
 ## v0.4.0.15 - Repository Release Identity (2026-10-06)
 
 - Release-moment replay protection uses the repository + full commit hash pair,

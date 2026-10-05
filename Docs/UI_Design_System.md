@@ -254,6 +254,14 @@ Do not:
   Git status, with explicit known coverage. Retained invalid/offline values are
   unavailable, not zero or clean. WebSocket Connected describes transport only,
   not fresh data or verification readiness.
+- Workspace favicon/installed-PWA badges cannot disclose partial coverage beside
+  a number. Require an accepted, error-free snapshot, nonempty repository list,
+  every repository online with strictly valid Git status, nonnegative safe-integer
+  counts and a safe total.
+  Otherwise request badge clearing and render a neutral '?' favicon; if canvas is
+  unavailable, restore the static brand. Clearing is best-effort absence of a
+  numeric claim, not CLEAN. Keep known clean/dirty rendering and accepted data
+  during ordinary background refresh; add no transport-expiry policy or requests.
 - Preserve Git validity and observation metadata in existing WebSocket updates,
   including reconciliation against pending REST responses. Unknown/offline gaps
   invalidate the clean-notification transition baseline; recovery alone is not an

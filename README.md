@@ -5,13 +5,13 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.15 - Repository Release Identity**
+Current source version: **v0.4.0.16 - Truthful Workspace Presence**
 
-Release moments use the repository + full commit hash pair, so shared history
-cannot suppress another repository's baseline or produce a false patch release.
-Existing version, replay, banner and optional notification/sound rules remain.
+Tab and installed-PWA presence require fully known workspace Git status. Missing,
+offline, invalid or failed-refresh data shows a neutral '?' tab icon and requests
+badge clearing instead of claiming CLEAN or counting retained values.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.15_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.16_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -184,7 +184,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.15_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.16_Release_Notes.md)
 
 ## Guarantees
 

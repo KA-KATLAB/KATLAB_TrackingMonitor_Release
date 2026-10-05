@@ -1,35 +1,45 @@
-// v0.2.1.0 D2 (B.2): the live status favicon — the tab tells the truth
-// in ANY tab, no PWA install needed (completes the v0.1.12.0 badge
-// story). Hand-rolled canvas (~30 lines, no lib): the teal ring mark on
-// slate-950 when CLEAN; dirty adds an amber dot with the clamped count.
-// The App effect uses EXACTLY the app-badge basis (the non-offline sum,
-// RV1-v0.1.12.0) — the presence surfaces never disagree. The static
-// /favicon.svg stays in index.html for cold loads; the PWA manifest
-// icons are untouched. Safari ignores dynamic favicons — documented,
-// not worked around.
+import type { Repo } from "./api";
+
+export type PresenceStatus =
+  | { kind: "unavailable"; count: null }
+  | { kind: "clean" | "dirty"; count: number };
+
+// Presence cannot disclose partial/retained coverage beside a numeric claim.
+export function workspacePresence (repos: readonly Pick<Repo, "offline" | "status_valid" | "count">[],
+  workspaceReady: boolean, workspaceError: string): PresenceStatus {
+  if (!workspaceReady || workspaceError || repos.length === 0
+      || repos.some((repo) => repo.offline || repo.status_valid !== true
+        || !Number.isSafeInteger(repo.count) || repo.count < 0)) {
+    return { kind: "unavailable", count: null };
+  }
+  const count = repos.reduce((total, repo) => total + repo.count, 0);
+  if (!Number.isSafeInteger(count)) return { kind: "unavailable", count: null };
+  return { kind: count === 0 ? "clean" : "dirty", count };
+}
 
 export function clampCount (n: number): string {
   return n > 99 ? "99+" : String(n);
 }
 
-export function drawStatusFavicon (clean: boolean, count: number): string | null {
+// Keep the static cold-load brand and manifest icons independent of live status.
+export function drawStatusFavicon (status: PresenceStatus): string | null {
   const canvas = document.createElement("canvas");
   canvas.width = 32;
   canvas.height = 32;
   const ctx = canvas.getContext("2d");
-  if (!ctx) return null; // feature-detect: no 2d context -> no swap
+  if (!ctx) return null; // App restores the static brand instead of stale status.
   ctx.fillStyle = "#020617"; // slate-950 card
   ctx.beginPath();
   ctx.roundRect(0, 0, 32, 32, 7);
   ctx.fill();
-  ctx.strokeStyle = "#14b8a6"; // the teal ring mark (the PWA icon motif)
+  ctx.strokeStyle = status.kind === "unavailable" ? "#64748b" : "#14b8a6";
   ctx.lineWidth = 4;
   ctx.beginPath();
   ctx.arc(15, 17, 9, 0, 2 * Math.PI);
   ctx.stroke();
-  if (!clean) {
-    const label = clampCount(count);
-    ctx.fillStyle = "#f59e0b"; // amber dot, top-right
+  if (status.kind !== "clean") {
+    const label = status.kind === "unavailable" ? "?" : clampCount(status.count);
+    ctx.fillStyle = status.kind === "unavailable" ? "#94a3b8" : "#f59e0b";
     ctx.beginPath();
     ctx.arc(23, 9, 8.5, 0, 2 * Math.PI);
     ctx.fill();

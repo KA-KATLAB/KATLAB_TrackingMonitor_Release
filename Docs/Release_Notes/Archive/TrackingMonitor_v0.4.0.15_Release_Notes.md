@@ -26,9 +26,9 @@ No Tailwind major migration or security remediation is bundled. The existing
 large-chunk notice and earlier unconfirmed launcher-fixture transient remain
 known limits.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 CDD/CFT, verification, activation and publication evidence is recorded in
 `temp/Plan/PLAN_v0.4.0.15_Repository_Release_Identity.txt`.
 
-Previous [v0.4.0.14 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.14_Release_Notes.md)
+Previous [v0.4.0.14 notes](TrackingMonitor_v0.4.0.14_Release_Notes.md)
 retain their historical scope, with only move-affected links rebased.

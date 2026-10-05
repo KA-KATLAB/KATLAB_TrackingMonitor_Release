@@ -16,7 +16,7 @@ import { prepareDigest } from "./digest";
 import { DisclosureTable } from "./accessibleData";
 import { requestNoopenerTab, startBlobDownload } from "./download";
 import type { PreparedDownload } from "./download";
-import { drawStatusFavicon } from "./favicon";
+import { drawStatusFavicon, workspacePresence } from "./favicon";
 import { exportReport } from "./reportHtml";
 import { FileStory } from "./FileStory";
 import { SessionTimeline } from "./SessionTimeline";
@@ -982,29 +982,21 @@ export default function App () {
     }
   }, [repos]);
 
-  // v0.1.12.0 D2 (C.1): taskbar badge on the INSTALLED PWA — n = the
-  // ALL-tab uncommitted KPI basis EXACTLY (non-offline sum, RV1: a stale
-  // offline count must never pin a wrong number to the taskbar). Feature-
-  // detected; the calls reject when the app is not installed — silenced.
+  // Only fully known workspace status supports an installed-PWA numeric badge.
   useEffect(() => {
-    if (!("setAppBadge" in navigator)) return;
-    const n = repos.filter((r) => !r.offline).reduce((s, r) => s + r.count, 0);
-    (n > 0 ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
-  }, [repos]);
+    if (typeof navigator.setAppBadge !== "function" || typeof navigator.clearAppBadge !== "function") return;
+    const status = workspacePresence(repos, workspaceReady, error);
+    (status.kind === "dirty" ? navigator.setAppBadge(status.count) : navigator.clearAppBadge()).catch(() => {});
+  }, [repos, workspaceReady, error]);
 
-  // v0.2.1.0 D2 (B.2): the live status favicon — the SAME non-offline
-  // basis as the badge above (the presence surfaces never disagree);
-  // feature-detected (link + 2d context), silent no-op otherwise.
+  // The tab uses the same coverage; a static brand is not a live-status claim.
   useEffect(() => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (!link) return;
-    const n = repos.filter((r) => !r.offline).reduce((s, r) => s + r.count, 0);
-    const url = drawStatusFavicon(n === 0, n);
-    if (url) {
-      link.href = url;
-      link.type = "image/png";
-    }
-  }, [repos]);
+    const url = drawStatusFavicon(workspacePresence(repos, workspaceReady, error));
+    link.href = url ?? "/favicon.svg";
+    link.type = url ? "image/png" : "image/svg+xml";
+  }, [repos, workspaceReady, error]);
 
   // v0.1.7.0 D6 (C.3): toast dismissal — its ✕ or ANY click outside the
   // toast stack (the AttentionBell click-out precedent). Toasts are NOT

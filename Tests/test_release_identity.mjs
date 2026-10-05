@@ -80,7 +80,49 @@ function harness (baselines = [], options = {}) {
 const hash = (character) => character.repeat(40);
 const flush = async () => { for (let index = 0; index < 6; index++) await Promise.resolve(); };
 
+// v0.4.0.16 changes only these two presence effects. Restore their reviewed
+// pre-change calls, not a newly generated whole-App baseline or a broad carve-out.
+function restorePresenceEffects (text) {
+  const ast = parse("App.tsx", text);
+  const statements = declaration(ast, "App").body.statements;
+  const calls = statements.filter((node) => ts.isExpressionStatement(node)
+    && ts.isCallExpression(node.expression) && node.expression.expression.getText(ast) === "useEffect");
+  const changed = calls.filter((node) => node.getText(ast).includes("workspacePresence("));
+  if (changed.length === 0) return text; // Actual old source needs no restoration.
+  assert.equal(changed.length, 2, "only two exact presence effects are restored");
+  const previous = [
+    ["navigator.setAppBadge", "68081d7a9e5fed987ac90fed7ac74eb5eb75954740ee3cc87a38b84de04cc590", `useEffect(() => {
+    if (!("setAppBadge" in navigator)) return;
+    const n = repos.filter((r) => !r.offline).reduce((s, r) => s + r.count, 0);
+    (n > 0 ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
+  }, [repos]);`],
+    ["drawStatusFavicon(", "bfb874b1d171a14b6ffd6898662f83845927ba29dce0684bd737d6ce3d4d2da1", `useEffect(() => {
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!link) return;
+    const n = repos.filter((r) => !r.offline).reduce((s, r) => s + r.count, 0);
+    const url = drawStatusFavicon(n === 0, n);
+    if (url) {
+      link.href = url;
+      link.type = "image/png";
+    }
+  }, [repos]);`],
+  ];
+  const printer = ts.createPrinter({ removeComments: true });
+  const edits = previous.map(([needle, expected, original]) => {
+    const node = unique(changed.filter((call) => call.getText(ast).includes(needle)), `exact ${needle} call`);
+    const printed = canonicalPrintedText(printer.printNode(ts.EmitHint.Unspecified, node, ast));
+    assert.equal(createHash("sha256").update(printed).digest("hex"), expected,
+      "presence restoration cannot hide any unreviewed callback or dependency edit");
+    return { start: node.getStart(ast), end: node.end, original };
+  });
+  for (const edit of edits.sort((left, right) => right.start - left.start)) {
+    text = text.slice(0, edit.start) + edit.original + text.slice(edit.end);
+  }
+  return text;
+}
+
 function baselineHash (text) {
+  text = restorePresenceEffects(text);
   let ast = parse("App.tsx", text), actual = commitBlock(ast), body = actual.getText(ast);
   const local = "const releaseKey = JSON.stringify([d.repo, d.hash]);";
   const count = (needle) => body.split(needle).length - 1;
@@ -109,10 +151,32 @@ function baselineHash (text) {
   return createHash("sha256").update(normalized).digest("hex");
 }
 
-test("whole App pre-render preserves every statement except the three exact identity edits", () => {
+test("whole App pre-render permits only the exact identity and fingerprinted presence edits", () => {
   for (const text of [appText.replace(/\r\n/g, "\n"), appText.replace(/\r?\n/g, "\r\n")]) {
     assert.equal(baselineHash(text), "b8c39e9e4bcf9ce970e4ab56be4b627d776522c580929277eba946368ffbeefb");
   }
+});
+
+test("the oracle still accepts the captured pre-presence source without a new baseline", () => {
+  const previous = restorePresenceEffects(appText);
+  assert.doesNotMatch(previous, /workspacePresence\(/);
+  assert.equal(baselineHash(previous), "b8c39e9e4bcf9ce970e4ab56be4b627d776522c580929277eba946368ffbeefb");
+});
+
+test("presence restoration rejects altered behavior, dependencies and partial restoration", () => {
+  for (const [before, after] of [["status.kind === \"dirty\"", "status.kind === \"clean\""],
+    ["[repos, workspaceReady, error]", "[repos, workspaceReady]"],
+    ["const status = workspacePresence(repos, workspaceReady, error);", "const status = otherPresence();"]]) {
+    assert.ok(appText.includes(before));
+    assert.throws(() => baselineHash(appText.replace(before, after)), assert.AssertionError);
+  }
+});
+
+test("presence restoration cannot conceal an unrelated App statement change", () => {
+  const before = "setWorkspaceReady(true);";
+  assert.equal(appText.split(before).length - 1, 1);
+  assert.notEqual(baselineHash(appText.replace(before, "setWorkspaceReady(false);")),
+    "b8c39e9e4bcf9ce970e4ab56be4b627d776522c580929277eba946368ffbeefb");
 });
 
 for (const order of [["Clone_A", "Clone_B"], ["Clone_B", "Clone_A"]]) {
