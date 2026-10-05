@@ -343,21 +343,45 @@ class LazyViewBoundary extends Component<
   { error: Error | null }
 > {
   state = { error: null as Error | null };
+  private failureNode: HTMLElement | null = null;
+  private focusFrame: { handle: number | null } | null = null;
+  private readonly captureFailureNode = (node: HTMLElement | null): void => {
+    this.failureNode = node;
+  };
 
   static getDerivedStateFromError (error: Error) {
     return { error };
   }
 
+  private cancelFocus (): void {
+    const owner = this.focusFrame;
+    this.focusFrame = null;
+    if (owner && owner.handle !== null) window.cancelAnimationFrame(owner.handle);
+  }
+
   componentDidCatch (_error: Error, _info: ErrorInfo): void {
-    window.requestAnimationFrame(() => {
-      document.getElementById("lazy-view-failure")?.focus({ preventScroll: true });
+    this.cancelFocus();
+    const owner: { handle: number | null } = { handle: null };
+    this.focusFrame = owner;
+    owner.handle = window.requestAnimationFrame(() => {
+      if (this.focusFrame !== owner) return;
+      this.focusFrame = null;
+      const node = this.failureNode;
+      if (!node?.isConnected || hasOverlayLease() || node.closest("[inert]")) return;
+      node.focus({ preventScroll: true });
     });
+  }
+
+  componentWillUnmount (): void {
+    this.cancelFocus();
+    this.failureNode = null;
   }
 
   render (): ReactNode {
     if (!this.state.error) return this.props.children;
     return (
       <section
+        ref={this.captureFailureNode}
         id="lazy-view-failure"
         tabIndex={-1}
         aria-labelledby="lazy-view-failure-title"

@@ -1,5 +1,16 @@
 # Version Notes
 
+## v0.4.0.10 - Lazy Failure Focus Ownership (2026-10-05)
+
+- Lazy-view failure focus uses the boundary's own section, not a global ID lookup.
+  Pending animation frames are revoked/canceled on replacement and unmount;
+  saved callbacks cannot focus a newer view or interfere with a newer owner.
+- A consumed handoff only focuses a connected, non-inert target without an active
+  overlay lease. Blocked work does not replay when an overlay closes.
+- Error labels, explicit Reload, lazy timeouts, route coordination and layout are
+  unchanged. Actual-class controlled regressions are not native focus acceptance;
+  native v0.4 verification remains pending. No dependencies changed.
+
 ## v0.4.0.9 - System Upgrade Guidance (2026-10-05)
 
 - System no longer says a restart alone loads matching frontend/backend code.

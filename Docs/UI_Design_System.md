@@ -155,6 +155,10 @@ they do not reset it to bootstrap-empty data. Keep pick navigation waiting durin
 hydration under one generation-owned route-focus request. An accepted missing
 target falls back to the page heading; a hydration failure consumes the request.
 Never resurrect that jump later or let a retired frame steal dialog focus.
+Lazy-view error boundaries also own their failure node and pending focus frame.
+Revoke/cancel on replacement or unmount; consume the handoff before focusing only
+a connected, non-inert owned target without an active overlay. Never use a global
+failure ID to focus another boundary or replay blocked focus after a dialog closes.
 
 The six top-level views are Changes, Mission, Overview, History, City, and Chronicle. Put them in a `nav` landmark and mark the active link/control with `aria-current="page"`. Do not claim tab semantics without a complete tab/tabpanel model.
 

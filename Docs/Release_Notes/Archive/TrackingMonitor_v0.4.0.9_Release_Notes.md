@@ -21,9 +21,9 @@ SSR checks content, not browser wrapping, focus or interaction; native v0.4
 acceptance remains pending. Existing dependency/chunk notices and the earlier
 unconfirmed native launcher-fixture transient are not resolved by this change.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 CDD/CFT, verification, live activation and publication evidence is recorded in
 `temp/Plan/PLAN_v0.4.0.9_System_Upgrade_Guidance.txt`.
 
-Previous [v0.4.0.8 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.8_Release_Notes.md)
+Previous [v0.4.0.8 notes](TrackingMonitor_v0.4.0.8_Release_Notes.md)
 retain their historical scope, with only move-affected links rebased.
