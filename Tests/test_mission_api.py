@@ -20,6 +20,7 @@ from Backend.app.chronicle_auth import SignerState
 from Backend.app.config import AppConfig, RepoConfig, ServerConfig, load_check_registry
 from Backend.app.plan_parser import parse_plan_bytes, raw_plan_sha256
 from Backend.app.watcher import Tracker
+from Backend.app.version import __version__
 from Scripts.render_hook_config import render_config
 
 
@@ -827,6 +828,7 @@ class MissionApiTests(unittest.TestCase):
         self.assertEqual(set(data), {
             "server", "repos", "activity", "providers", "chronicle",
         })
+        self.assertEqual(data["server"]["version"], __version__)
         self.assertEqual(set(data["activity"]), {
             "pending", "rejected", "ignored_unscoped",
             "registry_revision_mismatch",

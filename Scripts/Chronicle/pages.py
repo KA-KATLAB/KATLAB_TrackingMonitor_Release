@@ -238,9 +238,10 @@ def build_extra_css () -> str:
   --k-bg: #020617;        /* slate-950 - the app body */
   --k-panel: #0f172a;     /* slate-900 - the app header/cards */
   --k-border: #1e293b;    /* slate-800 */
+  --k-control-border: #64748b; /* slate-500 - identifiable input boundary */
   --k-text: #cbd5e1;      /* slate-300 */
   --k-head: #f1f5f9;      /* slate-100 */
-  --k-muted: #64748b;     /* slate-500 */
+  --k-muted: #94a3b8;     /* slate-400 - readable on canvas and panels */
   --k-teal: #2dd4bf;
   --k-teal-soft: #5eead4;
   --k-sans: 'Segoe UI', system-ui, sans-serif;
@@ -249,12 +250,14 @@ def build_extra_css () -> str:
 
 html { scroll-behavior: smooth; }
 body {
-  background:
-    radial-gradient(1100px 500px at 15% -10%, rgba(45, 212, 191, 0.06), transparent 60%),
-    var(--k-bg);
+  background: var(--k-bg);
   color: var(--k-text);
   font-family: var(--k-sans);
-  letter-spacing: 0.01em;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--k-teal); outline-offset: 3px;
 }
 ::selection { background: rgba(45, 212, 191, 0.25); }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -284,50 +287,59 @@ body {
 .dropdown-item.active { background: rgba(45, 212, 191, 0.12); color: var(--k-teal); }
 
 /* main column */
-[role="main"] { padding-top: 1rem; }
-h1, h2, h3, h4 { font-family: var(--k-sans); color: var(--k-head); font-weight: 800; }
+[role="main"] { min-width: 0; padding-top: 1.5rem; overflow-wrap: anywhere; }
+h1, h2, h3, h4 {
+  font-family: var(--k-sans); color: var(--k-head); font-weight: 700;
+  line-height: 1.3; overflow-wrap: anywhere;
+}
 h1 {
-  font-size: 2rem; margin-bottom: 1.25rem; padding-bottom: 0.75rem;
+  font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: 1.5rem; padding-bottom: 1rem;
   border-bottom: 1px solid var(--k-border);
 }
 h2 {
   font-size: 1.25rem; margin-top: 2.25rem;
-  padding-left: 0.75rem; border-left: 3px solid var(--k-teal);
+  padding-bottom: 0.5rem; border-bottom: 1px solid var(--k-border);
 }
 h3 { font-size: 1rem; color: #e2e8f0; margin-top: 1.5rem; }
-h1 .headerlink, h2 .headerlink, h3 .headerlink { color: var(--k-border); text-decoration: none; }
+h1 .headerlink, h2 .headerlink, h3 .headerlink { color: var(--k-muted); text-decoration: none; }
 a, a:visited { color: var(--k-teal); text-decoration: none; }
 a:hover { color: var(--k-teal-soft); text-decoration: underline; }
 em { color: var(--k-muted); }
 hr { border-color: var(--k-border); opacity: 1; }
 
-/* lists read as rows - the app card rhythm */
-[role="main"] ul { padding-left: 1.1rem; }
+/* Lists retain their reading hierarchy without turning every block into a card. */
+[role="main"] ul, [role="main"] ol { padding-left: 1.5rem; }
 [role="main"] > ul > li, [role="main"] h2 ~ ul > li {
-  margin: 0.3rem 0; line-height: 1.65;
+  margin: 0.5rem 0; line-height: 1.65;
 }
 [role="main"] > ul {
-  background: rgba(15, 23, 42, 0.55);
-  border: 1px solid var(--k-border); border-radius: 10px;
-  padding: 0.9rem 1.2rem 0.9rem 2rem; list-style: none;
+  margin: 1rem 0 1.5rem; list-style: disc;
 }
 [role="main"] > ul > li::marker { color: var(--k-teal); }
 
 /* code - the app mono voice */
 code {
-  font-family: var(--k-mono); font-size: 0.82em;
+  font-family: var(--k-mono); font-size: 0.875rem;
   color: var(--k-teal-soft); background: var(--k-panel);
   border: 1px solid var(--k-border); border-radius: 5px;
-  padding: 0.1em 0.4em;
+  padding: 0.1em 0.4em; overflow-wrap: anywhere;
 }
 pre {
   background: #0b1220; border: 1px solid var(--k-border);
-  border-radius: 10px; padding: 1rem;
+  border-radius: 8px; padding: 1rem;
+  max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere;
 }
-pre code { background: transparent; border: 0; padding: 0; color: inherit; }
+pre code {
+  background: transparent; border: 0; padding: 0; color: inherit;
+  white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal;
+}
 
 /* tables */
-table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+table {
+  width: 100%; max-width: 100%; table-layout: fixed;
+  border-collapse: collapse; margin: 1rem 0;
+}
+th, td { overflow-wrap: anywhere; }
 th {
   background: var(--k-panel); color: var(--k-head); text-align: left;
   padding: 0.5rem 0.75rem; border-bottom: 2px solid var(--k-border);
@@ -345,7 +357,7 @@ tr:hover td { background: rgba(15, 23, 42, 0.6); }
   padding: 0.75rem 0.5rem;
 }
 .bs-sidebar .nav > li > a {
-  color: var(--k-muted); font-size: 0.78rem; line-height: 1.4;
+  color: var(--k-muted); font-size: 0.875rem; line-height: 1.5;
   white-space: normal; overflow-wrap: anywhere; word-break: break-word;
   padding: 0.3rem 0.6rem; display: block;
 }
@@ -364,7 +376,10 @@ tr:hover td { background: rgba(15, 23, 42, 0.6); }
 .modal-header, .modal-footer { border-color: var(--k-border); }
 .modal-title { color: var(--k-head); font-family: var(--k-sans); }
 .modal-content .btn-close { filter: invert(1) grayscale(1); }
-#mkdocs-search-results article { border-bottom: 1px solid var(--k-border); padding: 0.5rem 0; }
+#mkdocs-search-results article {
+  border-bottom: 1px solid var(--k-border); padding: 0.75rem 0;
+  min-width: 0; overflow-wrap: anywhere;
+}
 #mkdocs-search-results h3 a { color: var(--k-teal); }
 kbd {
   background: var(--k-bg); color: var(--k-teal-soft);
@@ -375,7 +390,7 @@ kbd {
 /* search input - default form-control is white */
 input.form-control, .form-control:focus {
   background: var(--k-bg); color: var(--k-text);
-  border: 1px solid var(--k-border); box-shadow: none;
+  border: 1px solid var(--k-control-border); box-shadow: none;
 }
 .form-control::placeholder { color: var(--k-muted); }
 .form-control:focus { border-color: var(--k-teal); }
@@ -414,7 +429,20 @@ input.form-control, .form-control:focus {
 .dropdown-submenu > a.dropdown-item { font-weight: 600; }
 
 /* mermaid diagrams breathe */
-.mermaid { background: transparent; text-align: center; margin: 1.25rem 0; }
+.mermaid {
+  background: transparent; text-align: center; margin: 1.25rem 0;
+  max-width: 100%;
+}
+.mermaid svg { max-width: 100%; height: auto; }
+[role="main"] img { max-width: 100%; height: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+  }
+}
 
 /* footer */
 footer { color: var(--k-muted); border-top: 1px solid var(--k-border); margin-top: 3rem; }

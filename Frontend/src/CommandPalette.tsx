@@ -23,6 +23,7 @@ export interface PaletteEntry {
   hint?: string;
   disabledReason?: string;
   opensDialog?: boolean;
+  opensDisclosure?: boolean;
   run: () => void;
 }
 
@@ -81,19 +82,24 @@ function fuzzyScore (normalizedQuery: string, label: string): number | null {
 
 interface CommandPaletteProps {
   entries: PaletteEntry[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onStatus?: (message: string) => void;
 }
 
 export function CommandPalette ({
   entries,
+  open,
+  onOpenChange,
   onStatus,
 }: CommandPaletteProps): JSX.Element | null {
-  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const openRef = useRef(open);
   openRef.current = open;
+  const changeOpenRef = useRef(onOpenChange);
+  changeOpenRef.current = onOpenChange;
 
   const entriesById = useMemo(() => assertUniquePaletteEntries(entries), [entries]);
   const normalizedQuery = normalizeQuery(query);
@@ -130,21 +136,25 @@ export function CommandPalette ({
     setActiveId(matches[0]?.entry.id ?? null);
   }, [resultIdentity]);
 
-  const closePalette = useCallback(() => setOpen(false), []);
+  const closePalette = useCallback(() => changeOpenRef.current(false), []);
+
+  useEffect(() => {
+    if (!open) return;
+    setQuery("");
+    setActiveId(null);
+  }, [open]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "k") return;
       if (openRef.current) {
         event.preventDefault();
-        setOpen(false);
+        changeOpenRef.current(false);
         return;
       }
       if (hasOverlayLease()) return;
       event.preventDefault();
-      setQuery("");
-      setActiveId(null);
-      setOpen(true);
+      changeOpenRef.current(true);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -158,9 +168,9 @@ export function CommandPalette ({
       onStatus?.(entry.disabledReason);
       return;
     }
-    if (entry.opensDialog) suppressOverlayFocusRestore();
+    if (entry.opensDialog || entry.opensDisclosure) suppressOverlayFocusRestore();
     entry.run();
-    setOpen(false);
+    changeOpenRef.current(false);
   };
 
   const changePage = (nextPage: number): void => {
@@ -254,12 +264,14 @@ export function CommandPalette ({
                 + (entry.disabledReason ? " cursor-not-allowed opacity-70" : "")
               }
             >
-              <span className="w-14 shrink-0 text-xs font-semibold uppercase tracking-wide text-ui-muted">
+              <span className={"w-14 shrink-0 text-xs font-semibold uppercase tracking-wide "
+                + (selected ? "text-white" : "text-ui-muted")}>
                 {entry.section}
               </span>
               <span className="min-w-0 flex-1 break-words">{entry.label}</span>
               {(entry.disabledReason ?? entry.hint) && (
-                <span className="max-w-44 shrink-0 text-right text-xs text-ui-muted">
+                <span className={"max-w-44 shrink-0 text-right text-xs "
+                  + (selected ? "text-white" : "text-ui-muted")}>
                   {entry.disabledReason ?? entry.hint}
                 </span>
               )}

@@ -41,6 +41,10 @@ When prose and running code disagree, do not silently choose one. Establish whet
 | `Frontend/src/api.ts` | REST types and client; backend contract mirror |
 | `Frontend/src/ws.ts` | WebSocket connection/reconnect boundary |
 | `Frontend/src/App.tsx` | Global live state, synchronization, navigation, cross-view effects |
+| `Frontend/src/AppShell.tsx` | Presentation-only header, navigation rail and workspace context |
+| `Frontend/src/RepositorySwitcher.tsx` | Shared modal wrapper for existing scope choices and paging |
+| `Frontend/buildVersion.mjs` | Data-only canonical version reader for Vite; no Python/Git execution |
+| `Frontend/src/ApplicationBrand.tsx` | Visible loaded UI build and existing System action |
 | `Frontend/src/MissionView.tsx` | Verification cockpit, evidence queue, and session flight recorder |
 | `Frontend/src/missionModel.ts` | Pure Mission labels, ordering, lanes, and entry-state normalization |
 | `Frontend/src/OverviewView.tsx` | Overview composition |
@@ -162,6 +166,15 @@ Plan-before-catch-up prevents permanent `UNKNOWN` attribution. The dedicated Git
 - `App.tsx` owns global snapshots and cross-view effects; keep feature-specific algorithms in focused modules.
 - Navigation has six canonical views in order: Changes, Mission, Overview,
   History, City, Chronicle. Mission remains route-lazy and outside attract mode.
+- v0.4 uses a 14rem view rail from 1280px, Navigation drawer below, and Tasks,
+  repository scope and status drawers at every width. Tools owns secondary
+  reports/Experience/preferences; scope search never overwrites unfiltered paging.
+- Header version is the loaded UI build. System shows the backend version
+  separately; unknown or malformed values are not a mismatch or a render error.
+  Do not add health polling for version display. Verify rebuilt/served assets
+  and tab reload independently of backend restart.
+- Current clean/count summaries require valid online Git status and disclose
+  known coverage. Never reinterpret retained invalid/offline values as clean/zero.
 - Mission readiness comes only from the backend; React displays reasons and never
   infers a pass. Session identity is always `(provider, session_id)`.
 - Scope statistics intentionally: some features are tab-scoped, while workspace identity such as Kat's wardrobe is unscoped.
@@ -236,6 +249,9 @@ Plan-before-catch-up prevents permanent `UNKNOWN` attribution. The dedicated Git
   current bounded local implementation.
 - Edit Chronicle sources under `Scripts/Chronicle/`; never hand-edit generated
   `Chronicle/runtime/` output.
+- Reader typography/color/focus/motion is owned by `pages.py` build_extra_css.
+  Preserve local fonts, native table structure, pinned assets, navigation and
+  signed runtime. Generated build checks are not native visual acceptance.
 
 ## 5. Working workflows
 

@@ -76,6 +76,7 @@ function calendarAlternativeSummary (calendar: StatsData["activity_calendar"]): 
 }
 
 export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsError,
+  workspaceReady = true, workspaceError = "",
   statsSettled = false, statsRefreshBusy = false, onRefreshStats,
   onOpenFileStory, onOpenWrapped, onExportReport, reportBusy = false,
   initialDayScopeAction = false, onInitialDayScopeActionConsumed, onStatus, entryState,
@@ -84,6 +85,8 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
   tasks: Task[];
   uncommitted: TrackedEvent[];
   repos: Repo[];
+  workspaceReady?: boolean;
+  workspaceError?: string;
   // v0.1.6.0 D1 (C.1, RV1/RV10): the stats fetch lifted to App — this
   // view renders the props; the error message renders exactly where the
   // local error did before the lift.
@@ -163,12 +166,12 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
   useReveal("overview", [stats]); // D5: stagger KPI cards + charts, once per session
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-8">
       <SectionHeading
         title={`Overview ${scope ? `— ${scope}` : "— All repos"}`}
-        description="Live work, trends, exploration, and task relationships in the current scope."
+        description="Current workload first, then activity trends, exploration, and task relationships."
         headingProps={{ "data-view-heading": true, tabIndex: -1 }}
-        className="!mb-0 border-l-4 border-teal-500 pl-3"
+        className="!mb-0"
         actions={(
           <>
             <ControlButton ref={statsRefreshButtonRef} onClick={onRefreshStats}
@@ -210,10 +213,17 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
           Showing the last successful stats response; it has not been updated.
         </p>
       )}
+      {(!workspaceReady || workspaceError) && (
+        <p className="rounded-control border border-ui-border bg-ui-surface px-3 py-2 text-sm text-amber-300">
+          {!workspaceReady
+            ? `${workspaceError ? "Workspace snapshot unavailable." : "Waiting for workspace snapshot."} Picks, Git status, active plans, trophies and relationships are unavailable; statistics are independent.`
+            : "Workspace refresh failed. Showing the last accepted workspace snapshot for picks, Git status, active plans, trophies and relationships; statistics are independent."}
+        </p>
+      )}
 
-      <section aria-labelledby="overview-now-heading" className="space-y-4">
+      <section aria-labelledby="overview-now-heading" className="min-w-0 space-y-6">
         <SectionHeading headingId="overview-now-heading" level={3}
-          title="Now" description="The current workload and this week's direction."
+          title="Now" description="Attribution decisions, known Git status, and dated capture effort."
           className="!mb-0" />
         {!stats && !statsError && (
           <p className="rounded-control border border-ui-border bg-ui-surface px-3 py-2 text-sm text-ui-muted">
@@ -222,12 +232,13 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
               : "Loading overview data…"}
           </p>
         )}
-        {stats && <KpiRow stats={stats} repos={repos} uncommitted={uncommitted} />}
+        {stats && <KpiRow stats={stats} repos={repos} uncommitted={uncommitted}
+          workspaceReady={workspaceReady} workspaceError={workspaceError} />}
         {/* v0.2.2.0 D1 (B.1, RV1): the now-layer — a SIBLING before both
             totalEvents branches (never nested; the board is task-driven,
             not event-driven), gated on its OWN data (the component hides
             itself at zero active plans). */}
-        {stats && (
+        {stats && workspaceReady && (
           <PlanBoard tasks={tasks}
             onOpenFileStory={(repo, file) => onOpenFileStory?.(repo, file)} />
         )}
@@ -243,7 +254,7 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
 
         {stats && totalEvents > 0 && (
           <>
-            <section aria-labelledby="overview-trends-heading" className="space-y-4">
+            <section aria-labelledby="overview-trends-heading" className="min-w-0 space-y-6 border-t border-ui-border pt-6">
               <SectionHeading headingId="overview-trends-heading" level={3}
                 title="Trends" description="Attribution, activity, timing, and files that move together."
                 className="!mb-0" />
@@ -459,7 +470,7 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
             </div>
             </section>
 
-            <section aria-labelledby="overview-explore-heading" className="space-y-4">
+            <section aria-labelledby="overview-explore-heading" className="min-w-0 space-y-6 border-t border-ui-border pt-6">
               <SectionHeading headingId="overview-explore-heading" level={3}
                 title="Explore" description="Goals, identity, codebase signals, and earned progress."
                 className="!mb-0" />
@@ -499,7 +510,7 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
                 first; a deliberate documented placement change). The
                 records instance ALONE is scope-keyed (the rings law). */}
             <div className="grid gap-4 xl:grid-cols-2">
-              <TrophyCase stats={stats} tasks={tasks} scope={scope} />
+              {workspaceReady && <TrophyCase stats={stats} tasks={tasks} scope={scope} />}
               <Records key={scope ? `repo:${scope}` : "all"} calendar={stats.activity_calendar} />
             </div>
             {/* v0.2.11.0 D9 (A.4): the provenance ledger — FULL WIDTH below
@@ -511,10 +522,10 @@ export function OverviewView ({ scope, tasks, uncommitted, repos, stats, statsEr
           </>
         )}
 
-      <GraphPanel tasks={tasks} uncommitted={uncommitted} repos={repos} scope={scope}
+      {workspaceReady && <GraphPanel tasks={tasks} uncommitted={uncommitted} repos={repos.filter((repo) => !repo.offline)} scope={scope}
         selection={entryState.relationship}
         onStatus={onStatus}
-        onSelectionChange={(relationship) => onEntryStateChange({ ...entryState, relationship })} />
+        onSelectionChange={(relationship) => onEntryStateChange({ ...entryState, relationship })} />}
     </div>
   );
 }
@@ -537,79 +548,77 @@ function CouplingFile ({ repo, file, onOpen }:
 // D1 (v0.1.4.0): KPI row — the "at a glance" numbers above the charts.
 // Sources are PINNED by the plan: /api/stats (total, auto-%, busiest), the
 // UNCOMMITTED events prop (needs-pick — must equal the pick-queue N), and
-// /api/repos (clean/total, uncommitted sum). Empty-safe: no NaN on total=0.
-function KpiRow ({ stats, repos, uncommitted }:
-  { stats: StatsData; repos: Repo[]; uncommitted: TrackedEvent[] }) {
+// /api/repos (known clean/known total, known uncommitted sum). Git failures retain
+// stale values, so offline/unvalidated rows are excluded with visible coverage.
+function KpiRow ({ stats, repos, uncommitted, workspaceReady = true, workspaceError = "" }:
+  { stats: StatsData; repos: Repo[]; uncommitted: TrackedEvent[];
+    workspaceReady?: boolean; workspaceError?: string }) {
   const total = Object.values(stats.mode_counts).reduce((a, b) => a + b, 0);
   const auto = (stats.mode_counts.B ?? 0) + (stats.mode_counts.A_SCOPED ?? 0) +
     (stats.mode_counts.A_GLOBAL ?? 0);
   const autoPct = total > 0 ? Math.round((auto / total) * 100) : 0;
   const needsPick = uncommitted.filter((e) => e.mode === "AMBIGUOUS" || e.mode === "UNKNOWN").length;
-  const clean = repos.filter((r) => r.clean).length;
-  const uncommittedSum = repos.reduce((n, r) => n + r.count, 0);
+  const knownRepos = repos.filter((r) => !r.offline && r.status_valid === true);
+  const clean = knownRepos.filter((r) => r.clean).length;
+  const uncommittedSum = knownRepos.reduce((n, r) => n + r.count, 0);
+  const workspaceLabel = workspaceError ? "Unavailable" : "Waiting";
+  const pickSub = !workspaceReady ? "A complete workspace snapshot has not been accepted"
+    : workspaceError ? "Captured events from the last accepted workspace snapshot"
+    : "Captured events awaiting attribution";
+  const coverage = !workspaceReady ? "A complete workspace snapshot has not been accepted"
+    : repos.length === 0 ? workspaceError ? "No repositories in the last accepted workspace snapshot" : "No repositories in this scope"
+    : `${knownRepos.length}/${repos.length} repositories with ${workspaceError ? "valid Git status in the last accepted workspace snapshot" : "current Git status"}`
+      + (knownRepos.length < repos.length ? "; remaining status unavailable" : "");
+  const gitFormat = !workspaceReady ? () => workspaceLabel : knownRepos.length > 0 ? undefined
+    : () => repos.length === 0 ? "No repos" : "Unavailable";
   // Keep the supplied UTC date visible when a quiet/error snapshot is older.
   const latestDay = stats.activity_calendar[stats.activity_calendar.length - 1];
   const busiest = stats.events_per_task[0]; // backend sorts count DESC — [0] is the top
   return (
-    <div className="grid gap-3"
-      style={{ gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}>
-      <Kpi label="captured events" value={total} />
-      <Kpi label="auto-attributed" value={autoPct} suffix="%" />
-      <Kpi label="need a pick" value={needsPick} />
-      <Kpi label="repos clean" value={clean} suffix={`/${repos.length}`} />
-      <Kpi label="uncommitted changes" value={uncommittedSum} />
-      <Kpi key={latestDay?.day ?? "unavailable"}
-        label={`time ${calendarDayLabel(latestDay?.day)}`}
-        value={latestDay?.minutes ?? 0} format={latestDay ? fmtMinutes : () => "Unavailable"}
-        tip="estimated from capture timestamps — 15-min gap rule" />
-      {busiest && (
-        <Kpi label="busiest task" value={busiest.count}
-          sub={busiest.task_ref.split(" - ").pop()} />
-      )}
+    <div className="min-w-0 space-y-6">
+      <div role="group" aria-label="Current operational metrics"
+        className="grid min-w-0 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <Kpi label="need a pick" value={needsPick} sub={pickSub}
+          format={workspaceReady ? undefined : () => workspaceLabel} />
+        <Kpi label="uncommitted changes" value={uncommittedSum} format={gitFormat} sub={coverage} />
+        <Kpi label="repos clean" value={clean} format={gitFormat}
+          suffix={workspaceReady && knownRepos.length > 0 ? `/${knownRepos.length}` : undefined} sub={coverage} />
+        <Kpi key={latestDay?.day ?? "unavailable"}
+          label={`time ${calendarDayLabel(latestDay?.day)}`}
+          value={latestDay?.minutes ?? 0} format={latestDay ? fmtMinutes : () => "Unavailable"}
+          tip="estimated from capture timestamps — 15-min gap rule" />
+      </div>
+      <div role="group" aria-label="Captured activity summary"
+        className="grid min-w-0 gap-4 border-t border-ui-border pt-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Kpi secondary label="captured events" value={total} />
+        <Kpi secondary label="auto-attributed" value={autoPct} suffix="%" />
+        {busiest && (
+          <Kpi secondary label="busiest task" value={busiest.count}
+            sub={busiest.task_ref.split(" - ").pop()} />
+        )}
+      </div>
     </div>
   );
 }
 
 // v0.1.6.0 D1 (C.1, RV8): optional format prop — count-up stays NUMERIC,
 // the formatter renders each frame (effort KPI: fmtMinutes carries the ≈).
-function Kpi ({ label, value, suffix, sub, format, tip }:
+function Kpi ({ label, value, suffix, sub, format, tip, secondary = false }:
   { label: string; value: number; suffix?: string; sub?: string;
-    format?: (n: number) => string; tip?: string }) {
+    format?: (n: number) => string; tip?: string; secondary?: boolean }) {
   const shown = useCountUp(value);
-  const heroRef = useRef<HTMLDivElement | null>(null);
-  const fitRef = useRef<() => void>(() => {});
-
-  // D2(b) (B.2): scale over-wide hero values via transform so huge counts
-  // never break the auto-fit grid; re-fits on card resize and on every
-  // count-up frame (the final value is the widest).
-  useEffect(() => {
-    const el = heroRef.current;
-    if (!el) return;
-    fitRef.current = () => {
-      el.style.transform = "";
-      const k = el.clientWidth / el.scrollWidth;
-      if (k < 1) {
-        el.style.transformOrigin = "left bottom";
-        el.style.transform = `scale(${Math.max(0.5, k)})`;
-      }
-    };
-    const ro = new ResizeObserver(() => fitRef.current());
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  useEffect(() => { fitRef.current(); }, [shown, suffix]);
-
   return (
-    <Surface data-reveal title={tip}>
-      <div ref={heroRef}
-        className="whitespace-nowrap font-mono text-4xl font-bold leading-none text-slate-100">
-        {format ? format(shown) : shown.toLocaleString()}{suffix}
-      </div>
-      <div className="mt-1.5 min-h-8 break-words text-[11px] font-semibold uppercase leading-4 tracking-wide text-slate-400"
-        title={sub ? `${label} · ${sub}` : label}>
-        {label}{sub ? ` · ${sub}` : ""}
-      </div>
-    </Surface>
+    <div data-reveal title={tip} className="ui-metric">
+      <dl className="min-w-0">
+        <dt className="break-words text-sm font-medium leading-5 text-ui-muted">{label}</dt>
+        <dd className={secondary
+          ? "mt-2 break-words [overflow-wrap:anywhere] font-mono text-xl font-semibold leading-7 text-ui-text"
+          : "ui-metric-value mt-2"}>
+          {format ? format(shown) : shown.toLocaleString()}{suffix}
+        </dd>
+      </dl>
+      {sub && <p className="ui-metadata mt-2">{sub}</p>}
+    </div>
   );
 }
 
@@ -826,7 +835,7 @@ function GraphPanel ({ tasks, uncommitted, repos, scope, selection, onSelectionC
             || selectedRef.current?.planFile !== selectionValue.planFile) return;
         setSvg(result.svg);
         setNote(result.meta.capped > 0
-          ? `showing ${result.meta.shown} of ${result.meta.total} tasks — see the sidebar for the rest`
+          ? `showing ${result.meta.shown} of ${result.meta.total} tasks — open Tasks for the rest`
           : result.meta.total === 0 ? "no tasks in this plan" : "");
         setFailure(null);
         setSettledKey(workSemanticKey);
@@ -954,7 +963,7 @@ function GraphPanel ({ tasks, uncommitted, repos, scope, selection, onSelectionC
   const pendingTasks = accessibleRows.filter((row) => row.uncommitted).length;
 
   return (
-    <section aria-labelledby="overview-relationships-heading" className="space-y-4">
+    <section aria-labelledby="overview-relationships-heading" className="min-w-0 space-y-6 border-t border-ui-border pt-6">
       <SectionHeading headingId="overview-relationships-heading" level={3}
         title="Relationships"
         description="Trace a plan from declared tasks to commits and uncommitted work."
@@ -1019,7 +1028,7 @@ function GraphPanel ({ tasks, uncommitted, repos, scope, selection, onSelectionC
         <>
           <GraphShell svg={svg} onExpand={() => setExpanded(true)} />
           {/* D7: one-line shape legend (user-approved 2026-07-17) */}
-          <p className="mt-1 text-[11px] text-slate-400">
+          <p className="mt-1 text-xs text-slate-400">
             ▭ task · ⬭ commit · ⬡ uncommitted (dashed edge = not committed yet)
           </p>
         </>

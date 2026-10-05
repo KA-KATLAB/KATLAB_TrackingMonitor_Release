@@ -39,12 +39,31 @@ Historical notes reference `Ref/system_architecture.mermaid` and
 
 ### 1.4 Browser UI — React + Vite + Tailwind (English)
 
-- **Responsive shell**: repo scope, six-view navigation, status rail, Attention, and utilities remain reachable at phone, tablet, and desktop widths; Tasks is a modal drawer below 1024px and a persistent sidebar from 1024px.
+- **Responsive shell (v0.4)**: brand/build version, Repository, Commands,
+  connection state, Attention, System and Tools stay reachable at all widths.
+  View navigation uses a 14rem rail from 1280px and a named drawer below. Tasks,
+  searchable repository scope and detailed repository status are separate shared
+  drawers at every width. App retains routes, requests and cross-view ownership.
+- **Build identity**: Vite parses the canonical Python version as a narrow data
+  declaration, without executing Python/Git. The header shows that loaded UI
+  version; System displays the server snapshot separately and explains mismatches.
+  Version display adds no polling or automatic health request.
+- **Live status trust**: App retains existing WS validity/observation fields and
+  protects pushes received during a REST round using its request-start epoch.
+  Unknown/offline gaps clear notification baselines; recovery alone never creates
+  a clean celebration. Attention and Kat disclose incomplete status coverage.
 - **Changes**: changes grouped by task — why + files + diff viewer + **AMBIGUOUS queue** (manual pick), with bounded semantic collections.
 - **Mission**: plan readiness, read-only Attribution Forecast, requirement rail, blocker/evidence queue, provider-aware session flight recorder, replay, and exact-data table; all decisions come from the backend.
-- **Overview**: Now (KPIs, plans, momentum) → Trends (three Chart.js charts, calendar, day lanes, coupling, punch card) → Explore (goals, identity, churn, trophies, records, provenance) → Relationships (lazy Mermaid). Attribution is a horizontal bar, not the retired doughnut.
+- **Overview**: Now (four primary metrics, secondary capture summary, plans,
+  momentum) → Trends (three Chart.js charts, calendar, day lanes, coupling, punch
+  card) → Explore (goals, identity, churn, trophies, records, provenance) →
+  Relationships (lazy Mermaid). Known-status coverage excludes offline/invalid
+  retained Git values. Snapshot dates and full-model calculations are preserved.
 - **History**: commit → tasks → events, with independent API fetch depth and visible 50-row paging; commits remain counted separately.
-- **City and Chronicle**: City is a paged six-district SVG view with complete-model calculations and an exact-data alternative. Chronicle remains a same-origin iframe whose React host owns sizing/fallback only.
+- **City and Chronicle**: City is a paged six-district SVG with full-model scales,
+  exact-data alternatives and explicit unavailable Git status. Chronicle's host
+  owns availability/sizing and a new-tab link. Its generated CSS is aligned through
+  `pages.py` only; signed runtime and MkDocs navigation/lifecycle are unchanged.
 
 ### 1.5 Interface invariants (v0.3.0.1)
 

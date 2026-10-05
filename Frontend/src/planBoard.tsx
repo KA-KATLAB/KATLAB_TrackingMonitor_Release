@@ -82,18 +82,18 @@ export function PlanBoard ({ tasks, onOpenFileStory }: {
   if (plans.length === 0) return null; // the hidden-at-0 precedent
   const planTasks = plans.flatMap((plan) => plan.tasks);
   return (
-    <Surface data-reveal>
+    <Surface data-reveal tone="quiet">
       <SectionHeading level={4} title="Active plans"
         description="The missions currently in motion." />
-      <div className="space-y-3">
+      <div className="ui-work-list">
         {plans.slice(pager.start, pager.end).map((p) => (
-          <div key={JSON.stringify([p.repo, p.planFile])}>
-            <div className="flex items-baseline gap-2 text-sm">
-              <span className="font-bold text-slate-100">{p.base}</span>
-              <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-300">
+          <div key={JSON.stringify([p.repo, p.planFile])} className="min-w-0 border-b border-ui-border p-4 last:border-b-0">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-2 text-base">
+              <span className="min-w-0 break-all font-semibold text-ui-text">{p.base}</span>
+              <span className="min-w-0 break-all rounded bg-ui-raised px-1.5 py-0.5 text-xs text-ui-muted">
                 {p.repo}
               </span>
-              <span className="ml-auto text-[11px] text-slate-400">
+              <span className="ml-auto text-xs text-ui-muted">
                 {p.done}/{p.tasks.length} done
               </span>
             </div>
@@ -109,11 +109,11 @@ export function PlanBoard ({ tasks, onOpenFileStory }: {
             {/* the spotlight(s): normally ONE per repo (the discipline
                 rule); the board renders whatever exists — the guard nags */}
             {p.inProgress.map((t) => (
-              <div key={t.task_ref} className="mt-2 rounded bg-slate-800/60 px-3 py-2 text-sm">
+              <div key={t.task_ref} className="mt-3 min-w-0 rounded-control bg-ui-raised/60 px-3 py-3 text-base">
                 <div>
-                  <span className="font-mono text-[11px] text-amber-300"
+                  <span className="font-mono text-xs text-amber-300"
                     title={t.task_ref}>{shortId(t.task_ref)}</span>{" "}
-                  <span className="font-bold text-slate-100">{t.title}</span>
+                  <span className="break-words [overflow-wrap:anywhere] font-semibold text-ui-text">{t.title}</span>
                 </div>
                 {t.why && (
                   <p className="mt-0.5 break-words text-xs text-slate-400">
@@ -127,12 +127,12 @@ export function PlanBoard ({ tasks, onOpenFileStory }: {
                         onClick={() => onOpenFileStory(t.repo, f)}
                         aria-label={`${f} — open file story`}
                         title={`${f} — open the file story`}
-                        className="rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-sky-300 hover:bg-slate-700">
+                        className="min-w-0 break-all rounded bg-ui-raised px-1.5 py-0.5 text-xs text-sky-300 hover:bg-ui-border">
                         {basename(f)}
                       </button>
                     ))}
                     {t.files.length > 4 && (
-                      <span className="self-center text-[11px] text-slate-500">
+                      <span className="self-center text-xs text-ui-muted">
                         +{t.files.length - 4}
                       </span>
                     )}
@@ -141,12 +141,12 @@ export function PlanBoard ({ tasks, onOpenFileStory }: {
               </div>
             ))}
             {p.inProgress.length === 0 && (
-              <p className="mt-1 text-xs text-slate-500">no task in progress</p>
+              <p className="mt-2 text-xs text-ui-muted">No task in progress</p>
             )}
             {p.nextUp && (
               <p className="mt-1 text-xs text-slate-400">
                 next up:{" "}
-                <span className="font-mono text-[11px]"
+                <span className="font-mono text-xs"
                   title={p.nextUp.task_ref}>{shortId(p.nextUp.task_ref)}</span>{" "}
                 {p.nextUp.title}
               </p>

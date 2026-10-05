@@ -459,7 +459,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
                 onClick={() => pickLaneView(v)}
                 disabled={v === "clock" && replay}
                 title={v === "clock" && replay ? "exit replay first" : undefined}
-                className={`rounded px-1.5 py-0.5 text-[11px] ${
+                className={`rounded px-1.5 py-0.5 text-xs ${
                   laneView === v
                     ? "bg-teal-800 text-white"
                     : "bg-slate-800 text-slate-400 hover:bg-slate-700"} disabled:opacity-30 disabled:hover:bg-slate-800`}>
@@ -470,7 +470,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
           {!replay && timeWindow && laneView === "lanes" && rows && rows.length > 0 && (
             <button onClick={armReplay}
               title="replay this day — the whole day in 30 seconds at 1x"
-              className="mr-2 rounded bg-teal-700 px-2 py-0.5 text-[11px] font-bold text-white hover:bg-teal-600">
+              className="mr-2 rounded bg-teal-700 px-2 py-0.5 text-xs font-bold text-white hover:bg-teal-800">
               ▶ Replay
             </button>
           )}
@@ -589,7 +589,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
             </button>
             {[1, 2, 4].map((s) => (
               <button key={s} onClick={() => onSpeedChange(s as 1 | 2 | 4)}
-                className={`rounded px-1.5 py-0.5 text-[11px] ${speed === s
+                className={`rounded px-1.5 py-0.5 text-xs ${speed === s
                   ? "bg-teal-700 font-bold text-white" : "text-slate-300 hover:bg-slate-700"}`}>
                 {s}x
               </button>
@@ -615,22 +615,22 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
           <div className="flex min-h-6 flex-wrap gap-1.5">
             {feed.map((e) => (
               <span key={e.id}
-                className="chip-pop flex items-center gap-1 rounded bg-slate-800 px-1.5 py-0.5 text-[11px]">
+                className="chip-pop flex items-center gap-1 rounded bg-slate-800 px-1.5 py-0.5 text-xs">
                 <span className="font-mono text-slate-400">
                   {fmtLocal(new Date(e.ts).getTime())}
                 </span>
                 {scope === undefined && (
-                  <span className="text-[10px] text-slate-500">{e.repo_id}</span>
+                  <span className="text-xs text-slate-400">{e.repo_id}</span>
                 )}
                 <span className="max-w-40 truncate font-mono" title={e.file}>{e.file}</span>
-                <span className="rounded px-1 text-[9px] font-bold text-white"
-                  style={{ backgroundColor: MODE_COLOR[e.mode] }}>
+                <span className="rounded px-1 text-xs font-bold text-white"
+                  style={{ backgroundColor: MODE_COLOR[e.mode], color: MODE_BADGE[e.mode].foreground }}>
                   {MODE_BADGE[e.mode].label}
                 </span>
               </span>
             ))}
             {feed.length === 0 && (
-              <span className="text-[11px] text-slate-500">
+              <span className="text-xs text-slate-400">
                 — scrub or play to see the day unfold —
               </span>
             )}
@@ -664,7 +664,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
         />
       )}
       {rows && <EventWindowNotice limitReached={limitReached} count={rows.length} />}
-      {!rows && busy && <p className="text-xs text-slate-500">Loading…</p>}
+      {!rows && busy && <p className="text-xs text-slate-400">Loading…</p>}
     </Surface>
   );
 }

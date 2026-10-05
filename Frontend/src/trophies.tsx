@@ -92,10 +92,10 @@ export function TrophyCase ({ stats, tasks, scope }: {
 }) {
   const scoped = scope ? tasks.filter((t) => t.repo === scope) : tasks;
   return (
-    <Surface data-reveal>
+    <Surface data-reveal tone="quiet">
       <SectionHeading level={4} title="Trophy case"
         description={scope ?? "All repos"} />
-      <div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
+      <div className="grid min-w-0 gap-x-6 gap-y-4 sm:grid-cols-2 2xl:grid-cols-3">
         {TROPHIES.map((t) => {
           const v = t.value(stats, scoped);
           const crossed = t.thresholds.filter((th) => v >= th).length;
@@ -104,20 +104,20 @@ export function TrophyCase ({ stats, tasks, scope }: {
           const next = crossed < t.thresholds.length ? t.thresholds[crossed] : null;
           const pct = next === null ? 100 : Math.min(100, Math.round((v / next) * 100));
           return (
-            <div key={t.id} className="rounded bg-slate-800/60 p-2"
+            <div key={t.id} className="min-w-0 border-b border-ui-border pb-4"
               title={`${t.basis}: ${fmt(v)}${next !== null ? ` · next rank at ${fmt(next)}` : " · max rank"}`}>
-              <div className="flex items-center gap-1.5 text-xs">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 text-base">
                 <span aria-hidden="true">{t.emoji}</span>
-                <span className="truncate text-slate-200">{t.title}</span>
-                <span className="ml-auto rounded px-1 text-[10px] font-bold"
+                <span className="min-w-0 break-words font-semibold text-ui-text">{t.title}</span>
+                <span className="ml-auto rounded px-1.5 text-xs font-bold"
                   style={{ backgroundColor: color,
                     color: crossed === 0 ? "#cbd5e1" : "#0f172a" }}>
                   {rank}
                 </span>
               </div>
-              <div className="mt-1 text-[11px] text-slate-400">{fmt(v)}</div>
-              <div className="mt-0.5 text-[10px] leading-tight text-slate-500">{t.basis}</div>
-              <div className="mt-0.5 text-[10px] text-slate-400">
+              <div className="mt-2 text-xl font-semibold tabular-nums text-ui-text">{fmt(v)}</div>
+              <div className="mt-1 text-xs leading-relaxed text-ui-muted">{t.basis}</div>
+              <div className="mt-1 text-xs text-ui-muted">
                 {next === null ? "maximum rank reached" : `next rank at ${fmt(next)}`}
               </div>
               <div className="mt-1 h-1 rounded bg-slate-700" aria-hidden="true">
@@ -130,20 +130,20 @@ export function TrophyCase ({ stats, tasks, scope }: {
         {SECRETS.map((sec) => {
           const un = sec.unlocked(stats);
           return (
-            <div key={sec.id} className="rounded bg-slate-800/60 p-2"
+            <div key={sec.id} className="min-w-0 border-b border-ui-border pb-4"
               title={un ? sec.story : "secret trophy — keep working to discover"}>
-              <div className="flex items-center gap-1.5 text-xs">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 text-base">
                 <span aria-hidden="true">{un ? sec.emoji : "🔒"}</span>
-                <span className={un ? "text-slate-200" : "text-slate-500"}>
+                <span className={un ? "min-w-0 break-words font-semibold text-ui-text" : "text-ui-muted"}>
                   {un ? sec.title : "???"}
                 </span>
-                <span className="ml-auto rounded px-1 text-[10px] font-bold"
+                <span className="ml-auto rounded px-1.5 text-xs font-bold"
                   style={{ backgroundColor: un ? "#f43f5e" : UNRANKED_BG,
                     color: un ? "#0f172a" : "#cbd5e1" }}>
                   {un ? "SECRET" : "?"}
                 </span>
               </div>
-              <div className="mt-1 text-[11px] text-slate-400">
+              <div className="mt-2 text-xs leading-relaxed text-ui-muted">
                 {un ? sec.story : "keep working to discover"}
               </div>
             </div>

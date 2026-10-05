@@ -112,13 +112,14 @@ export function sessionColor (provider: string, sessionId: string): string {
 // label source for App AND digest.ts (importing App.tsx from digest would
 // create an App<->digest module cycle). MODE_CHART_LABEL above owns the
 // abbreviated chart variants used by width-constrained visualizations.
-export const MODE_BADGE: Record<TrackedEvent["mode"], { label: string; tip: string }> = {
-  B: { label: "Declared", tip: "B — the file is declared by exactly this task's <files>" },
-  A_SCOPED: { label: "Active task", tip: "A_SCOPED — shared file; attributed to the one in-progress match" },
-  A_GLOBAL: { label: "Active task *", tip: "A_GLOBAL — undeclared file; attributed to the repo's single in-progress task" },
-  AMBIGUOUS: { label: "Pick: multi", tip: "AMBIGUOUS — several tasks declare this file, none is the single active one; pick manually" },
-  UNKNOWN: { label: "Pick: none", tip: "UNKNOWN — no task declares this file and there is no single in-progress task; pick manually" },
-  MANUAL: { label: "Your pick", tip: "MANUAL — assigned by you; final, never re-resolved" },
+// Foregrounds preserve the chart palette while keeping small badge text readable.
+export const MODE_BADGE: Record<TrackedEvent["mode"], { label: string; tip: string; foreground: string }> = {
+  B: { label: "Declared", tip: "B — the file is declared by exactly this task's <files>", foreground: "#020617" },
+  A_SCOPED: { label: "Active task", tip: "A_SCOPED — shared file; attributed to the one in-progress match", foreground: "#020617" },
+  A_GLOBAL: { label: "Active task *", tip: "A_GLOBAL — undeclared file; attributed to the repo's single in-progress task", foreground: "#ffffff" },
+  AMBIGUOUS: { label: "Pick: multi", tip: "AMBIGUOUS — several tasks declare this file, none is the single active one; pick manually", foreground: "#020617" },
+  UNKNOWN: { label: "Pick: none", tip: "UNKNOWN — no task declares this file and there is no single in-progress task; pick manually", foreground: "#ffffff" },
+  MANUAL: { label: "Your pick", tip: "MANUAL — assigned by you; final, never re-resolved", foreground: "#ffffff" },
 };
 
 // Neutral teal/slate palette for the Mermaid graph (decorative nodes are NOT

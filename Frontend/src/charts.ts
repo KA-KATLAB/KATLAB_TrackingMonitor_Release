@@ -81,7 +81,7 @@ export function modeDistributionBar (canvas: HTMLCanvasElement, s: StatsData): C
       plugins: { legend: { display: false } },
       scales: {
         x: { beginAtZero: true, ticks: { color: TEXT, precision: 0 }, grid: { color: GRID } },
-        y: { ticks: { color: TEXT, font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: TEXT, font: { size: 12 } }, grid: { display: false } },
       },
     },
   });
@@ -100,7 +100,7 @@ export function eventsPerTaskBar (canvas: HTMLCanvasElement, s: StatsData, allSc
       plugins: { legend: { display: false } },
       scales: {
         x: { ticks: { color: TEXT, precision: 0 }, grid: { color: GRID } },
-        y: { ticks: { color: TEXT, font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: TEXT, font: { size: 12 } }, grid: { display: false } },
       },
     },
   });
@@ -121,7 +121,7 @@ export function activityLine (canvas: HTMLCanvasElement, s: StatsData): Chart {
       responsive: true, maintainAspectRatio: false, animation: noAnim(),
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { color: TEXT, font: { size: 10 } }, grid: { color: GRID } },
+        x: { ticks: { color: TEXT, font: { size: 12 } }, grid: { color: GRID } },
         y: { ticks: { color: TEXT, precision: 0 }, grid: { color: GRID }, beginAtZero: true },
       },
     },

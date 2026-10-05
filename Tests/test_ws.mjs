@@ -70,8 +70,8 @@ async function withTransport (run, protocol = "http:") {
   }
   const fixture = {
     sockets, timers, intervals, clearedTimers, clearedIntervals, Socket,
-    connect(onMessage = () => {}, onSync = () => {}) {
-      const stop = connectWs(onMessage, onSync);
+    connect(onMessage = () => {}, onSync = () => {}, onStatus) {
+      const stop = connectWs(onMessage, onSync, onStatus);
       stops.push(stop);
       return stop;
     },
@@ -351,4 +351,69 @@ test("WS retains JSON and consumer exception policy without new payload validati
     assert.equal(f.timers.size, 0);
     assert.equal(socket.closeCalls, 0);
   });
+});
+
+test("WS publishes owned connection transitions without changing retry or sync timing", async () => {
+  await withTransport(f => {
+    const states = [], events = [];
+    const stop = f.connect(() => {}, () => events.push("sync"), state => {
+      states.push(state); events.push(state);
+    });
+    assert.deepEqual(states, ["connecting"]);
+    const old = f.sockets[0], saved = savedHandlers(old);
+    old.open(); old.remoteClose();
+    assert.deepEqual(events, ["connecting", "connected", "sync", "reconnecting"]);
+    assert.equal(f.timers.values().next().value.delay, 1000);
+    f.fireRetry(); f.sockets[1].remoteClose();
+    assert.equal(f.timers.values().next().value.delay, 2000);
+    assert.deepEqual(states, ["connecting", "connected", "reconnecting"], "retry attempts do not flicker status");
+    f.fireRetry(); f.sockets[2].open();
+    saved.open(); saved.close(); saved.error();
+    assert.deepEqual(states, ["connecting", "connected", "reconnecting", "connected"]);
+    assert.equal(events.filter(value => value === "sync").length, 2);
+    const current = savedHandlers(f.sockets[2]);
+    stop(); current.open(); current.close(); current.error();
+    assert.equal(states.length, 4, "cleanup and obsolete callbacks cannot publish status");
+    assert.equal(f.intervals.size, 0);
+  });
+});
+
+test("WS observer failures cannot prevent connection, snapshot sync or retry", async () => {
+  await withTransport(f => {
+    const states = [];
+    let syncs = 0;
+    assert.doesNotThrow(() => f.connect(() => {}, () => syncs++, state => {
+      states.push(state);
+      throw new Error("private observer failure");
+    }));
+    assert.doesNotThrow(() => f.sockets[0].open());
+    assert.equal(syncs, 1);
+    assert.doesNotThrow(() => f.sockets[0].remoteClose());
+    assert.equal(f.timers.size, 1);
+    f.fireRetry(); f.sockets[1].open();
+    assert.equal(syncs, 2);
+    assert.deepEqual(states, ["connecting", "connected", "reconnecting", "connected"]);
+  });
+});
+
+test("WS status observers may tear down on connected or reconnecting without resurrection", async () => {
+  for (const teardownAt of ["connected", "reconnecting"]) {
+    await withTransport(f => {
+      let syncs = 0, stop;
+      const states = [];
+      stop = f.connect(() => {}, () => syncs++, state => {
+        states.push(state);
+        if (state === teardownAt) stop();
+      });
+      const socket = f.sockets[0], saved = savedHandlers(socket);
+      socket.open();
+      if (teardownAt === "reconnecting") socket.remoteClose();
+      saved.open(); saved.close(); saved.error();
+      assert.equal(syncs, Number(teardownAt === "reconnecting"));
+      assert.equal(states.at(-1), teardownAt);
+      assert.equal(f.timers.size, 0);
+      assert.equal(f.intervals.size, 0);
+      assertDetached(socket);
+    });
+  }
 });

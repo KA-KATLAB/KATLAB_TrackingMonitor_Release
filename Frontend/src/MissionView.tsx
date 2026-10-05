@@ -20,6 +20,7 @@ import type {
   ForecastTaskIdentity,
   MissionPlan,
   MissionPayload,
+  MissionReason,
   SessionPage,
 } from "./api";
 import { DialogShell } from "./dialog";
@@ -144,8 +145,8 @@ function ForecastPanel ({ result, repoId, loading, error, onRetry, retryBusy }: 
   });
   const observedLabel = row?.source === "demo" ? "Demo status observed" : "Git observed";
   return (
-    <Surface>
-      <SectionHeading title="Attribution forecast"
+    <Surface tone="quiet" className="border-t-ui-border">
+      <SectionHeading title="Attribution forecast" level={3}
         description="Read-only preview of captured dirty paths and their possible task attribution." />
       <p className="text-xs text-ui-muted">
         Based on the last completed plan sync. Plan edits appear after the watcher syncs them.
@@ -234,7 +235,7 @@ function ForecastPanel ({ result, repoId, loading, error, onRetry, retryBusy }: 
                     <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                       <p className="min-w-0 break-all font-mono text-sm text-ui-text">{entry.file}</p>
                       <span className="shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold"
-                        style={{ borderColor: MODE_COLOR[entry.mode], color: MODE_COLOR[entry.mode] }}>
+                        style={{ borderColor: MODE_COLOR[entry.mode] }}>
                         {FORECAST_LABEL[entry.mode]}
                       </span>
                     </div>
@@ -333,7 +334,7 @@ function PlanCard ({ plan, selected, onSelect }: {
       aria-pressed={selected}
       onClick={onSelect}
       className={cx(
-        "ui-control h-auto min-w-0 items-start border p-3 text-left",
+        "ui-control h-auto w-full min-w-0 flex-col items-start justify-start border p-4 text-left",
         selected
           ? "border-ui-focus bg-sky-950/40"
           : "border-ui-border bg-ui-surface hover:bg-ui-raised",
@@ -341,7 +342,7 @@ function PlanCard ({ plan, selected, onSelect }: {
     >
       <span className="flex w-full min-w-0 flex-wrap items-start justify-between gap-2">
         <span className="min-w-0 flex-1">
-          <span className="block break-words font-semibold text-ui-text">{plan.label}</span>
+          <span className="block break-words text-base font-semibold text-ui-text">{plan.label}</span>
           <span className="mt-0.5 block break-all font-mono text-xs text-ui-muted">
             {plan.repo} · {plan.plan_file}
           </span>
@@ -355,6 +356,57 @@ function PlanCard ({ plan, selected, onSelect }: {
   );
 }
 
+function MissionReasonList ({ kind, repo, planFile, reasons }: {
+  kind: "blockers" | "warnings";
+  repo: string;
+  planFile: string;
+  reasons: readonly MissionReason[];
+}): JSX.Element {
+  const pager = useBoundedPage({
+    identity: ["mission-reasons", kind, repo, planFile],
+    totalItems: reasons.length,
+    pageSize: 50,
+  });
+  const title = kind === "blockers" ? "Exact blockers" : "Plan warnings";
+  const listId = `mission-${kind}`;
+  return (
+    <section className="min-w-0" aria-labelledby={`${listId}-heading`}>
+      <h4 id={`${listId}-heading`} className="ui-panel-title flex flex-wrap items-baseline gap-2 text-ui-text">
+        {title}
+        <span className="font-mono text-xs font-medium tabular-nums text-ui-muted">
+          {reasons.length} total
+        </span>
+      </h4>
+      <div id={listId} className="min-w-0">
+        {reasons.length === 0 ? (
+          <p className="mt-2 text-sm text-ui-muted">
+            {kind === "blockers" ? "No blocker reported." : "No warning reported."}
+          </p>
+        ) : (
+          <ul className="mt-3 divide-y divide-ui-border text-sm">
+            {reasons.slice(pager.start, pager.end).map((reason, index) => (
+              <li key={`${reason.code}-${reason.check_id ?? "plan"}-${pager.start + index}`}
+                className={cx("flex min-w-0 gap-2 py-2 first:pt-0 last:pb-0",
+                  kind === "blockers" ? "text-amber-100" : "text-ui-muted")}>
+                <AlertIcon className="mt-0.5 shrink-0" />
+                <span className="min-w-0 break-words">
+                  {reason.message}
+                  {reason.check_id && <span className="ml-1 break-all font-mono text-xs">[{reason.check_id}]</span>}
+                  {reason.count !== null && <span> ({reason.count})</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {reasons.length > 50 && (
+        <CollectionPager collectionLabel={title} controlsId={listId}
+          page={pager} onPageChange={pager.setPage} className="mt-3 border-t border-ui-border pt-3" />
+      )}
+    </section>
+  );
+}
+
 function NowPanel ({ plan, scope, summary }: {
   plan: MissionPlan | null;
   scope: string | undefined;
@@ -362,9 +414,10 @@ function NowPanel ({ plan, scope, summary }: {
 }): JSX.Element {
   if (!plan) {
     return (
-      <Surface>
-        <SectionHeading title="Now" description="One exact plan is shown only after it is proven unique or explicitly selected." />
-        <div className="rounded-panel border border-dashed border-ui-border p-4 text-sm text-ui-muted">
+      <Surface tone="raised">
+        <SectionHeading title="Now" level={3}
+          description="One exact plan is shown only after it is proven unique or explicitly selected." />
+        <div className="ui-empty-state">
           {summary?.total === 0
             ? `No tracked plans in ${scope ?? "all repositories"}.`
             : "Select a plan below; the current scope does not prove one unique active plan."}
@@ -376,23 +429,32 @@ function NowPanel ({ plan, scope, summary }: {
   const total = Math.max(1, plan.task_counts.total);
   const progress = Math.round((plan.task_counts.done / total) * 100);
   return (
-    <Surface className="overflow-hidden">
+    <Surface tone="raised" className="border-l-4 border-l-sky-400">
       <SectionHeading
         title={<span className="inline-flex items-center gap-2"><MissionIcon /> Now</span>}
-        description={`${plan.repo} · ${plan.plan_file}`}
+        level={3}
+        description="Backend-evaluated readiness. Green means declared evidence is fresh, not universal correctness."
         actions={<StateBadge plan={plan} />}
       />
       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,1fr)]">
         <div className="min-w-0">
-          <p className="break-words text-base font-semibold text-ui-text">{plan.label}</p>
-          <p className="mt-1 text-sm text-ui-muted">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ui-muted">Selected plan</p>
+          <h4 className="mt-1 break-words text-xl font-semibold leading-7 text-ui-text">{plan.label}</h4>
+          <dl className="mt-3 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+            <dt className="text-ui-muted">Repository</dt>
+            <dd className="min-w-0 break-all font-mono text-ui-text">{plan.repo}</dd>
+            <dt className="text-ui-muted">Plan file</dt>
+            <dd className="min-w-0 break-all font-mono text-ui-text">{plan.plan_file}</dd>
+          </dl>
+          <p className="mt-4 break-words text-base text-ui-text">
             {plan.current_task
               ? `Current task ${plan.current_task.id}: ${plan.current_task.title}`
               : "No single task is currently in progress."}
           </p>
           <div className="mt-3" aria-label={`${progress}% of tasks complete`}>
-            <div className="mb-1 flex justify-between text-xs text-ui-muted">
+            <div className="mb-2 flex flex-wrap justify-between gap-2 text-xs text-ui-muted">
               <span>{plan.task_counts.done} done</span>
+              <span>{plan.task_counts.in_progress} in progress</span>
               <span>{plan.task_counts.pending} pending</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-ui-canvas">
@@ -400,46 +462,22 @@ function NowPanel ({ plan, scope, summary }: {
                 style={{ width: `${progress}%` }} />
             </div>
           </div>
-        </div>
-        <div className="min-w-0 rounded-panel border border-ui-border bg-ui-canvas/50 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ui-muted">
-            Exact blockers
+          <p className="mt-4 text-sm leading-relaxed text-ui-muted">
+            Inspect blockers and warnings here, then use the verification rail and evidence queue below.
+            Readiness never starts checks or performs Git actions.
           </p>
-          {plan.blockers.length === 0 ? (
-            <p className="mt-2 text-sm text-emerald-200">No blocker reported.</p>
-          ) : (
-            <ul className="mt-2 space-y-2 text-sm">
-              {plan.blockers.slice(0, 50).map((blocker, index) => (
-                <li key={`${blocker.code}-${blocker.check_id ?? "plan"}-${index}`}
-                  className="flex min-w-0 gap-2 text-amber-100">
-                  <AlertIcon className="mt-0.5 shrink-0" />
-                  <span className="min-w-0 break-words">
-                    {blocker.message}
-                    {blocker.check_id && <span className="ml-1 font-mono text-xs">[{blocker.check_id}]</span>}
-                    {blocker.count !== null && <span> ({blocker.count})</span>}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+        </div>
+        <div className="min-w-0 rounded-panel border border-ui-border bg-ui-canvas/50 p-4">
+          <MissionReasonList kind="blockers" repo={plan.repo} planFile={plan.plan_file}
+            reasons={plan.blockers} />
           {plan.warnings.length > 0 && (
-            <div className="mt-3 border-t border-ui-border pt-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ui-muted">
-                Parser warnings
-              </p>
-              <ul className="mt-2 space-y-2 text-sm">
-                {plan.warnings.slice(0, 50).map((warning, index) => (
-                  <li key={`${warning.code}-${index}`}
-                    className="flex min-w-0 gap-2 text-ui-muted">
-                    <AlertIcon className="mt-0.5 shrink-0" />
-                    <span className="min-w-0 break-words">{warning.message}</span>
-                  </li>
-                ))}
-              </ul>
+            <div className="mt-4 border-t border-ui-border pt-4">
+              <MissionReasonList kind="warnings" repo={plan.repo} planFile={plan.plan_file}
+                reasons={plan.warnings} />
             </div>
           )}
-          <p className="mt-3 text-xs text-ui-muted">
-            Repository: {plan.repo_status.status_valid
+          <p className="mt-4 break-words border-t border-ui-border pt-3 text-xs text-ui-muted">
+            Repository: {plan.repo_status.status_valid === true
               ? `${plan.repo_status.clean ? "clean" : `${plan.repo_status.count} changed`} on ${plan.repo_status.branch ?? "unknown branch"}`
               : "current status unavailable"}. State: {state.label}.
           </p>
@@ -1043,10 +1081,10 @@ export function MissionView ({ scope, invalidationNonce, entryState,
   );
 
   return (
-    <div className="mx-auto min-w-0 max-w-[100rem] space-y-4 p-3 sm:p-4">
+    <div className="mx-auto min-w-0 max-w-[100rem] space-y-6 p-4 sm:p-6 lg:p-8">
       <SectionHeading
         title="Mission"
-        description="Verification readiness and metadata-only agent activity. Green means declared evidence is fresh—not universal correctness."
+        description="Inspect the selected plan, resolve blockers, and review verification evidence."
         headingProps={{ "data-view-heading": true, tabIndex: -1 }}
         actions={
           <IconButton label="Refresh Mission" onClick={refresh} busy={refreshBusy}>
@@ -1063,10 +1101,10 @@ export function MissionView ({ scope, invalidationNonce, entryState,
       <NowPanel plan={selectedPlan} scope={scope} summary={mission?.summary ?? null} />
 
       {mission && mission.plans.length > 0 && (
-        <Surface>
-          <SectionHeading title="Plan scope"
-            description="Choose an exact repository + plan pair; ambiguous scopes are never guessed." />
-          <div id="mission-plan-cards" className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-3">
+        <Surface tone="quiet">
+          <SectionHeading title="Plan scope" level={3}
+            description={`${mission.plans.length} tracked plans in this scope. Choose an exact repository + plan pair; ambiguous scopes are never guessed.`} />
+          <div id="mission-plan-cards" className="grid min-w-0 gap-3 md:grid-cols-2">
             {visiblePlans.map((plan) => {
               const key = planKey(plan.repo, plan.plan_file);
               return <PlanCard key={key} plan={plan} selected={entryState.planKey === key}
@@ -1085,7 +1123,7 @@ export function MissionView ({ scope, invalidationNonce, entryState,
         onRetry={refresh} retryBusy={refreshBusy} />
 
       <Surface>
-        <SectionHeading title="Verification rail"
+        <SectionHeading title="Verification rail" level={3}
           description="Current backend-evaluated gate state, freshness, and clean-review streak." />
         {!selectedPlan ? (
           <p className="text-sm text-ui-muted">Select one exact plan to inspect its requirements.</p>
@@ -1102,7 +1140,7 @@ export function MissionView ({ scope, invalidationNonce, entryState,
                   className={cx("min-w-0 rounded-panel border p-3", TONE_CLASS[state.tone])}>
                   <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h3 className="break-words text-sm font-semibold">{requirement.label}</h3>
+                      <h4 className="break-words text-base font-semibold">{requirement.label}</h4>
                       <p className="break-all font-mono text-xs opacity-80">{requirement.check_id}</p>
                     </div>
                     <span className="rounded-full border border-current px-2 py-0.5 text-xs font-semibold">
@@ -1128,7 +1166,7 @@ export function MissionView ({ scope, invalidationNonce, entryState,
       </Surface>
 
       <Surface>
-        <SectionHeading title="Evidence queue"
+        <SectionHeading title="Evidence queue" level={3}
           description="Missing or unhealthy requirements plus selected-plan and eligible unassigned evidence from the current bounded ledger page."
           actions={
             <SegmentedControl<EvidenceFilter>
@@ -1151,17 +1189,17 @@ export function MissionView ({ scope, invalidationNonce, entryState,
         ) : (
           <div className="grid min-w-0 gap-4 xl:grid-cols-2">
             <section className="min-w-0" aria-labelledby="mission-requirement-queue-title">
-              <h3 id="mission-requirement-queue-title" className="mb-2 text-sm font-semibold text-ui-text">
+              <h4 id="mission-requirement-queue-title" className="ui-panel-title mb-3 text-ui-text">
                 Requirement attention
-              </h3>
-              <div id="mission-requirement-queue" className="space-y-2">
+              </h4>
+              <div id="mission-requirement-queue" className="ui-work-list">
                 {visibleRequirements.map((requirement) => {
                   const state = requirementPresentation(requirement);
                   return (
                     <div key={requirement.check_id}
-                      className="flex min-w-0 items-start justify-between gap-2 rounded-control border border-ui-border p-3 text-sm">
-                      <span className="min-w-0">
-                        <span className="block break-words text-ui-text">{requirement.label}</span>
+                      className="ui-work-row justify-between text-sm">
+                      <span className="min-w-0 flex-1">
+                        <span className="block break-words text-base text-ui-text">{requirement.label}</span>
                         <span className="block break-all font-mono text-xs text-ui-muted">{requirement.check_id}</span>
                       </span>
                       <span className={cx("shrink-0 font-semibold", TONE_CLASS[state.tone].split(" ").at(-1))}>
@@ -1185,15 +1223,15 @@ export function MissionView ({ scope, invalidationNonce, entryState,
               )}
             </section>
             <section className="min-w-0" aria-labelledby="mission-ledger-queue-title">
-              <h3 id="mission-ledger-queue-title" className="mb-2 text-sm font-semibold text-ui-text">
+              <h4 id="mission-ledger-queue-title" className="ui-panel-title mb-3 text-ui-text">
                 Evidence ledger
-              </h3>
-              <div id="mission-ledger-queue" className="space-y-2">
+              </h4>
+              <div id="mission-ledger-queue" className="ui-work-list">
                 {evidenceRows.map((row) => (
                   <div key={row.evidence_id}
-                    className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-control border border-ui-border p-3 text-sm">
+                    className="ui-work-row items-center justify-between text-sm">
                     <div className="min-w-0 flex-1">
-                      <p className="break-words text-ui-text">{activityLabel(row)}</p>
+                      <p className="break-words text-base text-ui-text">{activityLabel(row)}</p>
                       <p className="mt-0.5 break-words text-xs text-ui-muted">
                         {row.provider} · {fmtTs(row.ts)} · {row.outcome ?? "outcome not reported"}
                       </p>
@@ -1234,15 +1272,15 @@ export function MissionView ({ scope, invalidationNonce, entryState,
       </Surface>
 
       <Surface>
-        <SectionHeading title="Session flight recorder"
+        <SectionHeading title="Session flight recorder" level={3}
           description="Provider + session identity, deterministic time ordering, and explicit session-root lanes." />
         {sessionsError && <ErrorNotice message={sessionsError} onRetry={refresh}
           busy={refreshBusy} />}
         <div className="grid min-w-0 gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
           <section className="min-w-0" aria-labelledby="mission-session-list-title">
-            <h3 id="mission-session-list-title" className="mb-2 text-sm font-semibold text-ui-text">
+            <h4 id="mission-session-list-title" className="ui-panel-title mb-3 text-ui-text">
               Sessions
-            </h3>
+            </h4>
             <div id="mission-session-list" className="max-h-96 space-y-2 overflow-y-auto pr-1">
               {sessions.items.map((session) => (
                 <button key={sessionIdentityKey(session.provider, session.session_id)} type="button"
@@ -1252,7 +1290,7 @@ export function MissionView ({ scope, invalidationNonce, entryState,
                     cursor: 0,
                   })}
                   className={cx(
-                    "ui-control h-auto w-full min-w-0 items-start p-3 text-left",
+                    "ui-control h-auto w-full min-w-0 flex-col items-start p-3 text-left",
                     sameSession(entryState.session, session)
                       ? "border-ui-focus bg-sky-950/40"
                       : "bg-ui-canvas",
@@ -1286,9 +1324,9 @@ export function MissionView ({ scope, invalidationNonce, entryState,
 
           <section className="min-w-0" aria-labelledby="mission-timeline-title">
             <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
-              <h3 id="mission-timeline-title" className="text-sm font-semibold text-ui-text">
+              <h4 id="mission-timeline-title" className="ui-panel-title text-ui-text">
                 Timeline
-              </h3>
+              </h4>
               {selectedSession && (
                 <span className="max-w-full break-all font-mono text-xs text-ui-muted">
                   {selectedSession.provider} · {selectedSession.sessionId}

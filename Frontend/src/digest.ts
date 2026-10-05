@@ -28,14 +28,14 @@ const esc = (s: string): string =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 function badge (mode: TrackedEvent["mode"]): string {
-  return `<span style="background:${MODE_COLOR[mode]};color:#fff;border-radius:3px;` +
-    `padding:1px 5px;font-size:10px;font-weight:700">${esc(MODE_BADGE[mode].label)}</span>`;
+  return `<span style="background:${MODE_COLOR[mode]};color:${MODE_BADGE[mode].foreground};border-radius:3px;` +
+    `padding:1px 5px;font-size:12px;font-weight:700">${esc(MODE_BADGE[mode].label)}</span>`;
 }
 
 function kpi (value: string, label: string): string {
-  return `<div style="border:1px solid #334155;border-radius:6px;padding:10px 14px">` +
-    `<div style="font-family:'Azeret Mono',ui-monospace,monospace;font-size:26px;font-weight:700">${value}</div>` +
-    `<div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8">${label}</div></div>`;
+  return `<div style="min-width:0;border-left:2px solid #334155;padding:4px 16px">` +
+    `<div style="font-family:'Azeret Mono',ui-monospace,monospace;font-size:24px;font-weight:700">${value}</div>` +
+    `<div style="font-size:12px;color:#94a3b8">${label}</div></div>`;
 }
 
 export interface DigestFileSummary {
@@ -47,6 +47,7 @@ export interface DigestFileSummary {
   modeLabel: string;
   modeTip: string;
   modeColor: string;
+  modeForeground: string;
   sessionShort: string | null;
   sessionDotColor: string | null;
 }
@@ -113,7 +114,10 @@ export async function prepareDigest (scope: string | undefined, repos: Repo[],
   const autoPct = todays.length > 0 ? Math.round((auto / todays.length) * 100) : 0;
   const picksNow = uncommitted.filter((e) =>
     e.mode === "AMBIGUOUS" || e.mode === "UNKNOWN").length;
-  const clean = repos.filter((r) => r.clean).length;
+  const knownRepos = repos.filter((repo) => !repo.offline && repo.status_valid === true);
+  const clean = knownRepos.filter((repo) => repo.clean).length;
+  const offlineRepos = repos.filter((repo) => repo.offline).length;
+  const unknownRepos = repos.length - knownRepos.length - offlineRepos;
   const sessions = new Set(todays.flatMap((event) => {
     const identity = eventSessionIdentity(event);
     return identity
@@ -148,6 +152,7 @@ export async function prepareDigest (scope: string | undefined, repos: Repo[],
           modeLabel: MODE_BADGE[representative.mode].label,
           modeTip: MODE_BADGE[representative.mode].tip,
           modeColor: MODE_COLOR[representative.mode],
+          modeForeground: MODE_BADGE[representative.mode].foreground,
           sessionShort: representativeSession
             ? `${representativeSession.provider}:${representativeSession.sessionId.slice(0, 8)}`
             : null,
@@ -175,39 +180,40 @@ export async function prepareDigest (scope: string | undefined, repos: Repo[],
 <noscript><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Azeret+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
 <style>
 *{box-sizing:border-box}html,body{max-width:100%}
-body{width:100%;line-height:1.5;overflow-wrap:anywhere}
+body{width:100%;font-size:16px;line-height:1.6;overflow-wrap:anywhere}
 code{white-space:normal;word-break:break-word;color:#7dd3fc}
-button,select{min-height:44px;border:1px solid #475569;border-radius:6px;background:#0f172a;color:#e2e8f0;padding:6px 10px;font:inherit}
+button,select{min-height:44px;border:1px solid #64748b;border-radius:6px;background:#0f172a;color:#e2e8f0;padding:6px 10px;font:inherit}
 button{touch-action:manipulation;transition:opacity 120ms ease-out,transform 120ms ease-out}
 button:active:not(:disabled){opacity:.72;transform:scale(.98)}
 button:focus-visible,select:focus-visible{outline:2px solid #38bdf8;outline-offset:2px}
 button:disabled,select:disabled{opacity:.5}.digest-controls{display:flex;flex-wrap:wrap;align-items:end;gap:8px;margin:12px 0}
-.digest-controls label{display:grid;gap:3px;color:#94a3b8;font-size:11px}.digest-range{min-width:180px;color:#94a3b8;font-size:12px}
-.digest-page{min-width:0}.repo-heading{font-size:15px;margin:18px 0 4px}.task-card{border:1px solid #334155;border-radius:6px;padding:10px 14px;margin:8px 0;background:#0f172a}
-.task-card h3{margin:0;color:#7dd3fc;font-family:'Azeret Mono',ui-monospace,monospace;font-size:13px}.why{color:#94a3b8;font-size:11px;margin:2px 0 0}
-.file-list{list-style:none;padding:0;margin:6px 0 0;font-size:12px}.file-row{display:flex;min-width:0;flex-wrap:wrap;align-items:center;gap:5px;margin:4px 0}
-.file-row code{min-width:0}.mode-badge{border-radius:3px;padding:1px 5px;color:#fff;font-size:10px;font-weight:700}.session-dot{display:inline-block;width:8px;height:8px;border-radius:99px}.session-label{color:#94a3b8;font-size:10px}
-@media(max-width:480px){body{font-size:14px}.task-card{padding:9px}.digest-controls>*{max-width:100%}}
+.digest-controls label{display:grid;gap:3px;color:#94a3b8;font-size:12px}.digest-range{min-width:180px;color:#94a3b8;font-size:12px}
+.digest-page{min-width:0}.repo-heading{font-size:20px;margin:28px 0 8px}.task-card{border-top:1px solid #334155;padding:16px 0;margin:12px 0}
+.task-card h3{margin:0;color:#7dd3fc;font-family:'Azeret Mono',ui-monospace,monospace;font-size:16px}.why{color:#94a3b8;font-size:12px;margin:4px 0 0}
+.file-list{list-style:none;padding:0;margin:12px 0 0;font-size:14px}.file-row{display:flex;min-width:0;flex-wrap:wrap;align-items:center;gap:8px;border-bottom:1px solid #1e293b;padding:10px 0}
+.file-row code{min-width:0;font-size:16px}.mode-badge{border-radius:3px;padding:1px 5px;font-size:12px;font-weight:700}.session-dot{display:inline-block;width:8px;height:8px;border-radius:99px}.session-label{color:#94a3b8;font-size:12px}
+@media(max-width:480px){.digest-controls>*{max-width:100%}}
 @media(prefers-reduced-motion:reduce){button{transition-duration:.01ms}}
 </style>
 </head>
 <body style="background:#020617;color:#e2e8f0;font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif;max-width:860px;margin:0 auto;padding:clamp(16px,4vw,24px)">
 <main>
-<h1 style="font-size:20px;margin:0">KATLAB TrackingMonitor — daily digest</h1>
+<h1 style="font-size:28px;line-height:1.3;margin:0">KATLAB TrackingMonitor — daily digest</h1>
 <p style="color:#94a3b8;font-size:12px;margin:4px 0 16px">
 ${day} (local day) · generated ${generated} · scope: ${esc(scopeLabel)}</p>
 <div style="display:flex;flex-wrap:wrap;gap:10px">
 ${kpi(String(todays.length), "events on report day")}
 ${kpi(`${autoPct}%`, "auto-attributed on report day")}
 ${kpi(String(picksNow), "picks pending now")}
-${kpi(`${clean}/${repos.length}`, "repos clean now")}
+${kpi(knownRepos.length > 0 ? `${clean}/${knownRepos.length}` : "Unavailable", "repos clean (known status)")}
 ${kpi(String(sessions), "sessions on report day")}
 ${kpi(latestDay ? fmtMinutes(latestDay.minutes) : "Unavailable",
     latestDay ? esc(`time on ${latestDay.day} (UTC)`) : "time unavailable (UTC)")}
 </div>
+<p style="color:#94a3b8;font-size:12px;margin:12px 0">Git status coverage: ${knownRepos.length}/${repos.length} repositories with valid online status; ${offlineRepos} offline; ${unknownRepos} online status unavailable.</p>
 <section aria-labelledby="digest-details-heading">
-<h2 id="digest-details-heading" style="font-size:16px;margin:22px 0 4px">File summaries</h2>
-<p style="color:#94a3b8;font-size:11px;margin:0">Complete fetched order, grouped by repository and task; at most 50 file summaries are mounted per page.</p>
+<h2 id="digest-details-heading" style="font-size:20px;margin:28px 0 8px">File summaries</h2>
+<p style="color:#94a3b8;font-size:12px;margin:0">Complete fetched order, grouped by repository and task; at most 50 file summaries are mounted per page.</p>
 <div class="digest-controls" aria-label="Digest file-summary pages">
 <button id="digest-prev" type="button">Previous</button>
 <label for="digest-page">Page<select id="digest-page" aria-controls="digest-page-root"></select></label>
@@ -217,9 +223,9 @@ ${kpi(latestDay ? fmtMinutes(latestDay.minutes) : "Unavailable",
 <div id="digest-page-root" class="digest-page" tabindex="-1"></div>
 <noscript><p style="color:#fbbf24">The embedded page selector requires JavaScript; no external script is used.</p></noscript>
 </section>
-<h2 style="font-size:13px;margin:22px 0 4px;color:#94a3b8">Legend</h2>
-<p style="font-size:11px;line-height:1.9">${legend}</p>
-${limitReached ? '<p style="color:#fbbf24;font-size:11px">Fetched-window limit reached: this report contains ' +
+<h2 style="font-size:18px;margin:28px 0 8px;color:#e2e8f0">Legend</h2>
+<p style="font-size:12px;line-height:1.9">${legend}</p>
+${limitReached ? '<p style="color:#fbbf24;font-size:12px">Fetched-window limit reached: this report contains ' +
     todays.length.toLocaleString("en-US") + " captured events for the selected local day. More may exist.</p>" : ""}
 </main>
 <script id="digest-data" type="application/json">${digestPagesJson}</script>
@@ -269,7 +275,8 @@ ${limitReached ? '<p style="color:#fbbf24;font-size:11px">Fetched-window limit r
       item.append(node("code","",row.file));
       item.append(document.createTextNode(" ×"+String(row.count)+" "));
       var badgeNode=node("span","mode-badge",row.modeLabel);
-      badgeNode.title=row.modeTip;badgeNode.style.backgroundColor=row.modeColor;item.append(badgeNode);
+      badgeNode.title=row.modeTip;badgeNode.style.backgroundColor=row.modeColor;
+      badgeNode.style.color=row.modeForeground;item.append(badgeNode);
       if(row.sessionShort){
         var dotNode=node("span","session-dot");dotNode.setAttribute("aria-hidden","true");
         dotNode.style.backgroundColor=row.sessionDotColor;item.append(dotNode);

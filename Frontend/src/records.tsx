@@ -122,7 +122,7 @@ export function Records ({ calendar }: { calendar: CalDay[] }) {
   ];
 
   return (
-    <Surface data-reveal>
+    <Surface data-reveal tone="quiet">
       <SectionHeading level={4} title="Personal records"
         description={`${calendarRangeLabel(calendar)}; ${calendar.length}/365 days supplied.`}
         actions={banner !== null ? (
@@ -130,12 +130,12 @@ export function Records ({ calendar }: { calendar: CalDay[] }) {
             NEW RECORD 🏆
           </span>
         ) : undefined} />
-      <ul className="space-y-1.5 text-sm">
+      <ul className="min-w-0 text-base">
         {rows.map((r) => (
-          <li key={r.key} className="relative flex items-baseline gap-2">
-            <span className="text-slate-400">{r.label}</span>
-            <span className="font-bold text-slate-100">{r.value}</span>
-            <span className="ml-auto text-[11px] text-slate-500">{r.day || "—"}</span>
+          <li key={r.key} className="relative flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-ui-border py-3 last:border-b-0">
+            <span className="min-w-0 break-words text-ui-muted">{r.label}</span>
+            <span className="font-semibold tabular-nums text-ui-text">{r.value}</span>
+            <span className="ml-auto text-xs text-ui-muted">{r.day || "—"}</span>
             {bursts.filter((b) => b.row === r.key).map((b) => (
               /* the ~12-particle celebration recipe (nonce-keyed spans) */
               <span key={b.n} aria-hidden="true">

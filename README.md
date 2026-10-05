@@ -5,7 +5,20 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current version: **v0.3.1.32 — AnyIO Security Baseline**
+Current source version: **v0.4.0.0 — Operational UI Redesign**
+
+## What v0.4 changes
+
+- A work-first shell with visible build version beside the product name,
+  dedicated navigation, searchable Repository scope, Tasks and System.
+- Clearer Changes, Mission and History hierarchy; complete paged Mission reasons.
+- Four primary Overview metrics, quieter supporting panels and readable labels.
+- Consistent dialogs, exports and Chronicle reading styles. Unknown Git status
+  stays unavailable instead of appearing clean or zero.
+
+The local tracker was activated with matching v0.4.0.0 server and served UI assets.
+Existing tabs need a reload. Native browser acceptance remains pending; see the
+[redesign notes](TrackingMonitor_v0.4.0.0_Release_Notes.md).
 
 ## What v0.3 adds
 
@@ -74,7 +87,7 @@ satisfying FastAPI alone cannot retain dependencies below those floors. Let pip
 resolve a compatible set or stop on failure; do not bypass constraints.
 This does not alter Chronicle's separate dependency set or force a blanket
 upgrade. See the [backend security release notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.3.1.25_Release_Notes.md)
-and [AnyIO baseline notes](TrackingMonitor_v0.3.1.32_Release_Notes.md) for policy
+and [AnyIO baseline notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.3.1.32_Release_Notes.md) for policy
 scope and verification limits. These minimums are not a reproducible lock or
 a claim that all dependency advisories are resolved.
 
@@ -103,6 +116,12 @@ CMD shell. To change `server.port`, stop the old tracker *before* editing
 `Config/repos.yaml`, then start it on the new port; restart alone cannot find an
 instance still bound to the old port. When upgrading a running tracker, use
 **Restart**: **Start** refuses an occupied port serving a different version.
+
+The header version identifies the loaded UI build. System also shows the server
+version and explains known mismatches. Build the frontend from the matching source
+and reload open tabs after an authorized upgrade; restarting Python cannot replace
+JavaScript already loaded in a browser. Tests can build to an isolated `temp/`
+output without touching the currently served `Frontend/dist/`.
 
 ## Chronicle
 
@@ -150,7 +169,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current release notes](TrackingMonitor_v0.3.1.32_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.0_Release_Notes.md)
 
 ## Guarantees
 

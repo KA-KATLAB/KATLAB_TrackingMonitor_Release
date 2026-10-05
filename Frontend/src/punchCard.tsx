@@ -25,13 +25,13 @@ export function PunchCard ({ matrix }: { matrix: number[][] }) {
     <div>
       <svg width={width} height={height} aria-hidden="true" focusable="false">
         {HOUR_LABELS.map((h) => (
-          <text key={h} x={LEFT + h * STEP} y={10} className="fill-slate-400" fontSize={9}>
+          <text key={h} x={LEFT + h * STEP} y={12} className="fill-slate-400" fontSize={12}>
             {String(h).padStart(2, "0")}
           </text>
         ))}
         {DAYS.map((d, row) => (
           <text key={d} x={0} y={TOP + row * STEP + CELL - 3}
-            className="fill-slate-400" fontSize={9}>
+            className="fill-slate-400" fontSize={12}>
             {d}
           </text>
         ))}
@@ -45,7 +45,7 @@ export function PunchCard ({ matrix }: { matrix: number[][] }) {
           </g>
         )))}
       </svg>
-      <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-400">
+      <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
         <span>less</span>
         {RAMP.map((color) => (
           <span key={color} className="inline-block h-2.5 w-2.5 rounded-sm"

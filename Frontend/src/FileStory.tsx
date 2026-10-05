@@ -161,7 +161,7 @@ export function FileStory ({
         </a>
       )}
     >
-      <div id="file-story-events" className="min-w-0 text-xs">
+      <div id="file-story-events" className="min-w-0 text-base">
         <DialogLoadStatus label="File story" busy={busy} error={error}
           count={rows?.length ?? null} limitReached={limitReached} />
         {busy && !rows && <p className="text-ui-muted">Loading file story…</p>}
@@ -186,15 +186,15 @@ export function FileStory ({
           return (
             <div key={event.id}>
               {(dayChanged || continuation) && (
-                <div className="mt-2 border-l-4 border-teal-600 pl-2 text-xs font-semibold text-teal-300">
+                <div className="mt-4 border-l-2 border-teal-600 pl-3 text-xs font-semibold text-teal-300">
                   {event.ts.slice(0, 10)} (UTC){continuation ? " — continued" : ""}
                 </div>
               )}
-              <div className="flex min-w-0 flex-wrap items-center gap-2 py-1 pl-3">
-                <span className="text-ui-muted" title={event.ts}>{fmtTs(event.ts)}</span>
+              <div className="ui-work-row flex-wrap items-center !px-3 !py-3">
+                <span className="text-xs text-ui-muted" title={event.ts}>{fmtTs(event.ts)}</span>
                 <span
                   className="rounded px-1.5 py-0.5 text-xs font-bold text-white"
-                  style={{ backgroundColor: MODE_COLOR[event.mode] }}
+                  style={{ backgroundColor: MODE_COLOR[event.mode], color: MODE_BADGE[event.mode].foreground }}
                 >
                   {MODE_BADGE[event.mode].label}
                 </span>

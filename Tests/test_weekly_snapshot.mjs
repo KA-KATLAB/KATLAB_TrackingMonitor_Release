@@ -87,6 +87,8 @@ test("weekly snapshot visibility", { timeout: 30_000 }, async (t) => {
     const { DisclosureTable } = await vite.ssrLoadModule("/src/accessibleData.tsx");
     const { fmtMinutes } = await vite.ssrLoadModule("/src/format.ts");
     const { DAYS } = await vite.ssrLoadModule("/src/punchCard.tsx");
+    const { TrophyCase } = await vite.ssrLoadModule("/src/trophies.tsx");
+    const { GoalRings } = await vite.ssrLoadModule("/src/goalRings.tsx");
     const subject = () => snapshotSubject({ calendarRangeLabel, streakOf,
       DialogShell, DisclosureTable, fmtMinutes, DAYS });
     const shellHtml = (shell) => renderToStaticMarkup(React.createElement("article", null,
@@ -119,6 +121,30 @@ test("weekly snapshot visibility", { timeout: 30_000 }, async (t) => {
       assert.match(html, />commits</, "the actual commit tile remains present without capture events");
       assert.match(html, />3<\/div>/);
       assert.doesNotMatch(html, /A quiet week|nothing captured|captured when this dialog opened/i);
+      assert.equal((html.match(/class="ui-metric"/g) ?? []).length, 3,
+        "facts use restrained shared metrics instead of three equally bordered cards");
+    });
+
+    await t.test("supporting experience typography retains ranks, scoped goals and bounded labels", () => {
+      for (const name of ["WrappedCard", "records", "goalRings", "trophies"]) {
+        const source = readFileSync(resolve(frontendRoot, `src/${name}.tsx`), "utf8");
+        assert.doesNotMatch(source, /text-\[1[01]px\]/, `${name} metadata floor`);
+      }
+      const stats = { ...fixture(), mode_counts: { B: 50, A_SCOPED: 0, A_GLOBAL: 0,
+        MANUAL: 0, AMBIGUOUS: 0, UNKNOWN: 0 }, punch_card: Array.from({ length: 7 }, () => Array(24).fill(0)) };
+      const tasks = Array.from({ length: 15 }, (_, index) => ({ repo: index < 5 ? "Probe" : "Other", status: "done" }));
+      const scoped = renderToStaticMarkup(React.createElement(TrophyCase, { stats, tasks, scope: "Probe" }));
+      assert.match(scoped, /ui-surface-quiet/);
+      assert.match(scoped, /tasks done \(live plans\): 5 · next rank at 15/);
+      assert.match(scoped, /captured events \(all-time\): 50 · next rank at 250/);
+      assert.equal((scoped.match(/keep working to discover<\/div>/g) ?? []).length, 2);
+      const all = renderToStaticMarkup(React.createElement(TrophyCase, { stats, tasks, scope: undefined }));
+      assert.match(all, /tasks done \(live plans\): 15 · next rank at 40/);
+      const goals = renderToStaticMarkup(React.createElement(GoalRings, { calendar: [], scope: "<repo>&" }));
+      assert.match(goals, /Daily goals for &lt;repo&gt;&amp; · unavailable \(UTC\)/);
+      assert.equal((goals.match(/Unavailable/g) ?? []).length, 3);
+      assert.match(goals, /min-w-0 space-y-3 text-base text-ui-text/);
+      assert.doesNotMatch(goals, /\(0%\)/);
     });
 
     await t.test("shared range labels preserve supplied order and frozen dates", () => {

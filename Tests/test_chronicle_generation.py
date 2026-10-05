@@ -3,6 +3,7 @@
 import hashlib
 import importlib.util
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -189,6 +190,61 @@ class ChronicleGenerationTests(unittest.TestCase):
         self.assertNotIn("azeret", lowered)
         self.assertNotIn("fonts.googleapis", lowered)
         self.assertNotIn("fonts.gstatic", lowered)
+
+    def test_generated_reader_css_has_readable_tokens_and_focus (self) -> None:
+        from Scripts.Chronicle.pages import build_extra_css
+
+        css = build_extra_css()
+        tokens = dict(re.findall(r"--k-([\w-]+):\s*(#[0-9a-f]{6});", css))
+        self.assertEqual(tokens["muted"], "#94a3b8")
+
+        def luminance (value: str) -> float:
+            parts = [int(value[index:index + 2], 16) / 255
+                     for index in (1, 3, 5)]
+            linear = [part / 12.92 if part <= 0.04045
+                      else ((part + 0.055) / 1.055) ** 2.4 for part in parts]
+            return sum(part * weight for part, weight in
+                       zip(linear, (0.2126, 0.7152, 0.0722)))
+
+        for foreground, minimum in (("muted", 4.5), ("text", 4.5),
+                                    ("teal", 3), ("control-border", 3)):
+            for background in ("bg", "panel"):
+                values = sorted((luminance(tokens[foreground]),
+                                 luminance(tokens[background])))
+                with self.subTest(foreground=foreground, background=background):
+                    self.assertGreaterEqual((values[1] + 0.05) / (values[0] + 0.05), minimum)
+        self.assertRegex(css, r"body\s*\{[^}]*font-size: 1rem;")
+        self.assertNotIn("radial-gradient", css)
+        self.assertIn(":where(a, button, input, select, textarea, [tabindex]):focus-visible", css)
+        self.assertIn("outline: 2px solid var(--k-teal); outline-offset: 3px;", css)
+        self.assertRegex(css, r"input\.form-control, \.form-control:focus\s*\{[^}]*border: 1px solid var\(--k-control-border\);")
+
+    def test_generated_reader_css_bounds_content_and_reduces_motion_without_nav_reflow (self) -> None:
+        from Scripts.Chronicle.pages import build_extra_css
+
+        css = build_extra_css()
+        self.assertRegex(css, r'\[role="main"\]\s*\{[^}]*min-width: 0;[^}]*overflow-wrap: anywhere;')
+        self.assertRegex(css, r"pre\s*\{[^}]*max-width: 100%;[^}]*white-space: pre-wrap;[^}]*overflow-wrap: anywhere;")
+        self.assertRegex(css, r"table\s*\{[^}]*width: 100%;[^}]*max-width: 100%;[^}]*table-layout: fixed;")
+        self.assertRegex(css, r"th, td\s*\{[^}]*overflow-wrap: anywhere;")
+        self.assertRegex(css, r"pre code\s*\{[^}]*white-space: pre-wrap;[^}]*overflow-wrap: anywhere;")
+        self.assertRegex(css, r"\.mermaid svg\s*\{[^}]*max-width: 100%;[^}]*height: auto;")
+        # CSS-only reader styling must not add anonymous keyboard scrollers or
+        # replace native table display semantics with block layout.
+        self.assertNotIn("overflow-x: auto", css)
+        self.assertNotRegex(css, r"table\s*\{[^}]*display: block;")
+        self.assertRegex(css, r"#mkdocs-search-results article\s*\{[^}]*overflow-wrap: anywhere;")
+        self.assertRegex(css, r"\.bs-sidebar \.nav > li > a\s*\{[^}]*font-size: 0.875rem;")
+        self.assertIn("@media (prefers-reduced-motion: reduce)", css)
+        self.assertIn("html { scroll-behavior: auto; }", css)
+        self.assertIn("transition-duration: 0.01ms !important; scroll-behavior: auto !important;", css)
+        # Preserve the existing inline-accordion and stacking contract. These
+        # guards are source checks, not proof of native dropdown/focus geometry.
+        self.assertIn(".navbar .dropdown-menu { z-index: 1031; }", css)
+        self.assertIn(".navbar .dropdown-menu { max-height: 78vh; overflow-y: auto; }", css)
+        self.assertRegex(css, r"\.dropdown-submenu > \.dropdown-menu\s*\{\s*position: static; display: none;")
+        self.assertIn(".dropdown-submenu.open > .dropdown-menu { display: block; }", css)
+        self.assertNotRegex(css, r"backdrop-filter\s*:")
 
     def test_view_batch_routes_only_to_the_reviewed_view_cli (self) -> None:
         source = VIEW_BAT.read_text(encoding="ascii")

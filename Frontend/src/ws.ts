@@ -9,14 +9,24 @@ export interface WsMessage {
   data: Record<string, unknown>;
 }
 
+export type WsConnectionState = "connecting" | "connected" | "reconnecting";
+
 export function connectWs (
   onMessage: (msg: WsMessage) => void,
   onSync: () => void,
+  onStatus?: (state: WsConnectionState) => void,
 ): () => void {
   let socket: WebSocket | null = null;
   let closed = false;
   let retryMs = 1000;
   let retry: { handle: ReturnType<typeof setTimeout> | null } | null = null;
+  let lastStatus: WsConnectionState | null = null;
+
+  const publishStatus = (state: WsConnectionState) => {
+    if (closed || state === lastStatus) return;
+    lastStatus = state;
+    try { onStatus?.(state); } catch { /* observers must not interrupt transport ownership */ }
+  };
 
   const detach = (candidate: WebSocket) => {
     candidate.onopen = null;
@@ -45,6 +55,8 @@ export function connectWs (
     candidate.onopen = () => {
       if (!isCurrent()) return;
       retryMs = 1000;
+      publishStatus("connected");
+      if (!isCurrent()) return;
       onSync(); // F29
     };
     candidate.onmessage = (raw) => {
@@ -59,6 +71,7 @@ export function connectWs (
       if (!isCurrent()) return;
       socket = null;
       detach(candidate);
+      publishStatus("reconnecting");
       scheduleRetry();
     };
     candidate.onerror = () => {
@@ -66,6 +79,7 @@ export function connectWs (
     };
   };
 
+  publishStatus("connecting");
   open();
   const keepalive = setInterval(() => {
     if (!closed && socket?.readyState === WebSocket.OPEN) socket.send("ping");

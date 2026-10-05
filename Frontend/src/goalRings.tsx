@@ -187,7 +187,7 @@ export function GoalRings ({ calendar, scope, compact, onStatus }: {
   const rendered = (i: number) =>
     i === 1 ? fmtMinutes(values[1]) : fmt(values[i]);
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative min-w-0">
       {!compact && (
         <SectionHeading level={4} title={isCurrentDay ? "Today's rings" : "Daily rings"}
           description={`${dayLabel} · ${scope ?? "All repos"}.`}
@@ -201,7 +201,7 @@ export function GoalRings ({ calendar, scope, compact, onStatus }: {
       )}
       {gearOpen && !compact && (
         <div id="daily-goals-panel" role="region" aria-label="Daily goal values"
-          className="ui-disclosure-enter absolute right-0 top-12 z-10 rounded border border-slate-600 bg-slate-800 p-2 text-xs shadow-xl">
+          className="ui-disclosure-enter absolute right-0 top-12 z-10 w-[min(20rem,100%)] rounded-panel border border-ui-control-border bg-ui-raised p-4 text-sm shadow-xl">
           <form noValidate onSubmit={saveGoals}>
             <fieldset className="space-y-2">
               <legend className="mb-1 font-semibold text-slate-200">Daily goal values</legend>
@@ -223,7 +223,7 @@ export function GoalRings ({ calendar, scope, compact, onStatus }: {
                         ...current,
                         [field]: validateGoal(drafts[field]) || undefined,
                       }))}
-                      className="w-28 rounded bg-slate-900 px-2 py-1 text-slate-100 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-500" />
+                      className="w-full min-w-0 rounded-control border border-ui-control-border bg-ui-surface px-3 py-2 text-base text-ui-text aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-500" />
                     {fieldErrors[field] && (
                       <span id={errorId} className="mt-0.5 block max-w-48 text-rose-300">
                         {fieldErrors[field]}
@@ -240,8 +240,8 @@ export function GoalRings ({ calendar, scope, compact, onStatus }: {
           </form>
         </div>
       )}
-      <div className={compact ? "flex justify-center" : "flex items-center gap-4"}>
-        <div className="relative" style={{ width: size, height: size }}>
+      <div className={compact ? "flex justify-center" : "flex min-w-0 flex-wrap items-center gap-4"}>
+        <div className="relative shrink-0" style={{ width: size, height: size }}>
           <svg width={size} height={size} viewBox="0 0 120 120"
             aria-hidden="true" focusable="false">
             {RADII.map((r, i) => {
@@ -278,16 +278,16 @@ export function GoalRings ({ calendar, scope, compact, onStatus }: {
             </span>
           ))}
         </div>
-        <ul className={compact ? "sr-only" : "space-y-1 text-[11px] text-slate-300"}
+        <ul className={compact ? "sr-only" : "min-w-0 space-y-3 text-base text-ui-text"}
           aria-label={`Daily goals for ${scope ?? "All repos"} · ${dayLabel}`}>
             {labels.map((label, i) => {
               const pct = Math.round((values[i] / goalList[i]) * 100);
               return (
-                <li key={label} className="flex items-center gap-1.5">
-                  <span className="inline-block h-2 w-2 rounded-full"
+                <li key={label} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="inline-block h-2 w-2 shrink-0 rounded-full"
                     style={{ backgroundColor: RING_COLOR[i] }} />
                   <span>{label}</span>
-                  <span className="text-slate-400">
+                  <span className="text-xs tabular-nums text-ui-muted">
                     {today ? rendered(i) : "Unavailable"} / {i === 1 ? fmtMinutes(goalList[1]) : fmt(goalList[i])}
                     {today && ` (${fmt(pct)}%)`}
                   </span>

@@ -45,7 +45,7 @@ export function WrappedCard ({
       closeLabel="Close weekly wrapped"
       panelClassName="max-w-lg"
     >
-      <div className="space-y-4 text-sm">
+      <div className="min-w-0 space-y-6 text-base">
         {!hasDays && <p className="text-ui-muted">Weekly day data is unavailable.</p>}
         {zeroCaptureEvents && <p className="text-ui-muted">No capture events in this snapshot.</p>}
         {hasDays && (
@@ -87,9 +87,9 @@ export function WrappedCard ({
           </>
         )}
         {top && (
-          <div>
-            <div className="text-xs uppercase tracking-wide text-ui-muted">Top task</div>
-            <div className="break-words font-semibold text-sky-300">{topTitle}</div>
+          <div className="min-w-0 border-l-2 border-sky-700 pl-4">
+            <div className="ui-metadata">Top task</div>
+            <div className="break-words text-base font-semibold text-ui-text [overflow-wrap:anywhere]">{topTitle}</div>
             <div
               className="break-words text-xs text-ui-muted"
               title="estimated from capture timestamps — 15-min gap rule"
@@ -99,21 +99,21 @@ export function WrappedCard ({
             </div>
           </div>
         )}
-        <div className="grid grid-cols-1 gap-3 text-center sm:grid-cols-3">
-          <div className="rounded-panel border border-ui-border bg-ui-raised/60 p-2">
-            <div className="text-xl font-bold tabular-nums text-ui-text">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="ui-metric">
+            <div className="break-words text-2xl font-semibold tabular-nums text-ui-text">
               {wrapped.files_touched}
             </div>
             <div className="text-xs text-ui-muted">files touched</div>
           </div>
-          <div className="rounded-panel border border-ui-border bg-ui-raised/60 p-2">
-            <div className="text-xl font-bold tabular-nums text-ui-text">
+          <div className="ui-metric">
+            <div className="break-words text-2xl font-semibold tabular-nums text-ui-text">
               {wrapped.commits}
             </div>
             <div className="text-xs text-ui-muted">commits</div>
           </div>
-          <div className="rounded-panel border border-ui-border bg-ui-raised/60 p-2">
-            <div className="text-xl font-bold tabular-nums text-amber-300">
+          <div className="ui-metric">
+            <div className="break-words text-2xl font-semibold tabular-nums text-amber-300">
               {snapshot.streak === null ? "Unavailable" : snapshot.streak >= 2 ? "🔥 " + snapshot.streak : "—"}
             </div>
             <div
@@ -125,7 +125,7 @@ export function WrappedCard ({
           </div>
         </div>
         {wrapped.busiest_hour && (
-          <div className="break-words text-xs text-slate-300">
+          <div className="break-words text-sm text-ui-text">
             <span className="text-ui-muted">Busiest hour: </span>
             <span className="font-semibold">
               {DAYS[wrapped.busiest_hour.dow]}{" "}
@@ -137,7 +137,7 @@ export function WrappedCard ({
           </div>
         )}
         {wrapped.top_pair && (
-          <div className="break-words text-xs text-slate-300">
+          <div className="break-words text-sm text-ui-text">
             <span className="text-ui-muted">Pair of the week: </span>
             <span className="break-all font-mono">{wrapped.top_pair.file_a}</span>
             <span className="text-ui-muted"> ↔ </span>

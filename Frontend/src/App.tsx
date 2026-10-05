@@ -10,6 +10,8 @@ import type { GitGraphRow } from "./mermaidGraph";
 import { buildFileTree } from "./fileTree";
 import { CommandPalette, paletteEntryId } from "./CommandPalette";
 import type { PaletteEntry } from "./CommandPalette";
+import { AppShell, AppShellNavigation, ConnectionStatus, WorkspaceContext } from "./AppShell";
+import { RepositorySwitcher } from "./RepositorySwitcher";
 import { prepareDigest } from "./digest";
 import { DisclosureTable } from "./accessibleData";
 import { requestNoopenerTab, startBlobDownload } from "./download";
@@ -21,7 +23,7 @@ import { SessionTimeline } from "./SessionTimeline";
 import { WrappedCard } from "./WrappedCard";
 import { fmtAge, fmtMinutes, fmtRel, fmtTs } from "./format";
 import { utcDayKey } from "./calendarDay";
-import { notifyBackgroundFailure, notifyPickNeeded, notifyRelease, notifyStatusChange, notifyToggleMessage, notifyWanted, notifyWarning, setNotifyEnabled } from "./notify";
+import { notifyBackgroundFailure, notifyPickNeeded, notifyRelease, notifyStatusChange, notifyToggleMessage, notifyWanted, notifyWarning, replaceStatusBaseline, setNotifyEnabled } from "./notify";
 import { playChime, playFanfare, playTick, setSoundEnabled, soundBackgroundFailure, soundToggleMessage, soundWanted } from "./sound";
 import { readPreference, writePreference } from "./preferences";
 import { backgroundPreferenceFeedback, observePreferenceFailure, withBackgroundPreferenceFailure } from "./preferenceFailure";
@@ -59,6 +61,7 @@ import { ChronicleView } from "./chronicleView";
 import { FocusMode } from "./focusMode";
 import { HealthButton, HealthModal } from "./healthPanel";
 import { connectWs } from "./ws";
+import type { WsConnectionState } from "./ws";
 import { normalizeMissionEntry } from "./missionModel";
 import type { MissionEntryState } from "./missionModel";
 import {
@@ -78,13 +81,14 @@ import {
   BoundedPageMemoryProvider,
   CollectionPager,
   ControlButton,
+  SectionHeading,
   hasActiveInteraction,
   suppressDisclosureFocusRestore,
   useBoundedPage,
   useDisclosureBehavior,
   useRememberedBoundedPage,
 } from "./ui";
-import { BoundedChoiceDialog, DialogShell, suppressOverlayFocusRestore } from "./dialog";
+import { BoundedChoiceDialog, DialogShell, hasOverlayLease, suppressOverlayFocusRestore } from "./dialog";
 import { BellIcon, MoreIcon, TasksIcon } from "./icons";
 
 const PAGE = 500; // F38 pagination page size
@@ -103,6 +107,7 @@ type ActiveDialog =
   | { kind: "wrapped"; stats: StatsData; tasks: Task[] };
 
 type SidebarMode = "active" | "all";
+type ShellPanel = "navigation" | "scope" | "status" | "tasks";
 
 type DigestState =
   | { kind: "idle" }
@@ -415,6 +420,8 @@ export default function App () {
     BOOTSTRAP_ROUTE.route.scope.kind === "all",
   );
   const [workspaceReady, setWorkspaceReady] = useState(false);
+  const workspaceReadyRef = useRef(workspaceReady);
+  workspaceReadyRef.current = workspaceReady;
   const membershipReadyRef = useRef(membershipReady);
   membershipReadyRef.current = membershipReady;
   const currentRouteRef = useRef<AppRoute>({ scope, view });
@@ -434,7 +441,11 @@ export default function App () {
   const moreTriggerRef = useRef<HTMLButtonElement | null>(null);
   const legendTriggerRef = useRef<HTMLButtonElement | null>(null);
   const legendReturnToMoreRef = useRef(false);
-  const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
+  const disclosureFocusRef = useRef<"tools" | "legend" | null>(null);
+  const statusPanelRef = useRef<HTMLDivElement | null>(null);
+  const [shellPanel, setShellPanel] = useState<ShellPanel | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [connectionState, setConnectionState] = useState<WsConnectionState>("connecting");
   const [taskFilter, setTaskFilter] = useState<string | null>(null); // X4: structured task identity key
   const [sessionFilter, setSessionFilter] = useState<EventSessionIdentity | null>(null);
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("active");
@@ -450,10 +461,13 @@ export default function App () {
   }, []);
   const [activeDialog, setActiveDialog] = useState<ActiveDialog | null>(null);
   const openDialog = useCallback((next: ActiveDialog) => {
+    if (next.kind === "focus" && (!workspaceReadyRef.current || !membershipReadyRef.current)) return;
     suppressDisclosureFocusRestore();
     setPanelOpen(false);
     setMoreOpen(false);
     setShowLegend(false);
+    setShellPanel(null);
+    setPaletteOpen(false);
     setActiveDialog((current) => current ?? next);
   }, []);
   const closeDialog = useCallback(() => setActiveDialog(null), []);
@@ -685,13 +699,16 @@ export default function App () {
   const statusEpochRef = useRef(0);
   const statusPatchesRef = useRef(new Map<string, {
     epoch: number;
-    value: Pick<Repo, "clean" | "count" | "offline" | "branch">;
+    value: Pick<Repo, "clean" | "count" | "offline" | "branch"
+      | "status_valid" | "paths_complete" | "observed_at">;
   }>());
   const sync = useCallback(async () => {
     const generation = ++syncGenerationRef.current;
+    // A push arriving anywhere during this request must outrank its snapshot.
+    const statusEpoch = statusEpochRef.current;
     try {
       const [repoResult, t, e] = await Promise.all([
-        api.repos().then((data) => ({ data, statusEpoch: statusEpochRef.current })),
+        api.repos().then((data) => ({ data, statusEpoch })),
         api.tasks(),
         api.events({ uncommitted: true, limit: PAGE }),
       ]);
@@ -705,6 +722,7 @@ export default function App () {
       for (const [repoId, patch] of statusPatchesRef.current) {
         if (patch.epoch <= repoResult.statusEpoch) statusPatchesRef.current.delete(repoId);
       }
+      replaceStatusBaseline(r);
       setRepos(r);
       setTasks(t);
       setEvents(e);
@@ -802,12 +820,18 @@ export default function App () {
           count: number;
           offline: boolean;
           branch: string | null;
+          status_valid?: unknown;
+          paths_complete?: unknown;
+          observed_at?: unknown;
         };
         const statusValue = {
           clean: d.clean,
           count: d.count,
           offline: d.offline,
           branch: d.branch,
+          status_valid: d.status_valid === true,
+          paths_complete: d.paths_complete === true,
+          observed_at: typeof d.observed_at === "string" ? d.observed_at : null,
         };
         statusPatchesRef.current.set(d.repo, {
           epoch: ++statusEpochRef.current,
@@ -815,7 +839,9 @@ export default function App () {
         });
         // D5 trigger (2): dirty->CLEAN — transition map lives in notify.ts
         // (RV9: never notify from inside the setRepos updater below).
-        const transitioned = notifyStatusChange(d.repo, d.clean, () => navigateToRepo(d.repo, false));
+        const transitioned = notifyStatusChange(d.repo,
+          !statusValue.offline && statusValue.status_valid ? statusValue.clean : null,
+          () => navigateToRepo(d.repo, false));
         if (transitioned) {
           // v0.2.8.0 A.2 (R-BH): the CLEAN chime — the 4th channel
           // column (opt-in, visibility-independent), beside the
@@ -888,8 +914,9 @@ export default function App () {
     }, () => {
       setMissionNonce((value) => value + 1);
       void sync();
-    });
+    }, setConnectionState);
     return () => {
+      syncGenerationRef.current += 1;
       clearTimeout(timer);
       clearTimeout(missionTimer);
       close();
@@ -991,20 +1018,14 @@ export default function App () {
   // conditionally on the CURRENT violation, so fixing the plan clears it.
   const [guardEvent, setGuardEvent] = useState<{ repo: string } | null>(null);
 
-  // v0.1.5.0 D4 (C.4) + RV23: cross-view navigation with a DEFERRED scroll —
-  // the sec-pick anchor exists only after ChangesView mounts. v0.1.5.0 CFT-5
-  // (bare CFT-N elsewhere in this file = the v0.1.0.0 loop): pending
-  // scroll is STATE, not a ref — a ref mutation never re-renders, so when
-  // every other setState in the path bails out (palette jump while already
-  // on Changes; notification click while already on that repo's tab) the
-  // ref stayed armed and fired as a phantom scroll on the next unrelated
-  // render. Consumed + ALWAYS cleared by the effect (no phantom scroll
-  // later when the anchor is absent).
-  const [pendingScroll, setPendingScroll] = useState<string | null>(null);
+  // One generation owns deferred view focus, explicit anchors and Back scroll.
+  // State also handles repeated same-route picks; consumed requests never replay.
   const [routeFocusRequest, setRouteFocusRequest] = useState<{
     generation: number;
     scrollTop: number;
+    targetId?: string;
   } | null>(null);
+  const routeFocusFailureGenerationRef = useRef<number | null>(null);
   const mainRef = useRef<HTMLElement | null>(null);
   const snapshotUiRef = useRef({
     taskFilter,
@@ -1194,15 +1215,16 @@ export default function App () {
       if (routeChanged) setOverviewUi(nextOverview);
       if (routeChanged) setAssignmentUi(nextAssignment);
       if (routeChanged) setMissionUi(nextMission);
-      setPendingScroll(options.pendingScroll ?? null);
       setActiveDialog(null);
       setPanelOpen(false);
       setMoreOpen(false);
-      setTaskDrawerOpen(false);
+      setShellPanel(null);
+      setPaletteOpen(false);
       setShowLegend(false);
-      if (options.indirect) {
-        setRouteFocusRequest({ generation, scrollTop: 0 });
-      }
+      setRouteFocusRequest(options.indirect || options.pendingScroll
+        ? { generation, scrollTop: 0,
+            targetId: target.view === "changes" ? options.pendingScroll ?? undefined : undefined }
+        : null);
     };
 
     if (options.animate === false || prefersReducedMotion()) commit();
@@ -1224,22 +1246,6 @@ export default function App () {
     }
   };
 
-  useEffect(() => {
-    if (view !== "changes" || !pendingScroll) return;
-    const id = pendingScroll;
-    setPendingScroll(null);
-    requestAnimationFrame(() => {
-      const target = document.getElementById(id);
-      target?.scrollIntoView({
-        behavior: prefersReducedMotion() ? "auto" : "smooth",
-        block: "start",
-      });
-      if (target instanceof HTMLElement) {
-        if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
-        target.focus({ preventScroll: true });
-      }
-    });
-  }, [view, pendingScroll]);
   const navigateToRepo = useCallback((repoId: string, scrollToPicks: boolean) => {
     navigate(
       { scope: { kind: "repo", id: repoId }, view: "changes" },
@@ -1538,7 +1544,7 @@ export default function App () {
     if (dreaming) return;
     const timer = window.setInterval(() => {
       if (!attractOn || prefersReducedMotion() || activeDialog !== null
-          || releases.length > 0 || panelOpen || moreOpen || taskDrawerOpen
+          || releases.length > 0 || panelOpen || moreOpen || shellPanel !== null || paletteOpen
           || showLegend || document.hidden || view === "chronicle" || view === "mission"
           || hasActiveInteraction()) return;
       if (Date.now() - lastInputRef.current >= ATTRACT_IDLE_MS) {
@@ -1560,7 +1566,7 @@ export default function App () {
     }, 30_000);
     return () => window.clearInterval(timer);
   }, [activeDialog, attractOn, dreaming, moreOpen, panelOpen, releases.length,
-    showLegend, taskDrawerOpen, view]);
+    showLegend, shellPanel, paletteOpen, view]);
 
   useEffect(() => {
     if (!dreaming) return;
@@ -1694,9 +1700,9 @@ export default function App () {
         setActiveDialog(null);
         setPanelOpen(false);
         setMoreOpen(false);
-        setTaskDrawerOpen(false);
+        setShellPanel(null);
+        setPaletteOpen(false);
         setShowLegend(false);
-        setPendingScroll(null);
         setRouteFocusRequest({ generation, scrollTop: snapshot?.scrollTop ?? 0 });
       });
     };
@@ -1717,45 +1723,82 @@ export default function App () {
     const statsReady = view !== "overview"
       || !membershipReady
       || (statsState.key === currentScopeKey && statsState.settled);
+    let live = true;
+    let settled = false;
+    let failureSeen = routeFocusFailureGenerationRef.current === request.generation;
+    let frame: number | null = null;
+    const ownsRequest = () => live && !settled
+      && request.generation === routeGenerationRef.current && mainRef.current === main;
 
-    const complete = (): boolean => {
-      if (request.generation !== routeGenerationRef.current || !statsReady) return false;
+    const destination = () => {
       const failure = main.querySelector<HTMLElement>(
         "#lazy-view-failure, #history-load-failure, [data-route-hydration-failure]",
       );
+      if (failure && ownsRequest()) {
+        failureSeen = true;
+        routeFocusFailureGenerationRef.current = request.generation;
+      }
       const hydrationPending = main.querySelector<HTMLElement>(
         '[data-route-hydration-ready="false"]',
       );
       const history = main.querySelector<HTMLElement>("[data-history-ready]");
-      if (view === "history" && !failure
-          && history?.dataset.historyReady !== "true") return false;
-      if (!failure && hydrationPending) return false;
+      if (!failure && (!statsReady || hydrationPending
+          || view === "history" && history?.dataset.historyReady !== "true")) return null;
       const heading = main.querySelector<HTMLElement>("[data-view-heading]");
-      if (!failure && !heading) return false;
-      const target = failure ?? heading ?? main;
-      window.requestAnimationFrame(() => {
-        if (request.generation !== routeGenerationRef.current) return;
+      if (!failure && !heading) return null;
+      const candidate = !failureSeen && request.targetId ? document.getElementById(request.targetId) : null;
+      const anchor = candidate?.isConnected && main.contains(candidate) ? candidate : null;
+      const target = failure ?? anchor ?? heading ?? main;
+      return target.isConnected ? { target, anchor } : null;
+    };
+    const settle = () => {
+      settled = true;
+      observer.disconnect();
+      setRouteFocusRequest((current) => current?.generation === request.generation ? null : current);
+    };
+    const complete = () => {
+      if (!ownsRequest() || frame !== null || !destination()) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        if (!ownsRequest()) return;
+        // Never transfer focus out of a newer overlay or a detached application.
+        if (!main.isConnected || hasOverlayLease() || main.closest("[inert]")) {
+          settle();
+          return;
+        }
+        const current = destination();
+        if (!current) {
+          // The first observed hydration error consumes this navigation intent.
+          if (failureSeen) settle();
+          return;
+        }
+        const { target, anchor } = current;
+        if (target.closest("[inert]")) { settle(); return; }
         if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
-        if (request.scrollTop > 0 && !failure) {
+        if (request.scrollTop > 0 && !failureSeen && !anchor) {
           main.focus({ preventScroll: true });
-          main.scrollTop = Math.min(request.scrollTop, main.scrollHeight - main.clientHeight);
+          if (!ownsRequest()) return;
+          main.scrollTop = Math.max(0, Math.min(request.scrollTop, main.scrollHeight - main.clientHeight));
         } else {
           target.focus({ preventScroll: true });
-          main.scrollTop = 0;
+          if (!ownsRequest()) return;
+          if (anchor) anchor.scrollIntoView({
+            behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start",
+          });
+          else main.scrollTop = 0;
         }
-        setRouteFocusRequest((current) => current?.generation === request.generation
-          ? null
-          : current);
+        settle();
       });
-      return true;
     };
 
-    if (complete()) return;
-    const observer = new MutationObserver(() => {
-      if (complete()) observer.disconnect();
-    });
+    const observer = new MutationObserver(complete);
     observer.observe(main, { childList: true, subtree: true, attributes: true });
-    return () => observer.disconnect();
+    complete();
+    return () => {
+      live = false;
+      observer.disconnect();
+      if (frame !== null) window.cancelAnimationFrame(frame);
+    };
   }, [currentScopeKey, membershipReady, routeFocusRequest, statsState, view]);
 
   // D17: digest preparation is async; the prepared Blob downloads only from
@@ -1791,6 +1834,14 @@ export default function App () {
     if (current.kind === "preparing" || current.kind === "downloading") return;
     if (!membershipReady) {
       const message = `Digest unavailable while validating ${scopeLabel(scope)}.`;
+      setDigestNote(message);
+      announceStatus(message);
+      return;
+    }
+    if (!workspaceReady) {
+      const message = error
+        ? "Digest unavailable: workspace snapshot unavailable."
+        : "Digest unavailable: waiting for workspace snapshot.";
       setDigestNote(message);
       announceStatus(message);
       return;
@@ -1844,7 +1895,7 @@ export default function App () {
         digestControllerRef.current = null;
       }
     });
-  }, [announceStatus, currentScopeKey, events, membershipReady, repos, scope,
+  }, [announceStatus, currentScopeKey, error, events, membershipReady, repos, scope, workspaceReady,
     setDigestStatus, tasks]);
 
   const digestBusy = digestState.kind === "preparing" || digestState.kind === "downloading";
@@ -1903,6 +1954,9 @@ export default function App () {
   const scopeUnavailableReason = membershipReady
     ? undefined
     : `Validating repository ${scopeLabel(scope)}.`;
+  const workspaceUnavailableReason = scopeUnavailableReason ?? (workspaceReady
+    ? undefined
+    : error ? "Workspace snapshot unavailable." : "Waiting for workspace snapshot.");
 
   // v0.1.5.0 D6 (D.2): palette entries — views, ALL+repo tabs, tasks (X4
   // filter + tab switch, RV14), actions. The tree toggle also lands on
@@ -1918,7 +1972,7 @@ export default function App () {
       run: () => navigate({ view: "chronicle" }, { indirect: true }) },
     { id: paletteEntryId("dialog", "focus"), section: "Views", label: "Enter focus mode",
       hint: "ambient wall display — Esc exits", opensDialog: true,
-      disabledReason: scopeUnavailableReason,
+      disabledReason: workspaceUnavailableReason,
       run: () => openDialog({ kind: "focus", scope: scopeApiId(scope) }) },
     { id: paletteEntryId("dialog", "health"), section: "Views", label: "Open system health",
       hint: "watchers · hook · capture freshness", opensDialog: true,
@@ -1926,7 +1980,8 @@ export default function App () {
     { id: paletteEntryId("scope", "all"), section: "Repos", label: "All repos", run: () => navigate({ scope: { kind: "all" } }, { indirect: true }) },
     ...repos.map((r): PaletteEntry => ({
       id: paletteEntryId("scope", "repo", r.id), section: "Repos", label: r.id,
-      hint: r.clean ? "CLEAN ✓" : `${r.count} uncommitted`,
+      hint: r.offline ? "OFFLINE" : r.status_valid !== true ? "Git status unavailable"
+        : r.clean ? "CLEAN ✓" : `${r.count} uncommitted`,
       run: () => navigate({ scope: { kind: "repo", id: r.id } }, { indirect: true }),
     })),
     ...tasks.map((t): PaletteEntry => ({
@@ -1946,18 +2001,22 @@ export default function App () {
       ) },
     { id: paletteEntryId("action", "toggle-os-alerts"), section: "Actions", label: `OS alerts: turn ${notifyOn ? "off" : "on"}`,
       disabledReason: notifyBusy ? "OS alert permission change is in progress." : undefined,
+      opensDisclosure: true,
       run: () => {
         suppressDisclosureFocusRestore();
-        setMoreOpen(false); setShowLegend(false); setPanelOpen(true);
+        disclosureFocusRef.current = "tools";
+        setPanelOpen(false); setShowLegend(false); setMoreOpen(true);
         void toggleNotify();
       } },
     // v0.2.8.0 A.2 (R-BH): the sound twin — the same panel-open +
     // toggle shape (the visible-effect rule).
     { id: paletteEntryId("action", "toggle-sounds"), section: "Actions", label: `Sounds: turn ${soundOn ? "off" : "on"}`,
       disabledReason: soundBusy ? "Sound preference change is in progress." : undefined,
+      opensDisclosure: true,
       run: () => {
         suppressDisclosureFocusRestore();
-        setMoreOpen(false); setShowLegend(false); setPanelOpen(true);
+        disclosureFocusRef.current = "tools";
+        setPanelOpen(false); setShowLegend(false); setMoreOpen(true);
         void toggleSound();
       } },
     // v0.2.9.0 A.2 (R-BL): one draft action per DIRTY repo (the
@@ -1984,13 +2043,14 @@ export default function App () {
       run: () => { if (stats) openDialog({ kind: "wrapped", stats, tasks: [...tasks] }); } },
     { id: paletteEntryId("action", "open-chronicle-tab"), section: "Actions", label: "Open Chronicle in a new tab ↗",
       run: openChronicleTab },
-    { id: paletteEntryId("action", "open-legend"), section: "Actions", label: "Open Legend", run: () => {
+    { id: paletteEntryId("action", "open-legend"), section: "Actions", label: "Open Legend", opensDisclosure: true, run: () => {
       suppressDisclosureFocusRestore();
-      legendReturnToMoreRef.current = false;
+      legendReturnToMoreRef.current = true;
+      disclosureFocusRef.current = "legend";
       setPanelOpen(false); setMoreOpen(false); setShowLegend(true);
     } },
     { id: paletteEntryId("action", "export-digest"), section: "Actions", label: digestActionLabel,
-      disabledReason: scopeUnavailableReason ?? (digestBusy ? "Digest action is already in progress." : undefined),
+      disabledReason: workspaceUnavailableReason ?? (digestBusy ? "Digest action is already in progress." : undefined),
       run: doDigest },
     // v0.2.0.1 D1 (B.1): the report exports — Actions, beside the digest
     // (RV1); no-op while stats is null (the entries stay listed).
@@ -2014,6 +2074,26 @@ export default function App () {
     rootRef: moreRootRef,
     triggerRef: moreTriggerRef,
   });
+
+  // Palette teardown releases root inertness in a microtask. Focus the destination
+  // after that handoff, never back into the removed palette or a disabled toggle.
+  useEffect(() => {
+    if (paletteOpen) return;
+    const destination = disclosureFocusRef.current;
+    if (!destination) return;
+    if ((destination === "tools" && !moreOpen) || (destination === "legend" && !showLegend)) {
+      disclosureFocusRef.current = null;
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      if (disclosureFocusRef.current !== destination || hasOverlayLease()) return;
+      const target = document.querySelector<HTMLElement>(destination === "tools"
+        ? "#header-more-panel" : "#app-legend button");
+      disclosureFocusRef.current = null;
+      if (target?.isConnected && !target.closest("[inert]")) target.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [moreOpen, paletteOpen, showLegend]);
 
   const toggleMore = (): void => {
     if (!moreOpen && (panelOpen || showLegend)) {
@@ -2047,13 +2127,26 @@ export default function App () {
     setMoreOpen(false);
     openDialog(dialog);
   };
-  const openTaskDrawer = (): void => {
+  const openShellPanel = (next: ShellPanel): void => {
+    if (hasOverlayLease()) return;
     if (panelOpen || moreOpen || showLegend) suppressDisclosureFocusRestore();
     setPanelOpen(false);
     setMoreOpen(false);
     setShowLegend(false);
-    setTaskDrawerOpen(true);
+    setPaletteOpen(false);
+    setShellPanel(next);
   };
+  const changePaletteOpen = useCallback((next: boolean): void => {
+    if (next && hasOverlayLease()) return;
+    if (next) {
+      suppressDisclosureFocusRestore();
+      setPanelOpen(false);
+      setMoreOpen(false);
+      setShowLegend(false);
+      setShellPanel(null);
+    }
+    setPaletteOpen(next);
+  }, []);
 
   return (
     <BoundedPageMemoryProvider pages={pagePositions} onPageChange={rememberPage}>
@@ -2064,65 +2157,34 @@ export default function App () {
       >
         Skip to main content
       </a>
-      <header className="ui-safe-header shrink-0 border-b border-ui-border bg-ui-surface px-4 pb-2">
-        <div className="app-header-primary flex min-w-0 items-center gap-2 py-1.5">
-          <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-sky-300 sm:text-lg">
-            KATLAB Tracking Monitor
-          </h1>
-          <div className="app-header-actions flex shrink-0 items-center gap-1.5">
-            <ControlButton onClick={openTaskDrawer} className="lg:hidden">
+      <AppShell onSystem={() => openDialog({ kind: "health" })} context={(
+        <WorkspaceContext scope={scope} repos={visibleRepos}
+          ready={workspaceReady && membershipReady} error={error}
+          violationOf={violationOf} onDetails={() => openShellPanel("status")} />
+      )} actions={(
+          <>
+            <ControlButton onClick={() => openShellPanel("navigation")} className="xl:hidden"
+              aria-haspopup="dialog">
+              Navigation: {VIEW_LABELS[view]}
+            </ControlButton>
+            <ControlButton onClick={() => openShellPanel("scope")} aria-haspopup="dialog"
+              className="max-w-full sm:max-w-56">
+              <span className="min-w-0 truncate">Repository: {scopeLabel(scope)}</span>
+            </ControlButton>
+            <ControlButton onClick={() => openShellPanel("tasks")} className="xl:hidden"
+              aria-haspopup="dialog">
               <TasksIcon />
               <span>Tasks</span>
             </ControlButton>
-            <div className="hidden items-center gap-1.5 lg:flex">
-              <Pet mood={petMood} wardrobe={wardrobe} />
-              <HealthButton onClick={() => openDialog({ kind: "health" })} />
-              <button
-                ref={legendTriggerRef}
-                type="button"
-                aria-expanded={showLegend}
-                aria-controls="app-legend"
-                onClick={() => {
-                  legendReturnToMoreRef.current = false;
-                  if (!showLegend && (panelOpen || moreOpen)) suppressDisclosureFocusRestore();
-                  setPanelOpen(false);
-                  setMoreOpen(false);
-                  setShowLegend((open) => !open);
-                }}
-                className="ui-control bg-ui-raised text-ui-text"
-              >
-                Legend
-              </button>
-              <ControlButton
-                disabled={!!scopeUnavailableReason || digestBusy}
-                aria-busy={digestBusy}
-                onClick={doDigest}
-                title="Export today's changes as one self-contained HTML file"
-              >
-                {digestState.kind === "ready" ? "Download digest ↓" : digestState.kind === "preparing" ? "Preparing…" : "Digest ↓"}
-              </ControlButton>
-            </div>
+            <ControlButton onClick={() => changePaletteOpen(true)} aria-haspopup="dialog">Commands</ControlButton>
+            <ConnectionStatus state={connectionState} />
             <AttentionBell entryKey={entryIdRef.current}
+              ready={workspaceReady} error={error}
               repos={repos} events={events} tasks={tasks}
               violationOf={violationOf} open={panelOpen} onToggle={toggleAttention}
-              onClose={() => setPanelOpen(false)} onNavigate={navigateToRepo}
-              footer={(
-                <div className="mt-2 hidden flex-wrap items-center gap-2 border-t border-ui-border pt-2 lg:flex">
-                  <span className="text-ui-muted">OS alerts:</span>
-                  <ControlButton disabled={notifyBusy} aria-busy={notifyBusy}
-                    onClick={toggleNotify}>
-                    {notifyBusy ? "changing…" : notifyOn ? "on" : "off"}
-                  </ControlButton>
-                  <span className="text-ui-muted">Sounds:</span>
-                  <ControlButton disabled={soundBusy} aria-busy={soundBusy}
-                    onClick={toggleSound}>
-                    {soundBusy ? "changing…" : soundOn ? "on" : "off"}
-                  </ControlButton>
-                  {notifyNote && <span className="text-amber-300">{notifyNote}</span>}
-                  {soundNote && <span className="text-amber-300">{soundNote}</span>}
-                </div>
-              )} />
-            <div ref={moreRootRef} className="relative lg:hidden">
+              onClose={() => setPanelOpen(false)} onNavigate={navigateToRepo} footer={null} />
+            <HealthButton onClick={() => openDialog({ kind: "health" })} />
+            <div ref={moreRootRef} className="relative">
               <ControlButton
                 ref={moreTriggerRef}
                 aria-expanded={moreOpen}
@@ -2130,19 +2192,19 @@ export default function App () {
                 onClick={toggleMore}
               >
                 <MoreIcon />
-                <span>More</span>
+                <span>Tools</span>
               </ControlButton>
               {moreOpen && (
                 <div
                   id="header-more-panel"
+                  tabIndex={-1}
+                  role="region" aria-label="Tools and experience"
                   className="ui-disclosure-enter absolute right-0 top-full z-layer-popover mt-1 max-h-[calc(100dvh-5rem)] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-panel border border-ui-border bg-ui-surface p-2 shadow-xl"
                 >
                   <div className="grid gap-1">
-                    <ControlButton onClick={openLegendFromMore}>Legend</ControlButton>
-                    <ControlButton onClick={() => openDialogFromMore({ kind: "health" })}>
-                      System health
-                    </ControlButton>
-                    <ControlButton disabled={!!scopeUnavailableReason || digestBusy}
+                    <ControlButton ref={legendTriggerRef} onClick={openLegendFromMore}>Legend</ControlButton>
+                    <h2 className="mt-2 text-xs font-semibold text-ui-muted">Reports</h2>
+                    <ControlButton disabled={!!workspaceUnavailableReason || digestBusy}
                       aria-busy={digestBusy} onClick={doDigest}>
                       {digestActionLabel}
                     </ControlButton>
@@ -2156,7 +2218,8 @@ export default function App () {
                       onClick={() => { if (stats) doReport(stats, 30); }}>
                       {reportBusy ? "Starting report…" : "Export report — 30 days"}
                     </ControlButton>
-                    <ControlButton disabled={!!scopeUnavailableReason}
+                    <h2 className="mt-3 text-xs font-semibold text-ui-muted">Experience</h2>
+                    <ControlButton disabled={!!workspaceUnavailableReason}
                       onClick={() => openDialogFromMore({ kind: "focus", scope: scopeApiId(scope) })}>
                       Enter focus mode
                     </ControlButton>
@@ -2164,11 +2227,20 @@ export default function App () {
                       onClick={() => { if (stats) openDialogFromMore({ kind: "wrapped", stats, tasks: [...tasks] }); }}>
                       View weekly wrapped
                     </ControlButton>
+                    {workspaceUnavailableReason && (
+                      <p className="px-2 text-xs text-ui-muted">{workspaceUnavailableReason} Focus and Digest need workspace data.</p>
+                    )}
                     <a className="ui-control bg-ui-raised text-ui-text hover:bg-ui-border"
                       href="/chronicle/" target="_blank" rel="noopener"
                       onClick={() => announceStatus("Chronicle new-tab open requested.")}>
                       Open Chronicle in new tab ↗
                     </a>
+                    <div className="my-2 flex flex-wrap items-center gap-3">
+                      <Pet mood={petMood} wardrobe={wardrobe} />
+                      <ComboMeter count={comboCount} lastMs={comboLastMsRef.current} burst={comboBurst} />
+                      <FlowChip count={comboCount} startMs={comboStartMsRef.current} lastMs={comboLastMsRef.current} />
+                    </div>
+                    <h2 className="mt-2 text-xs font-semibold text-ui-muted">Preferences</h2>
                     <ControlButton onClick={toggleAttract}>
                       Attract mode: turn {attractOn ? "off" : "on"}
                     </ControlButton>
@@ -2192,31 +2264,8 @@ export default function App () {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-
-        <RepoScopeRail repos={repos} scope={scope} membershipReady={membershipReady}
-          onSelect={(nextScope) => navigate({ scope: nextScope })} />
-        <ViewNavigation view={view} membershipReady={membershipReady}
-          onSelect={(nextView) => navigate({ view: nextView })} />
-        <div className="ui-horizontal-rail mt-2 flex min-w-0 items-center gap-2 overflow-x-auto pb-1"
-          role="region" aria-label="Live workspace indicators" tabIndex={0}>
-          <div className="shrink-0 sm:hidden">
-            <ComboMeter count={comboCount} lastMs={comboLastMsRef.current} burst={comboBurst} />
-          </div>
-          <div className="shrink-0 sm:hidden">
-            <FlowChip count={comboCount} startMs={comboStartMsRef.current}
-              lastMs={comboLastMsRef.current} />
-          </div>
-          <StatusBar repos={visibleRepos} scopeKeyValue={currentScopeKey}
-            violationOf={violationOf} burst={burst}
-            onDraft={doDraft} draftBusyRepo={draftBusyRepo} />
-          <div className="hidden shrink-0 items-center gap-2 sm:flex">
-            <ComboMeter count={comboCount} lastMs={comboLastMsRef.current} burst={comboBurst} />
-            <FlowChip count={comboCount} startMs={comboStartMsRef.current}
-              lastMs={comboLastMsRef.current} />
-          </div>
-        </div>
+          </>
+      )}>
         {draftNote?.scopeKey === currentScopeKey && (
           <DraftFeedback repo={draftNote.repo} result={draftNote.result}
             onDismiss={() => {
@@ -2224,11 +2273,11 @@ export default function App () {
               mainRef.current?.focus({ preventScroll: true });
             }} />
         )}
-        {digestNote && <p className="hidden text-xs text-amber-300 lg:block">{digestNote}</p>}
+        {digestNote && !moreOpen && <p className="mt-1 break-words text-xs text-amber-300">{digestNote}</p>}
         {Object.entries(preferenceFailures).map(([key, message]) => message
-          ? <p key={key} className={`${moreOpen ? "hidden lg:block " : ""}mt-1 break-words text-xs text-amber-300`}>{message}</p>
+          ? <p key={key} className={`${moreOpen ? "hidden " : ""}mt-1 break-words text-xs text-amber-300`}>{message}</p>
           : null)}
-      </header>
+      </AppShell>
 
       {dreaming && ( /* v0.2.9.0 D5 (C.1, RV4b/RV6): the daydream's
           CLICK-CATCHER — transparent, owns ALL pointer input; the exit
@@ -2280,10 +2329,8 @@ export default function App () {
                 className="ui-control bg-slate-800 text-slate-200 hover:bg-slate-700">
                 open changelog ↗
               </a>
-              {/* honest: the STORY page lands on the Scribe's next daily
-                  tick — never a dead link to it (the changelog is live) */}
-              <span className="text-xs text-slate-500">
-                the Scribe drafts the release notes on its next daily tick
+              <span className="text-xs text-slate-400">
+                Chronicle records observed commits; automated Scribe drafts are disabled
               </span>
               <button type="button"
                 onClick={() => setReleases((prev) => prev.filter((x) => x.n !== r.n))}
@@ -2321,7 +2368,8 @@ export default function App () {
         />
       )}
 
-      <CommandPalette entries={paletteEntries} onStatus={announceStatus} />
+      <CommandPalette entries={paletteEntries} open={paletteOpen}
+        onOpenChange={changePaletteOpen} onStatus={announceStatus} />
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {actionStatus}
       </div>
@@ -2352,23 +2400,65 @@ export default function App () {
         <WrappedCard stats={activeDialog.stats} tasks={activeDialog.tasks} onClose={closeDialog} />
       )}
 
-      {taskDrawerOpen && activeDialog === null && (
+      {shellPanel === "scope" && activeDialog === null && !paletteOpen && (
+        <RepositorySwitcher onClose={() => setShellPanel(null)}>
+          <RepoScopeRail repos={repos} scope={scope} membershipReady={membershipReady}
+            workspaceReady={workspaceReady} searchEnabled
+            onSelect={(nextScope) => navigate({ scope: nextScope }, { indirect: true })} />
+        </RepositorySwitcher>
+      )}
+
+      {shellPanel === "navigation" && activeDialog === null && !paletteOpen && (
+        <DialogShell title="Navigation" description={`Current view: ${VIEW_LABELS[view]}`}
+          onClose={() => setShellPanel(null)} closeLabel="Close navigation" backdropClose
+          panelClassName="mr-auto h-full max-w-xs rounded-none">
+          <ViewNavigation view={view} membershipReady={membershipReady}
+            onSelect={(nextView) => navigate({ view: nextView }, { indirect: true })} />
+        </DialogShell>
+      )}
+
+      {shellPanel === "status" && activeDialog === null && !paletteOpen && (
+        <DialogShell title="Repository status" description={`Scope: ${scopeLabel(scope)}`}
+          onClose={() => setShellPanel(null)} closeLabel="Close repository status" backdropClose>
+          {!workspaceReady ? <p className="text-sm text-ui-muted">{error ? "Workspace snapshot unavailable." : "Waiting for workspace snapshot."}</p>
+            : <div ref={statusPanelRef} tabIndex={-1} role="region" aria-label="Repository status details">
+              {error && <p className="mb-3 text-sm text-amber-300">Refresh failed. Showing the last workspace snapshot.</p>}
+              <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                {draftBusyRepo ? `Copying commit draft for ${draftBusyRepo}.`
+                  : draftNote?.scopeKey === currentScopeKey ? draftCopyMessage(draftNote.repo, draftNote.result) : ""}
+              </div>
+              <StatusBar repos={visibleRepos} scopeKeyValue={currentScopeKey}
+                violationOf={violationOf} burst={burst}
+                onDraft={doDraft} draftBusyRepo={draftBusyRepo} />
+              {draftNote?.scopeKey === currentScopeKey && (
+                <DraftFeedback repo={draftNote.repo} result={draftNote.result}
+                  onDismiss={() => {
+                    setDraftNote(null);
+                    statusPanelRef.current?.focus({ preventScroll: true });
+                  }} />
+              )}
+            </div>}
+        </DialogShell>
+      )}
+
+      {shellPanel === "tasks" && activeDialog === null && !paletteOpen && (
         <DialogShell
           title="Plan tasks"
           description="Filter the Changes view by task."
-          onClose={() => setTaskDrawerOpen(false)}
+          onClose={() => setShellPanel(null)}
           closeLabel="Close task drawer"
           backdropClose
           panelClassName="mr-auto h-full max-w-xs rounded-none"
           bodyClassName="min-h-0 flex-1 p-0"
         >
-          <TaskSidebar tasks={visibleTasks} events={events} effortByTask={effortByTask}
+          {!workspaceReady ? <p className="p-4 text-sm text-ui-muted">{error ? "Workspace snapshot unavailable." : "Waiting for workspace snapshot."}</p>
+            : <TaskSidebar tasks={visibleTasks} events={events} effortByTask={effortByTask}
             scopeKeyValue={currentScopeKey}
             taskFilter={taskFilter} mode={sidebarMode} onModeChange={setSidebarMode}
             embedded onTaskClick={(key) => navigate(
               { view: "changes" },
               { indirect: true, taskFilter: taskFilter === key ? null : key },
-            )} />
+            )} />}
         </DialogShell>
       )}
 
@@ -2393,16 +2483,16 @@ export default function App () {
         onDismiss={(key) => setDismissedWarnings((previous) => new Set(previous).add(key))} />
 
       <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-        <TaskSidebar key={`tasks:${entryIdRef.current}`}
-          tasks={visibleTasks} events={events} effortByTask={effortByTask}
-          scopeKeyValue={currentScopeKey}
-          taskFilter={taskFilter} mode={sidebarMode} onModeChange={setSidebarMode}
-          onTaskClick={(key) => {
-            navigate(
-              { view: "changes" },
-              { taskFilter: taskFilter === key ? null : key },
-            );
-          }} />
+        <AppShellNavigation>
+          <ViewNavigation view={view} membershipReady={membershipReady}
+            onSelect={(nextView) => navigate({ view: nextView })} />
+          <div className="mt-auto border-t border-ui-border pt-4">
+            <ControlButton onClick={() => openShellPanel("tasks")} aria-haspopup="dialog"
+              className="w-full justify-start">
+              <TasksIcon /><span>Tasks</span>
+            </ControlButton>
+          </div>
+        </AppShellNavigation>
         <main ref={mainRef} id="main-content" tabIndex={-1} data-app-scroll
           aria-label={`${scopeLabel(scope)} — ${view}`}
           onScroll={scheduleCurrentEntrySave}
@@ -2426,17 +2516,21 @@ export default function App () {
                 onClick={() => setGuardEvent(null)}>✕</button>
             </div>
           )}
-          {!membershipReady && view !== "city" && view !== "chronicle" && (
-            <section className="min-h-64 rounded-panel border border-ui-border bg-ui-surface p-6">
+          {(!membershipReady || (!workspaceReady && (view === "changes" || view === "history")))
+              && view !== "city" && view !== "chronicle" && (
+            <section tabIndex={-1} data-route-hydration-ready={error ? undefined : false}
+              data-route-hydration-failure={error ? true : undefined}
+              className="min-h-64 rounded-panel border border-ui-border bg-ui-surface p-6">
               <h2 data-view-heading tabIndex={-1} className="font-semibold text-ui-text">
-                Validating {scopeLabel(scope)}
+                {error ? "Workspace snapshot unavailable" : !membershipReady
+                  ? `Validating ${scopeLabel(scope)}` : "Waiting for workspace snapshot"}
               </h2>
               <p className="mt-2 text-sm text-ui-muted">
                 Waiting for the latest complete repository snapshot before loading scoped data.
               </p>
             </section>
           )}
-          {membershipReady && view === "changes" && (
+          {membershipReady && workspaceReady && view === "changes" && (
             <ChangesView key={`changes:${entryIdRef.current}`}
               events={visibleEvents} tasks={visibleTasks} repos={repos}
               scopeKeyValue={currentScopeKey}
@@ -2464,7 +2558,8 @@ export default function App () {
             <LazyViewBoundary key={`overview:${entryIdRef.current}`} name="Overview">
               <Suspense fallback={<LazyViewStatus name="Overview" />}>
                 <LazyOverviewView scope={scopeApiId(scope)} tasks={visibleTasks}
-                  uncommitted={visibleEvents} repos={visibleRepos.filter((r) => !r.offline)}
+                  uncommitted={visibleEvents} repos={visibleRepos}
+                  workspaceReady={workspaceReady} workspaceError={error}
                   stats={stats} statsError={statsError}
                   statsSettled={statsEligible && statsState.settled}
                   statsRefreshBusy={statsRefreshBusy} onRefreshStats={refreshStats}
@@ -2481,7 +2576,7 @@ export default function App () {
               </Suspense>
             </LazyViewBoundary>
           )}
-          {membershipReady && view === "history" && (
+          {membershipReady && workspaceReady && view === "history" && (
             <HistoryView key={`history:${entryIdRef.current}`} repos={visibleRepos.filter((r) => !r.offline)}
               scopeKeyValue={currentScopeKey} state={historyUi} onStateChange={setHistoryUi}
               onStatus={announceStatus} />
@@ -2520,11 +2615,15 @@ function RepoScopeRail ({
   repos,
   scope,
   membershipReady,
+  workspaceReady = true,
+  searchEnabled = false,
   onSelect,
 }: {
   repos: Repo[];
   scope: Scope;
   membershipReady: boolean;
+  workspaceReady?: boolean;
+  searchEnabled?: boolean;
   onSelect: (scope: Scope) => void;
 }): JSX.Element {
   const choices: Scope[] = [
@@ -2536,14 +2635,29 @@ function RepoScopeRail ({
   }
   const ids = choices.map(scopeKey);
   const activeIndex = ids.indexOf(scopeKey(scope));
-  const pager = useRememberedBoundedPage("repo-scopes", {
+  const [query, setQuery] = useState("");
+  const tokens = query.normalize("NFKC").toLocaleLowerCase("en-US").trim().split(/\s+/).filter(Boolean);
+  const filtered = choices.filter((choice) => {
+    const text = scopeAccessibleName(choice).normalize("NFKC").toLocaleLowerCase("en-US");
+    return tokens.every((token) => text.includes(token));
+  });
+  // Both hooks stay mounted; filtered browsing never writes entry-local scope memory.
+  const rememberedPager = useRememberedBoundedPage("repo-scopes", {
     identity: ["repo-scopes"],
     totalItems: choices.length,
     pageSize: 50,
     // Explicit browsing/history memory takes precedence over this selection fallback.
     page: Math.floor(Math.max(0, activeIndex) / 50) + 1,
   });
-  const visible = choices.slice(pager.start, pager.end);
+  const filteredPager = useBoundedPage({
+    identity: ["repo-scope-search", JSON.stringify(tokens)],
+    totalItems: filtered.length,
+    pageSize: 50,
+  });
+  const searching = tokens.length > 0;
+  const pager = searching ? filteredPager : rememberedPager;
+  const collection = searching ? filtered : choices;
+  const visible = collection.slice(pager.start, pager.end);
   return (
     <div className="mt-1 min-w-0">
       <div className="mb-1 flex items-center gap-2 text-xs text-ui-muted">
@@ -2551,9 +2665,19 @@ function RepoScopeRail ({
         <span className="min-w-0 truncate text-ui-text">{scopeLabel(scope)}</span>
         {!membershipReady && <span className="text-amber-300">validating…</span>}
       </div>
-      <div className="ui-horizontal-rail overflow-x-auto pb-1" role="region"
+      {searchEnabled && (
+        <label className="mb-3 block text-xs font-medium text-ui-muted">
+          Search repositories
+          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)}
+            className="ui-field mt-1 w-full" placeholder="All repos or repository name" />
+        </label>
+      )}
+      {!workspaceReady && <p className="mb-2 text-xs text-ui-muted">Waiting for workspace snapshot; repository choices may be incomplete.</p>}
+      {searchEnabled && <p className="mb-2 text-xs text-ui-muted">{collection.length} of {choices.length} scope choices</p>}
+      {collection.length === 0 && <p className="text-sm text-ui-muted">No matching repository scopes.</p>}
+      <div className="min-w-0 pb-1" role="region"
         aria-label="Repository scope options" tabIndex={0}>
-        <div role="group" aria-label="Repository scope" className="flex w-max gap-1">
+        <div role="group" aria-label="Repository scope" className="flex min-w-0 flex-col gap-1">
           {visible.map((choice) => {
             const active = scopeEquals(choice, scope);
             return (
@@ -2563,7 +2687,7 @@ function RepoScopeRail ({
                 aria-label={scopeAccessibleName(choice)}
                 aria-pressed={active}
                 onClick={() => onSelect(choice)}
-                className={`ui-control shrink-0 ${active
+                className={`ui-control min-w-0 justify-start break-words [overflow-wrap:anywhere] ${active
                   ? "bg-ui-primary text-white"
                   : "bg-ui-raised text-ui-text"}`}
               >
@@ -2573,7 +2697,7 @@ function RepoScopeRail ({
           })}
         </div>
       </div>
-      {choices.length > 50 && (
+      {collection.length > 50 && (
         <CollectionPager
           collectionLabel="Repository scopes"
           page={pager}
@@ -2604,8 +2728,8 @@ function ViewNavigation ({
   onSelect: (view: View) => void;
 }): JSX.Element {
   return (
-    <nav aria-label="Primary views" className="ui-horizontal-rail mt-1 overflow-x-auto pb-1">
-      <div className="flex w-max gap-1">
+    <nav aria-label="Primary views" className="min-w-0">
+      <div className="flex min-w-0 flex-col gap-1">
         {(Object.keys(VIEW_LABELS) as View[]).map((choice) => {
           const scoped = choice === "mission" || choice === "overview" || choice === "history";
           return (
@@ -2615,7 +2739,7 @@ function ViewNavigation ({
               aria-current={view === choice ? "page" : undefined}
               disabled={scoped && !membershipReady}
               onClick={() => onSelect(choice)}
-              className={`ui-control shrink-0 ${view === choice
+              className={`ui-control min-w-0 justify-start border-0 px-3 py-2.5 ${view === choice
                 ? "bg-ui-primary text-white"
                 : "bg-ui-raised text-ui-text"}`}
             >
@@ -2647,24 +2771,26 @@ function StatusBar ({ repos, scopeKeyValue, violationOf, burst, onDraft, draftBu
   });
   const visibleRepos = repos.slice(pager.start, pager.end);
   return (
-    <div className="flex min-w-0 shrink-0 items-center gap-2">
-      <div className="flex w-max gap-2">
+    <div className="min-w-0 space-y-3">
+      <div className="grid min-w-0 gap-3">
       {visibleRepos.map((r) => {
         const violation = violationOf(r.id);
         return (
-          <div key={r.id} className="flex items-center gap-2 rounded bg-slate-800 px-3 py-1 text-sm">
-            <span className="font-medium">{r.id}</span>
+          <div key={r.id} className="flex min-w-0 flex-wrap items-center gap-2 rounded bg-ui-raised px-3 py-2 text-sm">
+            <span className="min-w-0 break-words [overflow-wrap:anywhere] font-medium">{r.id}</span>
             {/* v0.1.6.0 D2 (C.2): current-branch chip; absent when null */}
             {r.branch && (
-              <span className="rounded bg-slate-700 px-1.5 py-0.5 text-[11px] text-slate-300"
-                title="current git branch">
-                &#x2387; {r.branch}
+              <span className="min-w-0 break-words [overflow-wrap:anywhere] rounded bg-slate-700 px-1.5 py-0.5 text-xs text-slate-300"
+                title={!r.offline && r.status_valid === true ? "current git branch" : "last-known git branch; current status unavailable"}>
+                {!r.offline && r.status_valid === true ? "⎇ " : "Last-known branch: "}{r.branch}
               </span>
             )}
             {r.offline ? (
               <span className="rounded bg-zinc-600 px-2 py-0.5 text-xs font-bold">OFFLINE</span>
+            ) : r.status_valid !== true ? (
+              <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs font-semibold text-amber-300">Git status unavailable</span>
             ) : r.clean ? (
-              <span className="relative rounded bg-emerald-600 px-2 py-0.5 text-xs font-bold">
+              <span className="relative rounded bg-emerald-600 px-2 py-0.5 text-xs font-bold text-slate-950">
                 CLEAN ✓
                 {burst?.repo === r.id && !prefersReducedMotion() && (
                   /* ~12 self-removing particles (App clears the nonce after
@@ -2698,13 +2824,13 @@ function StatusBar ({ repos, scopeKeyValue, violationOf, burst, onDraft, draftBu
                 aria-busy={draftBusyRepo === r.id}
                 title={draftBusyRepo !== null ? `Commit draft for ${draftBusyRepo} is being copied.`
                   : "copy a commit-message draft composed from this repo's uncommitted attribution"}
-                className="rounded bg-slate-700 px-1.5 py-0.5 text-[11px] text-slate-200 hover:bg-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-40">
+                className="ui-control bg-slate-700 px-1.5 py-0.5 text-xs text-slate-200 hover:bg-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-40">
                 {draftBusyRepo === r.id ? "copying…" : draftBusyRepo !== null ? "copying elsewhere" : "draft 📋"}
               </button>
             )}
             {violation !== null && (
               <span title="Discipline: keep exactly ONE task in-progress — new undeclared edits will land in the pick queue (Docs/Tracking_Discipline.md)"
-                className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[11px] font-bold text-amber-300">
+                className="rounded bg-amber-500/20 px-1.5 py-0.5 text-xs font-bold text-amber-300">
                 ⚠ {violation} active
               </span>
             )}
@@ -2714,14 +2840,14 @@ function StatusBar ({ repos, scopeKeyValue, violationOf, burst, onDraft, draftBu
               <span title={`capturing now — last event ${fmtRel(r.last_event_ts)}`}
                 className="pulse-dot inline-block h-2 w-2 shrink-0 rounded-full bg-teal-400" />
             )}
-            <span className="text-[11px] text-slate-400" title={r.last_event_ts ?? "no captures yet"}>
+            <span className="text-xs text-slate-400" title={r.last_event_ts ?? "no captures yet"}>
               · {r.last_event_ts ? `last capture ${fmtRel(r.last_event_ts)}` : "no captures yet"}
             </span>
             <Sparkline buckets={r.activity_buckets} />
           </div>
         );
       })}
-      {repos.length === 0 && <span className="text-sm text-slate-400">No repos configured.</span>}
+      {repos.length === 0 && <span className="text-sm text-slate-400">No repositories in this scope.</span>}
       </div>
       {repos.length > 50 && (
         <CollectionPager
@@ -3025,7 +3151,7 @@ function CleanToastStack ({ toasts, odometer, onDismiss }: {
 // v0.1.5.0 C.1 (RV19): MODE_BADGE lifted to theme.ts — single label source
 // for App AND digest.ts. R26: color stays INLINE hex from MODE_COLOR.
 const SWEPT_TIP = "swept — attached to HEAD when the repo went CLEAN (file not in that commit's list)";
-const swatch = "rounded px-1.5 py-0.5 text-[11px] font-bold text-white";
+const swatch = "rounded px-1.5 py-0.5 text-xs font-bold text-white";
 
 // v0.1.6.0 D4 (C.4): nudge thresholds — frontend constants this release.
 // v0.1.13.0 B.2: UNCOMMITTED_AGE_H lifted to theme.ts (one source for
@@ -3037,9 +3163,11 @@ const olderThanH = (iso: string, hours: number) =>
 // v0.1.5.0 D4 (C.4): attention bell + cross-repo triage dropdown. Rows are
 // PER-REPO and unscoped — Σ(rows) equals the ALL-tab KPI/queue N (RV26).
 // Badge counts ACTIONABLE items only; "N uncommitted" is informational.
-// The footer slot hosts the D5 "OS alerts" toggle (D.1).
-function AttentionBell ({ entryKey, repos, events, tasks, violationOf, open, onToggle, onClose, onNavigate, footer }: {
+// Snapshot trust is independent of captured-event and task-discipline facts.
+function AttentionBell ({ entryKey, repos, events, tasks, ready, error, violationOf, open, onToggle, onClose, onNavigate, footer }: {
   entryKey: string;
+  ready: boolean;
+  error: string;
   repos: Repo[]; events: TrackedEvent[]; tasks: Task[]; // tasks: v0.1.6.0 D4 (RV14)
   violationOf: (repoId: string) => number | null;
   open: boolean; onToggle: () => void; onClose: () => void;
@@ -3051,6 +3179,7 @@ function AttentionBell ({ entryKey, repos, events, tasks, violationOf, open, onT
   useDisclosureBehavior({ open, onClose, rootRef: wrapRef, triggerRef });
 
   const rows = repos.map((r, ordinal) => {
+    const statusKnown = !r.offline && r.status_valid === true;
     const picks = events.filter((e) =>
       e.repo_id === r.id && (e.mode === "AMBIGUOUS" || e.mode === "UNKNOWN")).length;
     const violation = violationOf(r.id);
@@ -3058,7 +3187,8 @@ function AttentionBell ({ entryKey, repos, events, tasks, violationOf, open, onT
     if (picks > 0) actionable.push(`${picks} pick${picks === 1 ? "" : "s"} pending`);
     if (violation !== null) actionable.push(`discipline: ${violation} in-progress`);
     if (r.offline) actionable.push("OFFLINE");
-    if (!r.offline && !r.last_event_ts && !r.clean) actionable.push("no capture yet");
+    else if (!statusKnown) actionable.push("Git status unavailable");
+    if (statusKnown && !r.last_event_ts && !r.clean) actionable.push("no capture yet");
     // v0.1.6.0 D4 (C.4): rhythm nudges — both ACTIONABLE (badge-counted).
     // Null fields never nag; ages via fmtAge (fmtRel cannot say 2d — RV16).
     for (const t of tasks) {
@@ -3070,11 +3200,12 @@ function AttentionBell ({ entryKey, repos, events, tasks, violationOf, open, onT
     if (r.oldest_uncommitted_ts && olderThanH(r.oldest_uncommitted_ts, UNCOMMITTED_AGE_H)) {
       actionable.push(`uncommitted for ${fmtAge(r.oldest_uncommitted_ts)}`);
     }
-    return { repo: r.id, picks, actionable, uncommitted: r.count, branch: r.branch, ordinal };
+    return { repo: r.id, picks, actionable, statusKnown,
+      uncommitted: statusKnown ? r.count : null, branch: r.branch, ordinal };
   });
   const badge = rows.reduce((n, row) => n + row.actionable.length, 0);
   const attentionRows = rows
-    .filter((row) => row.actionable.length > 0 || row.uncommitted > 0)
+    .filter((row) => row.actionable.length > 0 || (row.uncommitted ?? 0) > 0)
     .sort((a, b) => b.actionable.length - a.actionable.length || a.ordinal - b.ordinal);
   const pager = useBoundedPage({
     identity: ["attention", entryKey],
@@ -3082,17 +3213,19 @@ function AttentionBell ({ entryKey, repos, events, tasks, violationOf, open, onT
     pageSize: 50,
   });
   const visibleRows = attentionRows.slice(pager.start, pager.end);
+  const snapshotNote = !ready ? error ? "Workspace snapshot unavailable" : "Waiting for workspace snapshot"
+    : error ? "Refresh failed; showing the last available workspace data." : "";
 
   return (
     <div ref={wrapRef} className="relative">
       <button ref={triggerRef} onClick={onToggle} title="Needs attention — cross-repo triage"
-        type="button" aria-label={`Needs attention${badge > 0 ? `, ${badge} items` : ", all clear"}`}
+        type="button" aria-label={`Needs attention, ${!ready ? snapshotNote : badge > 0 ? `${badge} items` : "no actionable alerts"}`}
         aria-expanded={open} aria-controls="attention-panel"
         className={`ui-control relative min-h-[28px] px-3 text-sm ${
           open ? "bg-sky-700 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}>
         <BellIcon aria-hidden="true" />
         {badge > 0 && (
-          <span className="absolute -right-1 -top-1 rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-slate-950">
+          <span className="absolute -right-1 -top-1 rounded-full bg-amber-500 px-1.5 text-xs font-bold text-slate-950">
             {badge}
           </span>
         )}
@@ -3101,7 +3234,8 @@ function AttentionBell ({ entryKey, repos, events, tasks, violationOf, open, onT
         <div id="attention-panel" role="region" aria-labelledby="attention-heading"
           className="ui-disclosure-enter absolute right-0 top-full z-layer-popover mt-1 max-h-[calc(100dvh-5rem)] w-[min(20rem,calc(100vw-1rem))] overflow-y-auto rounded-panel border border-ui-border bg-ui-surface p-3 text-xs shadow-xl">
           <div id="attention-heading" className="mb-2 text-sm font-bold text-slate-200">Needs attention</div>
-          {badge === 0 && <p className="text-slate-400">All clear ✓</p>}
+          {snapshotNote && <p className="mb-2 text-slate-400">{snapshotNote}</p>}
+          {ready && badge === 0 && <p className="text-slate-400">No actionable alerts.</p>}
           {visibleRows.map((row) => (
               <button key={row.repo}
                 onClick={() => {
@@ -3110,13 +3244,14 @@ function AttentionBell ({ entryKey, repos, events, tasks, violationOf, open, onT
                   onNavigate(row.repo, row.picks > 0);
                 }}
                 className="mb-1 w-full rounded bg-slate-800 p-2 text-left hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
-                <div className="font-semibold text-sky-300">{row.repo}</div>
+                <div className="break-words font-semibold text-sky-300 [overflow-wrap:anywhere]">{row.repo}</div>
                 {row.actionable.length > 0 && (
                   <div className="mt-0.5 text-amber-300">{row.actionable.join(" · ")}</div>
                 )}
-                <div className="mt-0.5 text-slate-400">
-                  {row.uncommitted} uncommitted change{row.uncommitted === 1 ? "" : "s"}
-                  {row.branch ? <> {" · ⎇ "}{row.branch}</> : null} {/* v0.1.6.0 D2 */}
+                <div className="mt-0.5 break-words text-slate-400 [overflow-wrap:anywhere]">
+                  {row.statusKnown ? <>{row.uncommitted} uncommitted change{row.uncommitted === 1 ? "" : "s"}</>
+                    : "Git status unavailable"}
+                  {row.branch ? <> {row.statusKnown ? " · ⎇ " : " · Last-known branch: "}{row.branch}</> : null}
                 </div>
               </button>
             ))}
@@ -3161,7 +3296,7 @@ function ModeBadge ({ mode, swept }: { mode: TrackedEvent["mode"]; swept?: boole
   const badge = MODE_BADGE[mode];
   return (
     <span className="flex gap-1">
-      <span title={badge.tip} className={swatch} style={{ backgroundColor: MODE_COLOR[mode] }}>
+      <span title={badge.tip} className={swatch} style={{ backgroundColor: MODE_COLOR[mode], color: badge.foreground }}>
         {badge.label}
       </span>
       {swept && (
@@ -3210,9 +3345,10 @@ function Legend ({ onClose, triggerRef, returnFocusRef, focusOnOpen }: {
       <div className="grid gap-1.5 md:grid-cols-2">
         {rows.map(([label, tech, text]) => (
           <div key={tech} className="flex items-baseline gap-2">
-            <span className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-bold text-white"
-              style={{ backgroundColor: tech === "swept" ? SWEPT_COLOR : MODE_COLOR[tech] }}>{label}</span>
-            <span className="shrink-0 font-mono text-slate-500">({tech})</span>
+            <span className="shrink-0 rounded px-1.5 py-0.5 text-xs font-bold text-white"
+              style={{ backgroundColor: tech === "swept" ? SWEPT_COLOR : MODE_COLOR[tech],
+                color: tech === "swept" ? "#ffffff" : MODE_BADGE[tech].foreground }}>{label}</span>
+            <span className="shrink-0 font-mono text-slate-400">({tech})</span>
             <span>{text}</span>
           </div>
         ))}
@@ -3283,9 +3419,9 @@ function Legend ({ onClose, triggerRef, returnFocusRef, focusOnOpen }: {
 const TASK_CHIP: Record<string, { text: string; cls: string; tip: string }> = {
   "pending": { text: "pending", cls: "bg-slate-600 text-white",
     tip: "Declared in the plan, not started" },
-  "in-progress": { text: "in-progress", cls: "bg-sky-600 text-white",
+  "in-progress": { text: "in-progress", cls: "bg-sky-600 text-slate-950",
     tip: "The active task - undeclared edits attribute here (A_GLOBAL)" },
-  "done": { text: "done ✓", cls: "bg-emerald-600 text-white",
+  "done": { text: "done ✓", cls: "bg-emerald-600 text-slate-950",
     tip: "Task finished and every tracked change is committed" },
   "done-uncommitted": { text: "done, uncommitted", cls: "border border-amber-500 text-amber-300",
     tip: "Task marked done but some of its changes are not committed yet" },
@@ -3298,7 +3434,7 @@ type EffortMap = Map<string, { minutes: number; sessions: number }>;
 function EffortLine ({ effort }: { effort?: { minutes: number; sessions: number } }) {
   if (!effort) return null;
   return (
-    <span className="text-[11px] text-slate-400"
+    <span className="text-xs text-slate-400"
       title="estimated from capture timestamps — 15-min gap rule">
       {fmtMinutes(effort.minutes)}
       {effort.sessions > 0 ? ` · ${effort.sessions} session${effort.sessions === 1 ? "" : "s"}` : ""}
@@ -3402,7 +3538,7 @@ function TaskSidebar ({ tasks, events, effortByTask, scopeKeyValue, taskFilter, 
       {showAll && doneGroups.length > 0 && (
         <div className="mt-3 border-t border-slate-800 pt-2">
           <button onClick={() => setDoneOpen(!doneOpen)}
-            className="ui-control mb-1 w-full justify-start border-0 bg-transparent px-0 text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-slate-300">
+            className="ui-control mb-1 w-full justify-start border-0 bg-transparent px-0 text-xs font-bold uppercase tracking-wide text-slate-400 hover:text-slate-300">
             {doneOpen ? "▾" : "▸"} Done ({doneGroups.length} plan{doneGroups.length === 1 ? "" : "s"})
           </button>
         </div>
@@ -3410,7 +3546,7 @@ function TaskSidebar ({ tasks, events, effortByTask, scopeKeyValue, taskFilter, 
       {pageGroups.map((group, index) => (
         <div key={group.key}>
           {group.section === "done" && (index === 0 || pageGroups[index - 1].section !== "done") && (
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">
               Done plans{pager.page > 1 ? " — continued" : ""}
             </h3>
           )}
@@ -3430,7 +3566,7 @@ function FilterChip ({ active, label, onClick }:
   { active: boolean; label: string; onClick: () => void }) {
   return (
     <button type="button" aria-pressed={active} onClick={onClick}
-      className={`ui-control border-0 px-2 text-[11px] ${
+      className={`ui-control border-0 px-2 text-xs ${
         active ? "bg-sky-700 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
       {label}
     </button>
@@ -3447,10 +3583,10 @@ function PlanGroup ({ list, fullList = list, continued = false, uncommitted, eff
   return (
     <div className="mb-3">
       <div className="mb-1 flex items-baseline gap-2">
-        <span className="min-w-0 break-all font-mono text-[11px] text-slate-400">
+        <span className="min-w-0 break-all font-mono text-xs text-slate-400">
           {first.plan_file}{continued ? " — continued" : ""}
         </span>
-        <span className="ml-auto shrink-0 text-[11px] text-slate-500">
+        <span className="ml-auto shrink-0 text-xs text-slate-400">
           {doneCount}/{fullList.length} done · {first.repo}
         </span>
       </div>
@@ -3465,7 +3601,7 @@ function PlanGroup ({ list, fullList = list, continued = false, uncommitted, eff
               taskFilter === key ? "bg-sky-900/60 ring-1 ring-sky-500" : "bg-slate-800 hover:bg-slate-800/80"}`}
             title="Click to filter the Changes view to this task">
             <div className="flex items-center gap-2">
-              <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${chip.cls}`} title={chip.tip}>
+              <span className={`rounded px-1.5 py-0.5 text-xs font-bold ${chip.cls}`} title={chip.tip}>
                 {chip.text}
               </span>
               <span className="text-xs font-semibold text-sky-300">{t.task_id}</span>
@@ -3473,7 +3609,7 @@ function PlanGroup ({ list, fullList = list, continued = false, uncommitted, eff
             <div className="mt-1 text-xs text-slate-200">{t.title}</div>
             <EffortLine effort={effortByTask.get(key)} /> {/* v0.1.6.0 D1 */}
             {count > 0 && (
-              <div className="mt-0.5 text-[11px] text-amber-300">
+              <div className="mt-0.5 text-xs text-amber-300">
                 {count} uncommitted change{count === 1 ? "" : "s"}
               </div>
             )}
@@ -3560,8 +3696,43 @@ function ChangesView ({ events, tasks, repos, effortByTask, taskFilter, onClearF
   }
 
   return (
-    <div className="space-y-6">
-      <h2 data-view-heading tabIndex={-1} className="sr-only">Changes</h2>
+    <div className="min-w-0 space-y-6">
+      <SectionHeading title="Changes" kind="page"
+        description="Resolve attribution, then inspect captured work by task or folder."
+        headingProps={{ "data-view-heading": true, tabIndex: -1 }} />
+      {(taskFilter || sessionFilter) && (
+        <section aria-label="Active change filters" className="ui-surface ui-surface-raised">
+          <p className="mb-3 text-sm text-ui-muted">
+            {groupMode === "folder"
+              ? "Task and session filters are saved for task grouping; the folder view and attribution queue show all captured work."
+              : "Filters apply to task groups only. The attribution queue remains unfiltered."}
+          </p>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {taskFilter && (
+              <>
+                <span className="ui-status-label bg-sky-950 text-sky-200">
+                  Task: {taskIdentityParts(taskFilter)?.[1] ?? taskFilter}
+                </span>
+                <ControlButton tone="quiet" onClick={onClearFilter}>Clear task filter</ControlButton>
+              </>
+            )}
+            {sessionFilter && (
+              <>
+                <span className="ui-status-label bg-ui-raised text-ui-text"
+                  title={`${sessionFilter.provider} session ${sessionFilter.sessionId}`}>
+                  <span className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: sessionColor(sessionFilter.provider, sessionFilter.sessionId) }} />
+                  {sessionFilter.provider} session: {sessionFilter.sessionId.slice(0, 8)}
+                </span>
+                <ControlButton tone="quiet" onClick={() => onOpenTimeline(sessionFilter)}>
+                  Session timeline
+                </ControlButton>
+                <ControlButton tone="quiet" onClick={onClearSessionFilter}>Clear session filter</ControlButton>
+              </>
+            )}
+          </div>
+        </section>
+      )}
       {navItems.length > 0 && (
         <SectionNav items={navItems}
           contextKey={JSON.stringify([scopeKeyValue, taskFilter, sessionFilterKey, groupMode])}
@@ -3580,51 +3751,24 @@ function ChangesView ({ events, tasks, repos, effortByTask, taskFilter, onClearF
         </div>
       )}
 
-      <section>
-        <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2">
-          <h2 className="min-w-0 border-l-4 border-sky-500 pl-2 text-sm font-bold text-slate-200">
-            Uncommitted changes {groupMode === "task" ? "grouped by task" : "by folder"}
-          </h2>
-          {/* D6: the toggle never hides the pick queue above (P11); the tree
-              is PER-REPO — an active task filter does not subset it (R7). */}
-          <div className="ml-auto flex flex-wrap gap-1">
-            <FilterChip active={groupMode === "task"} label="by task"
-              onClick={() => onGroupModeChange("task")} />
-            <FilterChip active={groupMode === "folder"} label="by folder"
-              onClick={() => onGroupModeChange("folder")} />
-          </div>
-        </div>
+      <section aria-label="Grouped uncommitted changes">
+        <SectionHeading level={3}
+          title={`Uncommitted changes ${groupMode === "task" ? "grouped by task" : "by folder"}`}
+          description={groupMode === "task"
+            ? `${groupEntries.length} task group${groupEntries.length === 1 ? "" : "s"} in the current filter.`
+            : "All captured uncommitted paths in the selected repository scope."}
+          actions={
+            <div className="flex flex-wrap gap-1">
+              <FilterChip active={groupMode === "task"} label="by task"
+                onClick={() => onGroupModeChange("task")} />
+              <FilterChip active={groupMode === "folder"} label="by folder"
+                onClick={() => onGroupModeChange("folder")} />
+            </div>
+          } />
         {groupMode === "folder" ? (
           <FolderView events={events} scopeKeyValue={scopeKeyValue} />
         ) : (
           <>
-            {(taskFilter || sessionFilter) && (
-              <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-                {taskFilter && (
-                  <>
-                    <span className="rounded bg-sky-900 px-2 py-0.5 text-sky-200">
-                      filtered: {taskIdentityParts(taskFilter)?.[1] ?? taskFilter}
-                    </span>
-                    <button onClick={onClearFilter} className="text-sky-400 hover:underline">✕ clear</button>
-                  </>
-                )}
-                {sessionFilter && ( // v0.1.5.0 D1: session filter chip
-                  <>
-                    <span className="flex items-center gap-1.5 rounded bg-slate-800 px-2 py-0.5 text-slate-200">
-                      <span className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: sessionColor(
-                          sessionFilter.provider, sessionFilter.sessionId,
-                        ) }} />
-                      {sessionFilter.provider} session: {sessionFilter.sessionId.slice(0, 8)}
-                    </span>
-                    {/* v0.1.6.0 D3 (C.3): the timeline opener lives on the chip */}
-                    <button onClick={() => onOpenTimeline(sessionFilter)}
-                      className="text-sky-400 hover:underline">timeline</button>
-                    <button onClick={onClearSessionFilter} className="text-sky-400 hover:underline">✕ clear</button>
-                  </>
-                )}
-              </div>
-            )}
             {groupEntries.length === 0 && (
               <p className="text-sm text-slate-400">
                 {taskFilter
@@ -3691,7 +3835,7 @@ function SectionNav ({ items, contextKey, onActivate }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   return (
-    <nav aria-label="Change sections" className="sticky top-0 z-20 -mx-4 -mt-4 flex flex-wrap gap-1 border-b border-slate-800 bg-slate-950/95 px-4 py-2 backdrop-blur">
+    <nav aria-label="Change sections" className="sticky top-0 z-20 flex flex-wrap gap-2 border-b border-ui-border bg-ui-canvas py-3">
       {visibleItems.map((s) => (
         <button key={s.id} title={s.title ?? s.label}
           onClick={() => {
@@ -3699,7 +3843,7 @@ function SectionNav ({ items, contextKey, onActivate }: {
             document.getElementById(s.id)
               ?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
           }}
-          className={`rounded px-2 py-0.5 text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+          className={`rounded px-2 py-0.5 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
             active === s.id ? "bg-sky-700 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
           {s.label}
         </button>
@@ -3764,22 +3908,22 @@ function FolderRepoCard ({ repoId, events, scopeKeyValue }: {
     },
   );
   return (
-    <div className="mb-4 rounded border border-slate-700 bg-slate-900 p-3">
-      <div className="mb-1 flex items-baseline gap-2">
-        <span className="font-mono text-sm font-semibold text-sky-300">
+    <div className="ui-work-list mb-4 p-4">
+      <div className="mb-3 flex min-w-0 flex-wrap items-baseline gap-2">
+        <span className="min-w-0 break-all font-mono text-base font-semibold text-sky-300">
           {repoId}{pager.page > 1 ? " — continued" : ""}
         </span>
-        <span className="text-[11px] text-slate-500">
+        <span className="text-xs text-slate-400">
           {new Set(events.map((event) => event.file)).size} files · {events.length} edits
         </span>
       </div>
-      <pre className="ui-local-scroller overflow-x-auto text-[11px] leading-snug text-slate-300"
+      <pre className="ui-local-scroller overflow-x-auto text-xs leading-snug text-slate-300"
         role="region" aria-label={`${repoId} file tree`} tabIndex={0}>
         {lines.slice(pager.start, pager.end).map((line, index) => (
           <span key={pager.start + index}>
             {line.text}
             {line.count !== undefined && (
-              <span className={line.count >= 3 ? "text-amber-300" : "text-slate-500"}>
+              <span className={line.count >= 3 ? "text-amber-300" : "text-slate-400"}>
                 {`  ×${line.count}`}
               </span>
             )}
@@ -3822,17 +3966,17 @@ function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet, onSessio
     pageSize: 50,
   });
   return (
-    <div data-reveal className="mb-4 rounded border border-slate-700 bg-slate-900 p-3">
-      <div className="flex items-baseline gap-2">
+    <div data-reveal className="ui-work-list mb-4 p-4">
+      <div className="flex min-w-0 flex-wrap items-baseline gap-2">
         {/* F48: task-ref link "<plan filename> - <task id>" */}
-        <span className="font-mono text-sm font-semibold text-sky-300">{refLabel}</span>
-        <span className="text-[11px] text-slate-500">{repoId}</span>
+        <h4 className="min-w-0 break-all font-mono text-base font-semibold text-sky-300">{refLabel}</h4>
+        <span className="text-xs text-slate-400">{repoId}</span>
         <EffortLine effort={effort} /> {/* v0.1.6.0 D1 (C.1) */}
       </div>
       {why && <p className="mt-1 text-xs text-slate-400">Why: {why}</p>}
-      <div className="mt-2 space-y-1">
+      <div className="mt-4">
         {eventPager.page > 1 && (
-          <p className="text-[11px] font-semibold text-slate-400">{refLabel} events — continued</p>
+          <p className="text-xs font-semibold text-slate-400">{refLabel} events — continued</p>
         )}
         {normal.slice(eventPager.start, eventPager.end).map((e) => (
           <EventRow key={e.id} event={e} repos={repos} onSessionClick={onSessionClick}
@@ -3845,13 +3989,14 @@ function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet, onSessio
         {planEdits.length > 0 && (
           <div className="rounded bg-slate-800/40 px-2 py-1">
             <button onClick={() => setShowPlanEdits(!showPlanEdits)}
-              className="text-[11px] text-slate-400 hover:text-slate-200">
+              aria-expanded={showPlanEdits}
+              className="ui-control border-transparent text-xs text-slate-400 hover:text-slate-200">
               {showPlanEdits ? "▾" : "▸"} {planEdits.length} plan-file edit{planEdits.length === 1 ? "" : "s"} · latest {fmtRel(planEdits[0].ts)}
             </button>
             {showPlanEdits && (
               <div className="mt-1 space-y-1">
                 {planEditPager.page > 1 && (
-                  <p className="text-[11px] font-semibold text-slate-400">Plan-file edits — continued</p>
+                  <p className="text-xs font-semibold text-slate-400">Plan-file edits — continued</p>
                 )}
                 {planEdits.slice(planEditPager.start, planEditPager.end).map((e) => (
                   <EventRow key={e.id} event={e} repos={repos} onSessionClick={onSessionClick}
@@ -4003,11 +4148,12 @@ function PickSection ({ events, tasks, scopeKeyValue, state, onStateChange, onPi
   const bulkChoiceId = bulkChoice ? JSON.stringify(["task-ref", bulkChoice]) : "";
 
   return (
-    <section>
-      <h2 className="mb-2 border-l-4 border-amber-500 pl-2 text-sm font-bold text-amber-400">
-        Needs attention — manual pick ({events.length})
-      </h2>
-      <fieldset disabled={mutationBusy} className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+    <section className="min-w-0 rounded-panel border border-amber-700/60 bg-amber-950/10 p-4"
+      aria-label="Manual attribution queue">
+      <SectionHeading level={3} title={`Needs attention — manual pick (${events.length})`}
+        description="Assign unresolved captured events to the correct plan task."
+        headingProps={{ className: "text-amber-300" }} />
+      <fieldset disabled={mutationBusy} className="mb-4 flex min-w-0 flex-wrap items-center gap-2 text-sm">
         <legend className="sr-only">Bulk task assignment</legend>
         <label className="flex min-h-6 items-center gap-1 text-slate-300">
           {/* C2: count via selectedEvents - `selected` may hold stale ids after a sync */}
@@ -4142,16 +4288,16 @@ function PickRow ({ event, tasks, onPicked, onStatus, choice, onChoiceChange,
   };
 
   return (
-    <div className="mb-2 flex flex-wrap items-center gap-2 rounded border border-amber-700/50 bg-slate-900 p-2 text-sm">
-      <label className="flex min-h-6 items-center gap-1 text-[11px] text-slate-400">
+    <div className="ui-work-row bg-ui-surface text-sm">
+      <label className="flex min-h-6 items-center gap-1 text-xs text-slate-400">
         <input type="checkbox" checked={checked} onChange={onToggle}
           disabled={sectionDisabled} />
         <span>Select</span>
       </label>
       <ModeBadge mode={event.mode} />
-      <span className="min-w-0 max-w-full break-all font-mono text-xs">{event.file}</span>
+      <span className="min-w-0 max-w-full break-all font-mono text-base">{event.file}</span>
       <SessionDot identity={eventSessionIdentity(event)} /> {/* informational — RV4 */}
-      <span className="text-[11px] text-slate-400" title={event.ts}>
+      <span className="text-xs text-slate-400" title={event.ts}>
         {event.repo_id} · {fmtRel(event.ts)}
       </span>
       {candidates.length === 0 ? (
@@ -4182,7 +4328,7 @@ function PickRow ({ event, tasks, onPicked, onStatus, choice, onChoiceChange,
           />
           <button disabled={!effectiveChoice || sectionDisabled} aria-busy={busy}
             onClick={assign}
-            className="min-h-[28px] rounded bg-sky-700 px-2 py-1 text-xs font-semibold hover:bg-sky-600 disabled:opacity-40">
+            className="min-h-[28px] rounded bg-sky-700 px-2 py-1 text-xs font-semibold text-white hover:bg-sky-800 disabled:opacity-40">
             {busy ? "Assigning…" : note ? "Retry" : "Assign"}
           </button>
         </>
@@ -4258,20 +4404,20 @@ function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onS
     setDiffBusy(false);
   };
   return (
-    <div className="min-w-0 rounded bg-slate-800/60 px-2 py-1">
-      <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
+    <div className="ui-work-row">
+      <div className="flex min-w-0 basis-full flex-wrap items-center gap-2 text-sm">
         <ModeBadge mode={event.mode} swept={event.swept === 1} />
         {onOpenFileStory ? (
           <button onClick={() => onOpenFileStory(event.repo_id, event.file)}
             title={`${event.file} — open file story`}
-            className="min-w-0 flex-1 break-all font-mono text-left hover:text-sky-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
+            className="min-w-0 flex-1 break-all font-mono text-base text-left hover:text-sky-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
             {event.file}
           </button>
         ) : (
-          <span className="font-mono">{event.file}</span>
+          <span className="min-w-0 flex-1 break-all font-mono text-base">{event.file}</span>
         )}
         {showRef && event.task_ref && (
-          <span className="min-w-0 basis-full break-words text-[11px] text-sky-300">
+          <span className="min-w-0 basis-full break-words text-xs text-sky-300">
             {event.task_ref}
           </span>
         )}
@@ -4279,16 +4425,16 @@ function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onS
           onClick={onSessionClick && sessionIdentity
             ? () => onSessionClick(sessionIdentity) : undefined} />
         {event.branch && repoBranch && event.branch !== repoBranch && (
-          <span className="text-[11px] text-amber-300/80"
+          <span className="text-xs text-amber-300/80"
             title="captured on a different branch than the repo is on now">
             &#x2387; {event.branch}
           </span>
         )}
-        <span className="text-[11px] text-slate-400" title={event.ts}>
+        <span className="text-xs text-slate-400" title={event.ts}>
           {event.tool} · {fmtRel(event.ts)}
         </span>
         {online && (
-          <button className="ml-auto min-h-[24px] text-[11px] text-sky-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-40"
+          <button className="ml-auto min-h-[24px] text-xs text-sky-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-40"
             disabled={diffBusy} aria-busy={diffBusy}
             aria-label={diffBusy
               ? `Loading diff for ${event.file}`
@@ -4302,7 +4448,7 @@ function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onS
       </div>
       {diff !== null && <DiffView text={diff} repoId={event.repo_id} eventId={event.id} />}
       {diffError && (
-        <p className="mt-1 rounded bg-rose-950/30 px-2 py-1 text-[11px] text-rose-300">
+        <p className="mt-1 rounded bg-rose-950/30 px-2 py-1 text-xs text-rose-300">
           {diffError} Use “retry diff”.
         </p>
       )}
@@ -4323,23 +4469,23 @@ function DiffView ({ text, repoId, eventId }: { text: string; repoId: string; ev
     pageSize: 50,
   });
   if (!isDiff) {
-    return <p className="mt-1 rounded bg-slate-950 px-2 py-1 text-[11px] italic text-slate-400">{text}</p>;
+    return <p className="mt-1 rounded bg-slate-950 px-2 py-1 text-xs italic text-slate-400">{text}</p>;
   }
   let inHunk = false;
   const HEADER = /^(diff --git|index |\+\+\+ |--- |new file|deleted file|old mode|new mode|rename |similarity |Binary )/;
   const rows = sourceLines.map((line, i) => {
     let color = "text-slate-300"; // context
     if (line.startsWith("@@")) { inHunk = true; color = "text-sky-400"; }
-    else if (!inHunk) { color = HEADER.test(line) ? "text-slate-500" : "text-slate-500"; }
+    else if (!inHunk) { color = HEADER.test(line) ? "text-slate-400" : "text-slate-400"; }
     else if (line.startsWith("+")) color = "text-emerald-400";
     else if (line.startsWith("-")) color = "text-rose-400";
-    else if (line.startsWith("\\")) color = "text-slate-500";
+    else if (line.startsWith("\\")) color = "text-slate-400";
     return { line, color, index: i };
   });
   return (
-    <div className="mt-1 rounded bg-slate-950 p-2">
-      {pager.page > 1 && <p className="mb-1 text-[11px] text-slate-400">Diff — continued</p>}
-      <pre className="ui-local-scroller max-h-64 overflow-auto text-[11px] leading-snug"
+    <div className="mt-1 min-w-0 basis-full rounded bg-slate-950 p-3">
+      {pager.page > 1 && <p className="mb-1 text-xs text-slate-400">Diff — continued</p>}
+      <pre className="ui-local-scroller max-h-64 overflow-auto text-xs leading-snug"
         role="region" aria-label="File diff" tabIndex={0}>
         {rows.slice(pager.start, pager.end).map((row) => (
           <span key={row.index} className={row.color}>{row.line || " "}{"\n"}</span>
@@ -4667,13 +4813,12 @@ function HistoryView ({ repos, scopeKeyValue, state, onStateChange, onStatus }: 
   }));
   const repoChoiceId = repoId ? JSON.stringify(["repo", repoId]) : "";
   return (
-    <section data-history-ready={historyReady ? "true" : "false"}>
-      <div className="mb-3 flex min-w-0 flex-wrap items-center gap-2">
-        <h2 data-view-heading tabIndex={-1}
-          className="border-l-4 border-emerald-500 pl-2 text-sm font-bold text-slate-200">
-          History
-        </h2>
-        <div className="flex min-w-0 items-center gap-2 text-xs text-slate-300">
+    <section className="min-w-0" data-history-ready={historyReady ? "true" : "false"}>
+      <SectionHeading title="History" kind="page"
+        description="Explore commit history and its linked captured events."
+        headingProps={{ "data-view-heading": true, tabIndex: -1 }}
+        actions={<>
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-ui-muted">
           <span>Repository</span>
           <BoundedChoiceDialog
             title="Choose History repository"
@@ -4697,19 +4842,18 @@ function HistoryView ({ repos, scopeKeyValue, state, onStateChange, onStatus }: 
             placeholder="Choose repository"
             disabled={repos.length === 0}
             disabledReason={repos.length === 0 ? "No online repositories are available." : undefined}
-            triggerClassName="min-h-[28px] text-xs"
+            triggerClassName="text-sm"
           />
         </div>
-        <button type="button" disabled={!repoId} onClick={toggleGraph}
+        <ControlButton disabled={!repoId} onClick={toggleGraph}
           aria-pressed={showGraph} title="toggle the commit graph (latest 20 commits, real parents)"
-          className={`min-h-[28px] rounded px-2 py-1 text-xs disabled:opacity-40 ${
-            showGraph ? "bg-teal-800 text-white" : "bg-slate-800 hover:bg-slate-700"}`}>
-          ⎇ graph
-        </button>
-        {graphBusy && <span className="text-xs text-slate-400">rendering…</span>}
-      </div>
+          tone={showGraph ? "primary" : "neutral"}>
+          Commit graph
+        </ControlButton>
+        {graphBusy && <span className="ui-metadata">Rendering graph…</span>}
+        </>} />
       {showGraph && (
-        <div className="mb-3 min-w-0 rounded border border-slate-700 bg-slate-900 p-3">
+        <div className="ui-work-list mb-6 p-4">
           {graphFailure && (
             <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-amber-300">
               <span>{graphFailure.message}</span>
@@ -4743,7 +4887,7 @@ function HistoryView ({ repos, scopeKeyValue, state, onStateChange, onStatus }: 
           />
           <div ref={graphRef} className="ui-local-scroller" role="img" aria-label="commit graph" />
           {graphSvg && (
-            <p className="mt-1 text-[11px] text-slate-400">
+            <p className="mt-1 text-xs text-slate-400">
               latest {graphShown} of {shownEntries.length} fetched commits · merge side branches summarized to their tip (*)
             </p>
           )}
@@ -4772,10 +4916,14 @@ function HistoryView ({ repos, scopeKeyValue, state, onStateChange, onStatus }: 
       {loading && shownEntries.length === 0 && (
         <div className="ui-skeleton min-h-48 rounded-panel p-4 text-sm text-ui-muted">Loading History…</div>
       )}
-      {shownEntries.slice(pager.start, pager.end).map((entry) => (
-        <HistoryCommitCard key={entry.commit.hash} entry={entry} repos={repos}
-          scopeKeyValue={scopeKeyValue} repoId={repoId} onStatus={onStatus} />
-      ))}
+      {shownEntries.length > 0 && (
+        <div className="ui-work-list" role="region" aria-label="Captured commits">
+          {shownEntries.slice(pager.start, pager.end).map((entry) => (
+            <HistoryCommitCard key={entry.commit.hash} entry={entry} repos={repos}
+              scopeKeyValue={scopeKeyValue} repoId={repoId} onStatus={onStatus} />
+          ))}
+        </div>
+      )}
       {!historyHydrating && shownEntries.length > 50 && (
         <CollectionPager collectionLabel="History commits" page={pager}
           onPageChange={pager.setPage} />
@@ -4822,18 +4970,18 @@ function HistoryCommitCard ({ entry: { commit, events }, repos, scopeKeyValue, r
     },
   );
   return (
-    <article className="mb-3 min-w-0 rounded border border-slate-700 bg-slate-900 p-3">
-      <div className="flex min-w-0 flex-wrap items-baseline gap-2">
-        <span className="shrink-0 font-mono text-xs text-emerald-400">{commit.hash.slice(0, 10)}</span>
-        <span className="min-w-0 flex-1 break-words text-sm">{commit.message}</span>
-        <span className="shrink-0 text-[11px] text-slate-400" title={commit.ts}>{fmtTs(commit.ts)}</span>
+    <article className="ui-work-row">
+      <div className="flex min-w-0 basis-full flex-wrap items-baseline gap-2">
+        <span className="shrink-0 font-mono text-sm text-emerald-400" title={commit.hash}>{commit.hash.slice(0, 10)}</span>
+        <h3 className="min-w-0 flex-1 break-words text-base font-semibold [overflow-wrap:anywhere]">{commit.message}</h3>
+        <span className="shrink-0 text-xs text-slate-400" title={commit.ts}>{fmtTs(commit.ts)}</span>
       </div>
-      <div className="mt-2 space-y-1">
+      <div className="min-w-0 basis-full">
         {events.length === 0 && (
-          <p className="text-[11px] text-slate-500">No tracked events in this commit.</p>
+          <p className="text-xs text-slate-400">No tracked events in this commit.</p>
         )}
         {pager.page > 1 && (
-          <p className="text-[11px] font-semibold text-slate-400">Commit events — continued</p>
+          <p className="text-xs font-semibold text-slate-400">Commit events — continued</p>
         )}
         {events.slice(pager.start, pager.end).map((event) => (
           <EventRow key={event.id} event={event} repos={repos} showRef onStatus={onStatus} />

@@ -19,7 +19,7 @@ import { EFFORT_GAP_MAX_MIN, UNCOMMITTED_AGE_H } from "./theme";
 
 type CalDay = StatsData["activity_calendar"][number];
 
-export type Mood = "excited" | "sleeping" | "content" | "anxious" | "curious";
+export type Mood = "excited" | "sleeping" | "content" | "anxious" | "curious" | "uncertain";
 
 export function moodOf (repos: Repo[], comboCount: number,
   comboLastMs: number, nowMs: number): Mood {
@@ -27,7 +27,12 @@ export function moodOf (repos: Repo[], comboCount: number,
     return "excited";
   }
   const online = repos.filter((r) => !r.offline);
+  if (repos.length === 0) return "uncertain";
   if (online.length === 0) return "sleeping";
+  // Retained counts cannot prove success when any repository is unavailable.
+  if (online.length !== repos.length || online.some((r) => r.status_valid !== true)) {
+    return "uncertain";
+  }
   if (online.reduce((s, r) => s + r.count, 0) === 0) return "content";
   const aged = online.some((r) => r.oldest_uncommitted_ts !== null &&
     nowMs - new Date(r.oldest_uncommitted_ts).getTime() > UNCOMMITTED_AGE_H * 3_600_000);
@@ -40,6 +45,7 @@ const MOOD_TIP: Record<Mood, string> = {
   content: "Kat is content — everything committed ✓",
   anxious: `Kat is anxious — uncommitted work is aging (${UNCOMMITTED_AGE_H}h+)`,
   curious: "Kat is curious — fresh uncommitted work in progress",
+  uncertain: "Kat is uncertain — Git status is incomplete or unavailable",
 };
 
 // v0.2.7.0 B.1 (R-BF): the wardrobe tiers — ONE home, battery-read.
@@ -89,6 +95,7 @@ export function wardrobeTip (w: Wardrobe): string {
 // gains the wardrobe line when the feed is threaded.
 export function Pet ({ mood, big, wardrobe }:
   { mood: Mood; big?: boolean; wardrobe?: Wardrobe }) {
+  const curiousFace = mood === "curious" || mood === "uncertain";
   const tip = wardrobe
     ? `${MOOD_TIP[mood]}\n${wardrobeTip(wardrobe)}`
     : MOOD_TIP[mood];
@@ -98,7 +105,7 @@ export function Pet ({ mood, big, wardrobe }:
       <svg viewBox="0 0 48 40" aria-hidden="true"
         className={`h-full w-full ${mood === "excited" ? "pet-bounce" : ""}`}
         opacity={mood === "sleeping" ? 0.6 : 1}>
-        <g transform={mood === "curious" ? "rotate(4 24 24)" : undefined}>
+        <g transform={curiousFace ? "rotate(4 24 24)" : undefined}>
           {/* ears + body (breathing) */}
           <g className="pet-breathe" style={{ transformOrigin: "24px 26px" }}>
             <path d="M 12 14 L 15 4 L 21 12 Z" fill="#1e293b" stroke="#334155" />
@@ -138,7 +145,7 @@ export function Pet ({ mood, big, wardrobe }:
                 <path d="M 27 22 Q 30 19 33 22" />
               </g>
             )}
-            {mood === "curious" && (
+            {curiousFace && (
               <g fill="#5eead4">
                 <circle cx="18" cy="22" r="2.2" />
                 <circle cx="30" cy="22" r="2.2" />

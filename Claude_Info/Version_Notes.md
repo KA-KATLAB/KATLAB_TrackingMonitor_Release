@@ -1,5 +1,24 @@
 # Version Notes
 
+## v0.4.0.0 — Operational UI Redesign (activated 2026-10-05)
+
+- New work-first shell and visible canonical UI build beside the product name.
+  System retains its manual request owner and shows server version separately.
+- Dedicated view navigation, searchable Repository picker, all-width Tasks and
+  status drawers, visible Commands and grouped Tools. No new background fetch.
+- Changes/Mission/History hierarchy, full Mission reason paging, four primary
+  Overview metrics and quieter bounded Experience panels. Preserve full-model
+  calculations, exact identities, snapshot dates and existing controls.
+- Unknown/offline Git status stays unavailable in shell, Overview, Focus, City
+  and Digest; attribution badge foregrounds retain the shared semantic palette.
+- Dialog/export and generated Chronicle CSS are aligned; no new dependencies,
+  capture/database/readiness changes, signed-runtime or service-worker changes.
+- Explicit user-requested activation rebuilt the served frontend and restarted
+  the identified tracker. Live server0.4.0.0, watchers6/6, Chronicle running and
+  byte-identical served entry assets were verified. Existing tabs require reload.
+  Source/controlled tests and HTTP checks do not establish native browser
+  acceptance; the six-view visual/focus matrix remains an explicit limitation.
+
 ## v0.3.1.32 — AnyIO Security Baseline (2026-10-01)
 
 - Backend explicitly requires `anyio>=4.14.2`, an existing Starlette dependency.

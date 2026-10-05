@@ -25,7 +25,7 @@ import { Pet } from "./pet";
 import type { Mood, Wardrobe } from "./pet";
 import { UNCOMMITTED_AGE_H, usePrefersReducedMotion } from "./theme";
 import { DisclosureTable } from "./accessibleData";
-import { CollectionPager, useRememberedBoundedPage } from "./ui";
+import { CollectionPager, ControlButton, SectionHeading, useRememberedBoundedPage } from "./ui";
 
 type ChurnRow = StatsData["file_churn"][number];
 
@@ -174,12 +174,16 @@ export function CityScene ({ districts, churnMax, mood, nowMs, localHour,
       {districts.map((d, di) => {
         const dx = 10 + di * PITCH;
         const offline = d.repo.offline;
-        const clean = !offline && d.repo.clean;
+        const statusKnown = !offline && d.repo.status_valid === true;
+        const clean = statusKnown && d.repo.clean;
+        const repoCharacters = Array.from(d.repo.id);
+        const plaqueLabel = repoCharacters.length > 18
+          ? repoCharacters.slice(0, 17).join("") + "…" : d.repo.id;
         const rows = [...d.churn].sort((a, b) => b.events - a.events).slice(0, CAP);
         const ground = clean ? "#022c22" : "#1e293b"; // emerald-950 | slate-800
         const cranes = d.inProgress.slice(0, 3);
         const extra = d.inProgress.length - cranes.length;
-        const weather = weatherOf(d.repo, nowMs); // v0.2.7.0 A.1 (R-BE)
+        const weather = offline || statusKnown ? weatherOf(d.repo, nowMs) : null;
         // v0.2.8.0 B.1 (RV3/RV7): the three-way tip — forecast gets
         // the ONE computed line; max(1, ceil) never renders "~0h" at
         // the exact-threshold edge (rain needs strict >, so the
@@ -316,27 +320,33 @@ export function CityScene ({ districts, churnMax, mood, nowMs, localHour,
                 <rect x={dx + 41} y={74} width={88} height={44} fill="transparent" />
               )}
               <text x={dx + 85} y={92} textAnchor="middle" fontSize={12}
-                fontWeight="bold" className="fill-slate-200">{d.repo.id}</text>
+                fontWeight="bold" className="fill-slate-200">{plaqueLabel}</text>
               {offline ? (
                 <>
                   <rect x={dx + 55} y={100} width={60} height={16} rx={3} fill="#52525b" />
-                  <text x={dx + 85} y={112} textAnchor="middle" fontSize={9}
+                  <text x={dx + 85} y={112} textAnchor="middle" fontSize={12}
                     fontWeight="bold" className="fill-white">OFFLINE</text>
+                </>
+              ) : !statusKnown ? (
+                <>
+                  <rect x={dx + 25} y={100} width={120} height={18} rx={3} fill="#334155" />
+                  <text x={dx + 85} y={113} textAnchor="middle" fontSize={12}
+                    fontWeight="bold" className="fill-white">Status unavailable</text>
                 </>
               ) : clean ? (
                 <>
                   <rect x={dx + 55} y={100} width={60} height={16} rx={3} fill="#059669" />
-                  <text x={dx + 85} y={112} textAnchor="middle" fontSize={9}
-                    fontWeight="bold" className="fill-white">CLEAN ✓</text>
+                  <text x={dx + 85} y={112} textAnchor="middle" fontSize={12}
+                    fontWeight="bold" fill="#020617">CLEAN ✓</text>
                 </>
               ) : (
                 <>
-                  <rect x={dx + 47} y={100} width={76} height={16} rx={3} fill="#f59e0b" />
-                  <text x={dx + 85} y={112} textAnchor="middle" fontSize={9}
+                  <rect x={dx + 15} y={100} width={140} height={18} rx={3} fill="#f59e0b" />
+                  <text x={dx + 85} y={113} textAnchor="middle" fontSize={12}
                     fontWeight="bold" fill="#020617">{d.repo.count} uncommitted</text>
                 </>
               )}
-              <title>{d.repo.path}</title>
+              <title>{`${d.repo.id} · ${d.repo.path}`}</title>
             </g>
           </g>
         );
@@ -440,6 +450,9 @@ export function CityView ({ repos, tasks, events, workspaceReady, mood, wardrobe
   const reducedMotion = usePrefersReducedMotion();
   const reducedMotionRef = useRef(reducedMotion);
   reducedMotionRef.current = reducedMotion;
+  const currentStatusRepoIds = new Set(repos
+    .filter((repo) => !repo.offline && repo.status_valid === true)
+    .map((repo) => repo.id));
   const [churn, setChurn] = useState<Map<string, ChurnRow[]>>(new Map());
   const [acceptedKey, setAcceptedKey] = useState("");
   const acceptedKeyRef = useRef("");
@@ -677,7 +690,13 @@ export function CityView ({ repos, tasks, events, workspaceReady, mood, wardrobe
   // RV3 (documented): CityView-local liveness, the v0.2.0.0 class.
   useEffect(() => {
     const nowMs = Date.now();
-    const cur = new Map(repos.map((r) => [r.id, weatherOf(r, nowMs)]));
+    const cur = new Map(repos.filter((repo) => currentStatusRepoIds.has(repo.id))
+      .map((r) => [r.id, weatherOf(r, nowMs)]));
+    // An unavailable sample breaks the recovery baseline and removes rewards.
+    setRainbows((items) => {
+      const current = items.filter((item) => currentStatusRepoIds.has(item.repo));
+      return current.length === items.length ? items : current;
+    });
     const prev = prevWeatherRef.current;
     prevWeatherRef.current = cur;
     if (prev === null) return; // first payload = baseline
@@ -705,7 +724,12 @@ export function CityView ({ repos, tasks, events, workspaceReady, mood, wardrobe
 
   // D2 fireworks: VALUES-ref diff, count DROP only, per-district nonces.
   useEffect(() => {
-    const cur = new Map(repos.map((r) => [r.id, r.count]));
+    const cur = new Map(repos.filter((repo) => currentStatusRepoIds.has(repo.id))
+      .map((r) => [r.id, r.count]));
+    setBursts((items) => {
+      const current = items.filter((item) => currentStatusRepoIds.has(item.repo));
+      return current.length === items.length ? items : current;
+    });
     const prev = prevCountsRef.current;
     prevCountsRef.current = cur;
     if (prev === null) return; // baseline
@@ -845,20 +869,13 @@ export function CityView ({ repos, tasks, events, workspaceReady, mood, wardrobe
 
   return (
     <section>
-      {/* v0.2.1.0 D3 (B.3, RV2): the h2 gains the Overview header's flex
-          treatment — the snapshot button rides ml-auto. */}
-      <div className="mb-3 flex min-w-0 items-center gap-2">
-        <h2 data-view-heading tabIndex={-1}
-          className="min-w-0 flex-1 border-l-4 border-teal-500 pl-2 text-sm font-bold text-slate-200">
-          KATLAB City — the living workspace
-        </h2>
-        <button onClick={snapshot} disabled={!cityReady || snapshotBusy}
+      <SectionHeading kind="page" title="City" description="The living workspace, across all repositories."
+        headingProps={{ "data-view-heading": true, tabIndex: -1 }}
+        actions={<ControlButton onClick={snapshot} disabled={!cityReady || snapshotBusy}
           aria-busy={snapshotBusy}
-          title={`download ${pageRange} as a standalone SVG — live overlays not included`}
-          className="ml-auto rounded bg-slate-800 px-2 py-0.5 text-xs font-normal text-slate-200 hover:bg-slate-700 disabled:opacity-40">
-          {snapshotBusy ? "starting snapshot…" : "snapshot ⬇"}
-        </button>
-      </div>
+          title={`Download ${pageRange} as a standalone SVG; live overlays not included`}>
+          {snapshotBusy ? "Starting snapshot…" : "Download snapshot"}
+        </ControlButton>} />
       {(hydrationNote || snapshotNote || hydrating) && (
         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
           {hydrating && <span>{retryBusy ? "Retrying City data…" : "Refreshing City data…"}</span>}
@@ -879,7 +896,7 @@ export function CityView ({ repos, tasks, events, workspaceReady, mood, wardrobe
             : hydrating ? "Loading City data…" : "City data is waiting to refresh.")}
         </div>
       ) : (
-      <div className="rounded border border-slate-700 bg-slate-900 p-3">
+      <div className="rounded-panel border border-ui-border bg-ui-surface p-4 sm:p-5">
         <div className="ui-local-scroller overflow-x-auto" role="region"
           aria-label={`KATLAB City scene — ${pageRange}`} tabIndex={0}>
         <div ref={containerRef} className="relative" style={{ width, height: HEIGHT }}>
@@ -894,7 +911,8 @@ export function CityView ({ repos, tasks, events, workspaceReady, mood, wardrobe
               <span key={d.id} className="city-drop"
                 style={{ left: d.x, top: SKY_H } as CSSProperties} />
             ))}
-            {bursts.filter((burst) => burst.pageKey === pageKey).map((b) => (
+            {bursts.filter((burst) => burst.pageKey === pageKey
+              && currentStatusRepoIds.has(burst.repo)).map((b) => (
               <span key={JSON.stringify([b.repo, b.n])}
                 className="absolute" style={{ left: b.x, top: 150 } as CSSProperties}>
                 {Array.from({ length: 12 }, (_, i) => {
@@ -917,7 +935,8 @@ export function CityView ({ repos, tasks, events, workspaceReady, mood, wardrobe
                 display:none under reduced motion — the city-drop form).
                 RV9 geometry: district-center x, baseline y=170, upper
                 semicircles, radii 60/54/48/42 outside-in red-first. */}
-            {rainbows.filter((rainbow) => rainbow.pageKey === pageKey).map((rb) => (
+            {rainbows.filter((rainbow) => rainbow.pageKey === pageKey
+              && currentStatusRepoIds.has(rainbow.repo)).map((rb) => (
               <svg key={JSON.stringify([rb.repo, rb.n])} className="rainbow-p absolute"
                 width={140} height={74}
                 style={{ left: rb.x - 70, top: 96 } as CSSProperties}>
@@ -959,6 +978,7 @@ export function CityView ({ repos, tasks, events, workspaceReady, mood, wardrobe
             ), sortValue: (row) => row.district.repo.id },
             { key: "health", label: "Health", render: (row) => row.district.repo.offline
               ? "offline"
+              : row.district.repo.status_valid !== true ? "status unavailable"
               : row.district.repo.clean ? "clean" : `${row.district.repo.count} uncommitted` },
             { key: "building", label: "File building", render: (row) => row.building ? (
               <button type="button"
@@ -966,7 +986,7 @@ export function CityView ({ repos, tasks, events, workspaceReady, mood, wardrobe
                 className="ui-focus-ring inline-flex min-h-6 min-w-6 items-center break-all rounded text-left font-mono text-sky-300 hover:underline">
                 {row.building.file}
               </button>
-            ) : <span className="text-slate-500">plaza — no churn rows</span>,
+            ) : <span className="text-slate-400">plaza — no churn rows</span>,
             sortValue: (row) => row.building?.file },
             { key: "captures", label: "Captures", render: (row) =>
               row.building?.events.toLocaleString("en-US") ?? "—",

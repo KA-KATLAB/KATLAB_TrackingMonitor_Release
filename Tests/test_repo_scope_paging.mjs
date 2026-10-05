@@ -69,7 +69,8 @@ function elements (node) {
 
 // Controlled lifecycle, not React DOM: state/ref slots, dependency checks, callbacks
 // and post-render effects run deterministically; native focus/history are not exercised.
-function mountRail ({ repos = repoRows(60), scope = allScope, pages = {}, membershipReady = true } = {}) {
+function mountRail ({ repos = repoRows(60), scope = allScope, pages = {}, membershipReady = true,
+  searchEnabled = false, workspaceReady = true } = {}) {
   const slots = [];
   const writes = [];
   const selections = [];
@@ -78,7 +79,8 @@ function mountRail ({ repos = repoRows(60), scope = allScope, pages = {}, member
   let dirty = false;
   let tree;
   let memory = pages;
-  let props = { repos, scope, membershipReady, onSelect: (next) => selections.push(next) };
+  let props = { repos, scope, membershipReady, searchEnabled, workspaceReady,
+    onSelect: (next) => selections.push(next) };
   function slot (kind, initialize) {
     const index = cursor++;
     slots[index] ??= { kind, ...initialize() };
@@ -143,6 +145,12 @@ function mountRail ({ repos = repoRows(60), scope = allScope, pages = {}, member
     pages: () => memory,
     page: () => pager()?.props.page.page ?? 1,
     nodes: () => elements(tree),
+    search(value) {
+      const input = elements(tree).find((node) => node.type === "input" && node.props.type === "search");
+      assert.ok(input, "actual labelled search field is mounted");
+      input.props.onChange({ target: { value } });
+      render();
+    },
     update(nextProps, nextPages) {
       props = { ...props, ...nextProps };
       if (nextPages !== undefined) memory = nextPages;
@@ -331,4 +339,55 @@ test("App wires actual navigation policy and retains direct snapshot restoration
   assert.match(appText, /pages:\s*\{\s*\.\.\.current\.pagePositions\s*\}/);
   assert.match(appText, /setPagePositions\(\{\s*\.\.\.\(snapshot\?\.pages\s*\?\?\s*\{\}\)\s*\}\)/);
   assert.match(appText, /<BoundedPageMemoryProvider\s+pages=\{pagePositions\}\s+onPageChange=\{rememberPage\}>/);
+});
+
+test("filtered repository paging never overwrites remembered unfiltered history", () => {
+  const pages = { "repo-scopes": 3, other: 7 };
+  const h = mountRail({ repos: repoRows(130), pages, searchEnabled: true });
+  assert.equal(h.page(), 3);
+  h.search("Repo_129");
+  assert.equal(h.choices().length, 1);
+  assert.equal(h.choices()[0].props["aria-label"], "Scope: repo Repo_129");
+  assert.deepEqual(h.pages(), pages);
+  h.search("NoSuchRepository");
+  assert.equal(h.choices().length, 0);
+  assert.deepEqual(h.pages(), pages);
+  h.search("repo");
+  assert.equal(h.page(), 1);
+  h.click("next"); h.render();
+  assert.equal(h.page(), 2);
+  assert.deepEqual(h.pages(), pages);
+  h.search("");
+  assert.equal(h.page(), 3);
+  const reopened = mountRail({ repos: repoRows(130), pages: h.pages(), searchEnabled: true });
+  assert.equal(reopened.page(), 3, "unmounted drawer search resets, entry page survives");
+  assert.equal(reopened.nodes().find((node) => node.type === "input").props.value, "");
+  reopened.update({}, { "repo-scopes": 2, other: 9 });
+  assert.equal(reopened.page(), 2, "restored entry is not forced onto the selected scope page");
+});
+
+test("scope search normalizes Unicode and keeps workspace distinct from a real ALL repo", () => {
+  const h = mountRail({ repos: [...repoRows(60), { id: "ALL" }], searchEnabled: true });
+  h.search(" ＡＬＬ ");
+  assert.deepEqual(h.choices().map((node) => node.props["aria-label"]),
+    ["Scope: all repos", "Scope: repo ALL"]);
+  h.choices()[1].props.onClick();
+  assert.deepEqual(h.selections, [{ kind: "repo", id: "ALL" }]);
+  h.search("repo repo_60");
+  assert.deepEqual(h.choices().map((node) => node.props["aria-label"]), ["Scope: repo Repo_60"]);
+  assert.equal(h.choices()[0].props["aria-pressed"], false);
+});
+
+test("scope picker marks incomplete hydration without inventing an empty collection", () => {
+  const h = mountRail({ repos: [], scope: repoScope("Waiting"), searchEnabled: true,
+    workspaceReady: false, membershipReady: false });
+  assert.equal(h.choices().length, 2);
+  assert.ok(h.nodes().some((node) => typeof node.props.children === "string"
+    && node.props.children.includes("Waiting for workspace snapshot")));
+  h.search("Waiting");
+  assert.equal(h.choices()[0].props["aria-pressed"], true);
+  h.update({ repos: [{ id: "Waiting" }], workspaceReady: true, membershipReady: true });
+  assert.equal(h.choices().length, 1);
+  assert.ok(!h.nodes().some((node) => typeof node.props.children === "string"
+    && node.props.children.includes("Waiting for workspace snapshot")));
 });

@@ -137,7 +137,7 @@ export function SessionTimeline ({
       backdropClose
       closeLabel="Close session timeline"
     >
-      <div id="session-timeline-events" className="min-w-0 text-xs">
+      <div id="session-timeline-events" className="min-w-0 text-base">
         <DialogLoadStatus label="Session timeline" busy={busy} error={error}
           count={rows?.length ?? null} limitReached={limitReached} />
         {busy && !rows && <p className="text-ui-muted">Loading session timeline…</p>}
@@ -168,17 +168,17 @@ export function SessionTimeline ({
                 </div>
               )}
               {(taskChanged || continuation) && (
-                <div className="mt-2 break-words border-l-4 border-sky-600 pl-2 font-mono text-xs text-sky-300">
+                <div className="mt-4 break-words border-l-2 border-sky-600 pl-3 font-mono text-xs text-sky-300">
                   {event.task_ref ?? "(unresolved — pick queue)"}
                   {continuation ? " — continued" : ""}
                 </div>
               )}
-              <div className="flex min-w-0 flex-wrap items-center gap-2 py-1 pl-3">
-                <span className="text-ui-muted" title={event.ts}>{fmtTs(event.ts)}</span>
-                <span className="break-all text-ui-muted">{event.repo_id}</span>
+              <div className="ui-work-row flex-wrap items-center !px-3 !py-3">
+                <span className="text-xs text-ui-muted" title={event.ts}>{fmtTs(event.ts)}</span>
+                <span className="break-all text-xs text-ui-muted">{event.repo_id}</span>
                 <span
                   className="rounded px-1.5 py-0.5 text-xs font-bold text-white"
-                  style={{ backgroundColor: MODE_COLOR[event.mode] }}
+                  style={{ backgroundColor: MODE_COLOR[event.mode], color: MODE_BADGE[event.mode].foreground }}
                 >
                   {MODE_BADGE[event.mode].label}
                 </span>

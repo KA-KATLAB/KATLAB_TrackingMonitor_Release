@@ -279,12 +279,18 @@ test("rendered Chronicle states retain the host and show only the ready iframe",
       assert.match(html, /<section[^>]*aria-labelledby="chronicle-heading"/);
       assert.match(html, /<h2[^>]*id="chronicle-heading"[^>]*>Chronicle<\/h2>/);
       assert.match(html, /data-view-heading/);
+      const heading = html.match(/<h2[^>]*id="chronicle-heading"[^>]*>/)?.[0];
+      assert.match(heading, /ui-page-title/);
+      assert.match(heading, /tabindex="-1"/);
+      assert.doesNotMatch(heading, /sr-only/);
+      assert.match(html, /<a[^>]*href="\/chronicle\/"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*>Open in new tab<\/a>/);
       assert.doesNotMatch(html, /within (a|one|1) minute/i);
     }
     assert.match(markup.checking, /Checking Chronicle availability/);
     assert.match(markup.missing, /No Chronicle page available yet/);
     assert.match(markup.missing, /Scripts\/Chronicle\/generate\.bat/);
     assert.match(markup.missing, /Scripts\/Chronicle\/install\.bat/);
+    assert.match(markup.missing, /check System for the Chronicle worker status/);
     assert.match(markup.unavailable, /Chronicle check unavailable/);
     assert.match(markup.unavailable, /failed or timed out/);
     for (const state of ["missing", "unavailable"]) {
@@ -298,6 +304,9 @@ test("rendered Chronicle states retain the host and show only the ready iframe",
     assert.match(markup.ready, /title="KATLAB Chronicle"/);
     assert.match(markup.ready, /min-h-0 w-full flex-1/);
     assert.doesNotMatch(markup.ready, /role="status"/);
+    const viewSource = readFileSync(resolve(root, "Frontend/src/chronicleView.tsx"), "utf8");
+    assert.match(viewSource, /useEffect\(\(\) => startChronicleProbe\(setState\), \[\]\)/);
+    assert.doesNotMatch(viewSource, /window\.open|setInterval|setTimeout|calc\(/);
   } finally {
     await vite.close();
   }

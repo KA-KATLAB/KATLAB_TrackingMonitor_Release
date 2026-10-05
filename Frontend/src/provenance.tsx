@@ -33,15 +33,15 @@ export function ProvenanceCard ({ provenance, scope, onOpenFileStory }: {
   // commits, all files plan-excluded, all-merge) AND the divide-by-zero.
   if (slots_total === 0) return null;
   return (
-    <Surface data-reveal>
+    <Surface data-reveal tone="quiet">
       <SectionHeading level={4} title="Provenance"
         description={scope ?? "All repos"} />
-      <div className="flex items-baseline gap-2"
+      <div className="flex min-w-0 flex-wrap items-baseline gap-2"
         title="share of committed file changes (per commit, per file) that carry captured Claude events — since tracking began; not a lines-of-code measure">
-        <span className="font-mono text-4xl font-bold leading-none text-slate-100">
+        <span className="ui-metric-value">
           {pctOf(slots_ai, slots_total)}%
         </span>
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        <span className="text-xs font-semibold text-ui-muted">
           AI-touched file changes
         </span>
       </div>
@@ -52,7 +52,7 @@ export function ProvenanceCard ({ provenance, scope, onOpenFileStory }: {
           style={{ width: `${((slots_ai / slots_total) * 100).toFixed(1)}%`,
             backgroundColor: TEAL }} />
       </div>
-      <p className="mt-1.5 text-[11px] text-slate-400">
+      <p className="mt-2 text-xs text-ui-muted">
         {`${fmt(slots_ai)}/${fmt(slots_total)} file changes` +
          ` · ${fmt(commits_observed)} commit` +
          `${commits_observed === 1 ? "" : "s"} since tracking began` +
@@ -60,16 +60,16 @@ export function ProvenanceCard ({ provenance, scope, onOpenFileStory }: {
       </p>
       <div className="mt-2 space-y-1 text-xs">
         {top_files.map((row) => (
-          <div key={JSON.stringify([row.repo, row.file])} className="flex items-center gap-2">
+          <div key={JSON.stringify([row.repo, row.file])} className="flex min-w-0 flex-wrap items-center gap-2 py-1">
             {/* ALL scope shows the repo: both monitored repos hold files
                 with identical basenames (Version_Notes.md) */}
             {scope === undefined && (
-              <span className="shrink-0 text-[10px] text-slate-500">{row.repo}</span>
+              <span className="min-w-0 break-all text-xs text-ui-muted">{row.repo}</span>
             )}
             <button type="button" onClick={() => onOpenFileStory?.(row.repo, row.file)}
               aria-label={`${row.file} — open file story`}
               title={`${row.file} — open file story`}
-              className="min-w-0 truncate font-mono text-left hover:text-sky-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
+              className="min-w-0 break-all font-mono text-left hover:text-sky-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
               {row.file.split("/").pop()}
             </button>
             <span className="ml-auto h-1 w-16 shrink-0 rounded bg-slate-700" aria-hidden="true">
@@ -77,7 +77,7 @@ export function ProvenanceCard ({ provenance, scope, onOpenFileStory }: {
                 style={{ width: `${((row.ai_commits / row.commits) * 100).toFixed(1)}%`,
                   backgroundColor: TEAL }} />
             </span>
-            <span className="shrink-0 text-[10px] text-slate-400">
+            <span className="shrink-0 text-xs text-ui-muted">
               {row.ai_commits}/{row.commits}
             </span>
           </div>

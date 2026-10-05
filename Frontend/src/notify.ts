@@ -9,6 +9,7 @@
 import { readPreference, writePreference } from "./preferences";
 import type { PreferenceToggleResult } from "./preferences";
 import { raceWithSignal } from "./api";
+import type { Repo } from "./api";
 import { createPreferenceFailureStore } from "./preferenceFailure";
 
 export const notifyBackgroundFailure = createPreferenceFailureStore();
@@ -135,11 +136,29 @@ export function notifyPickNeeded (repo: string, navigate: () => void): void {
   }, COALESCE_MS);
 }
 
+/** Accepted reconciled snapshots replace baselines silently, including removals.
+ *  Unknown/offline observations cannot carry a prior dirty state across a gap. */
+export function replaceStatusBaseline (
+  repos: readonly Pick<Repo, "id" | "clean" | "offline" | "status_valid">[],
+): void {
+  prevClean.clear();
+  for (const repo of repos) {
+    if (!repo.offline && repo.status_valid === true && typeof repo.clean === "boolean") {
+      prevClean.set(repo.id, repo.clean);
+    }
+  }
+}
+
 /** Trigger (2): dirty -> CLEAN transition (map maintained here, RV9).
  *  v0.1.7.0 D6 (C.3): RETURNS true on that transition so App can route the
  *  in-app celebration channels (toast always, burst while visible — the RV1
- *  matrix); OS-notification behavior is unchanged (fire() stays hidden-only). */
-export function notifyStatusChange (repo: string, clean: boolean, navigate: () => void): boolean {
+ *  matrix); OS-notification behavior is unchanged (fire() stays hidden-only).
+ *  Null means current Git status is unavailable and breaks the baseline. */
+export function notifyStatusChange (repo: string, clean: boolean | null, navigate: () => void): boolean {
+  if (clean === null) {
+    prevClean.delete(repo);
+    return false;
+  }
   const was = prevClean.get(repo);
   prevClean.set(repo, clean);
   const transitioned = clean && was === false;

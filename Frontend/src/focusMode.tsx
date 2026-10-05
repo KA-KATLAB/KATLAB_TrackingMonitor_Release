@@ -45,7 +45,8 @@ export function FocusMode({
     pageSize: 50,
   });
   const visibleScoped = scoped.slice(repoPager.start, repoPager.end);
-  const clean = scoped.filter((repo) => repo.clean).length;
+  const known = scoped.filter((repo) => !repo.offline && repo.status_valid === true);
+  const clean = known.filter((repo) => repo.clean).length;
   const one = scope ? scoped[0] : undefined;
   const feed = (scope ? events.filter((event) => event.repo_id === scope) : events).slice(0, 6);
   const lastTimestamp = scoped.reduce<string | null>(
@@ -78,7 +79,14 @@ export function FocusMode({
       <div className="flex min-h-full flex-col">
         <div className="flex flex-1 flex-col items-center justify-center gap-6 py-8">
           {one ? (
-            one.clean ? (
+            one.offline || one.status_valid !== true ? (
+              <div className="text-center">
+                <p className="text-3xl font-semibold text-ui-muted sm:text-5xl">
+                  {one.offline ? "Repository offline" : "Git status unavailable"}
+                </p>
+                <p className="mt-3 text-sm text-ui-muted">Retained Git values are not current status.</p>
+              </div>
+            ) : one.clean ? (
               <div className="text-center text-5xl font-bold text-teal-400 sm:text-8xl">
                 CLEAN ✓
               </div>
@@ -96,19 +104,26 @@ export function FocusMode({
                     : "text-ui-text"
                 }`}
               >
-                {clean}/{scoped.length} clean
+                {known.length > 0 ? `${clean}/${known.length} clean` : "Git status unavailable"}
               </div>
+              <p className="text-center text-sm text-ui-muted">
+                {scope && scoped.length === 0 ? "Selected repository is no longer available."
+                  : `${known.length} of ${scoped.length} repositories have current Git status.`}
+              </p>
               <div className="flex max-w-full flex-wrap justify-center gap-2 text-sm">
                 {visibleScoped.map((repo) => (
                   <span
                     key={repo.id}
                     className={`break-all rounded px-2 py-1 ${
-                      repo.clean
+                      repo.offline || repo.status_valid !== true
+                        ? "bg-slate-800 text-slate-300"
+                        : repo.clean
                         ? "bg-teal-900/50 text-teal-300"
                         : "bg-amber-900/40 text-amber-300"
                     }`}
                   >
-                    {repo.id} {repo.clean ? "✓" : repo.count}
+                    {repo.id} {repo.offline ? "offline" : repo.status_valid !== true
+                      ? "status unavailable" : repo.clean ? "clean" : `${repo.count} uncommitted`}
                   </span>
                 ))}
                 {scoped.length > 50 && (
@@ -122,34 +137,34 @@ export function FocusMode({
           <section className="w-full max-w-xl" aria-labelledby="focus-in-flight">
             <h3
               id="focus-in-flight"
-              className="mb-2 text-[11px] uppercase tracking-wide text-ui-muted"
+              className="ui-section-title mb-3"
             >
               In flight
             </h3>
             {feed.length === 0 ? (
-              <p className="text-sm text-ui-muted">All clear ✨</p>
+              <p className="text-sm text-ui-muted">No captured changes in this scope.</p>
             ) : (
               <div className="space-y-1">
                 {feed.map((event) => (
                   <div
                     key={event.id}
-                    className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 text-sm text-ui-text sm:grid-cols-[auto_auto_minmax(0,1fr)_auto]"
+                    className="ui-work-row flex min-w-0 flex-wrap items-center gap-2 text-base text-ui-text"
                   >
-                    <span className="font-mono text-[11px] text-ui-muted">
+                    <span className="font-mono text-xs text-ui-muted">
                       {new Date(event.ts).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
                     </span>
-                    <span className="hidden break-all text-ui-muted sm:inline">
+                    <span className="break-all text-xs text-ui-muted">
                       {event.repo_id}
                     </span>
-                    <span className="min-w-0 break-all font-mono text-[12px]">
+                    <span className="min-w-0 basis-full break-all font-mono sm:basis-auto sm:flex-1">
                       {event.file}
                     </span>
                     <span
-                      className="rounded px-1 text-[10px] font-semibold text-white"
-                      style={{ backgroundColor: MODE_COLOR[event.mode] }}
+                      className="rounded px-1.5 py-0.5 text-xs font-semibold"
+                      style={{ backgroundColor: MODE_COLOR[event.mode], color: MODE_BADGE[event.mode].foreground }}
                       title={MODE_BADGE[event.mode].tip}
                     >
                       {MODE_BADGE[event.mode].label}

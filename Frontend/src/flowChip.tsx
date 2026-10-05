@@ -4,7 +4,7 @@
 // with Date.now(), and the P8 60s tick re-render grows the minutes and
 // expires the chip — no internal interval, no state, zero hooks. The
 // combo counts events; flow measures TIME-IN-CHAIN. Seat: immediately
-// RIGHT of ComboMeter (the Pet adjacency law keeps the left seat);
+// RIGHT of ComboMeter inside Tools (Pet retains the left seat);
 // sky/water vs the combo's amber/fire — distinct at a glance,
 // structurally identical siblings. fmtMinutes: the ONE effort humanizer
 // (the ≈ lives on the value). Session-live by design (D4): a reload

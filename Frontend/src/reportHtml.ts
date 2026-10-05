@@ -25,13 +25,13 @@ const fmt = (n: number) => n.toLocaleString("en-US");
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-const CARD = "border:1px solid #334155;border-radius:8px;padding:12px 16px;margin:10px 0;background:#0f172a";
-const H2 = "font-size:14px;margin:20px 0 4px;color:#e2e8f0";
-const SUB = "color:#94a3b8;font-size:11px";
+const CARD = "border-top:1px solid #334155;padding:16px 0;margin:12px 0 24px";
+const H2 = "font-size:18px;margin:28px 0 8px;color:#e2e8f0";
+const SUB = "color:#94a3b8;font-size:12px";
 
 function kpi (value: string, label: string): string {
-  return `<div style="border:1px solid #334155;border-radius:8px;padding:10px 16px;background:#0f172a">` +
-    `<div style="font-size:20px;font-weight:700;color:#f1f5f9">${value}</div>` +
+  return `<div class="report-metric" style="min-width:0;border-left:2px solid #334155;padding:4px 16px">` +
+    `<div class="report-metric-value" style="font-size:32px;font-weight:700;color:#f1f5f9">${value}</div>` +
     `<div style="${SUB}">${label}</div></div>`;
 }
 
@@ -115,7 +115,7 @@ export function buildReportHtml (stats: StatsData, scope: string | undefined,
         `<circle cx="${28 + h * 13}" cy="${10 + d * 13}" r="${r.toFixed(1)}" fill="#14b8a6"/>`;
     }).join("")).join("") +
     DAYS.map((lbl, d) =>
-      `<text x="0" y="${14 + d * 13}" font-size="8" fill="#94a3b8">${lbl}</text>`).join("");
+      `<text x="0" y="${14 + d * 13}" font-size="12" fill="#94a3b8">${lbl}</text>`).join("");
   const punchHead = Array.from({ length: 24 }, (_, hour) =>
     `<th scope="col">${pad(hour)}</th>`).join("");
   const punchRows = stats.punch_card.map((row, dayIndex) =>
@@ -185,21 +185,21 @@ ${w.top_pair ? `<div>Files that moved together: <code>${esc(w.top_pair.file_a)}<
 <style>
 *{box-sizing:border-box}
 html,body{max-width:100%}
-body{background:#020617;color:#e2e8f0;font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif;width:100%;max-width:860px;margin:0 auto;padding:clamp(16px,4vw,28px);line-height:1.5;overflow-wrap:anywhere}
-  code{font-family:'Azeret Mono',ui-monospace,monospace;font-size:11px;color:#7dd3fc;white-space:normal;word-break:break-word}
+body{background:#020617;color:#e2e8f0;font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif;font-size:16px;width:100%;max-width:860px;margin:0 auto;padding:clamp(16px,4vw,28px);line-height:1.6;overflow-wrap:anywhere}
+  code{font-family:'Azeret Mono',ui-monospace,monospace;font-size:14px;color:#7dd3fc;white-space:normal;word-break:break-word}
   svg{display:block;max-width:100%;height:auto}
-  figure{margin:0}.visual-summary{margin:0 0 8px;color:#94a3b8;font-size:11px}
+  figure{margin:0}.visual-summary{margin:0 0 8px;color:#94a3b8;font-size:12px}
   .table-scroll{max-width:100%;overflow:auto;overscroll-behavior:contain;margin-top:10px}
   .table-scroll:focus-visible{outline:2px solid #38bdf8;outline-offset:2px}
-  table{width:100%;border-collapse:collapse;table-layout:auto;font-size:12px}
-  caption{text-align:left;color:#94a3b8;font-size:11px;padding:0 0 5px}
+  table{width:100%;border-collapse:collapse;table-layout:auto;font-size:14px}
+  caption{text-align:left;color:#94a3b8;font-size:12px;padding:0 0 8px}
   th,td{padding:5px 8px;border-bottom:1px solid #1e293b;overflow-wrap:anywhere;vertical-align:top;text-align:left}
   thead th{color:#94a3b8;font-weight:600}.matrix{min-width:760px;text-align:right}.matrix th:first-child{text-align:left}
   .identity-bars{display:grid;width:min(100%,520px);gap:6px}.identity-bar{height:16px;border-radius:4px;background:#1e293b;overflow:hidden}.identity-bar span{display:block;height:100%;min-width:1px}
-  @media(max-width:480px){th,td{padding:4px;font-size:11px}}
+  @media(max-width:480px){th,td{padding:6px 4px;font-size:12px}}
 </style></head>
 <body>
-<h1 style="font-size:22px;margin:0">KATLAB Report <span style="color:#14b8a6">— ${range}-day snapshot</span></h1>
+<h1 style="font-size:28px;line-height:1.3;margin:0">KATLAB Report <span style="color:#14b8a6">— ${range}-day snapshot</span></h1>
 <p style="${SUB};margin:4px 0 18px">${esc(scopeLabel)} · ${esc(selectedPeriod)} · generated ${generated} (local)</p>
 <p style="${SUB};margin:0 0 18px">Calendar coverage: ${tail.length}/${range} supplied UTC day rows.</p>
 <div style="display:flex;flex-wrap:wrap;gap:10px">

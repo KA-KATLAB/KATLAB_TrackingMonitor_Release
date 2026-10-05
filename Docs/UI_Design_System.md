@@ -1,11 +1,14 @@
 # TrackingMonitor UI Design System
 
-This document is the normative UI contract for the React application. It governs the application shell and every product view; feature-specific behavior remains authoritative in the implementation and release plan.
+This document is the normative UI contract for the React application and owned
+Chronicle stylesheet generator. It governs the application shell and every
+product view; feature-specific behavior remains authoritative in the implementation
+and release plan. Generated runtime files are never edited directly.
 
 ## 1. Product profile and authority
 
 - Product: local developer operations and observability dashboard.
-- Style: dark precision dashboard with restrained KATLAB personality.
+- Style: Operations Workbench, a quiet dark canvas with restrained KATLAB personality.
 - Design dials: variance 4/10, motion 3/10, density 7/10.
 - Content order: status first, action second, explanation third.
 - Language: English.
@@ -31,7 +34,7 @@ Use semantic roles for shell, shared controls, overlays, and panels. Visualizati
 | `text` | `#f8fafc` | primary text |
 | `text-muted` | `#94a3b8` | secondary text |
 | `primary` | `#0369a1` | primary action |
-| `primary-hover` | `#0284c7` | primary hover |
+| `primary-hover` | `#075985` | primary hover, retaining normal-text contrast |
 | `focus` | `#38bdf8` | focus indicator |
 | `live` | `#14b8a6` | live activity |
 | `success` | `#059669` | successful/clean state |
@@ -40,7 +43,7 @@ Use semantic roles for shell, shared controls, overlays, and panels. Visualizati
 
 Normal text must reach 4.5:1 contrast. Large text, control boundaries, state indicators, and focus indicators must reach 3:1 against adjacent colors. Color never carries meaning alone; pair it with text, value, icon shape, or another marker.
 
-As-built WCAG contrast verification for v0.2.12.0:
+Historical palette calculations from v0.2.12.0, not current rendered acceptance:
 
 | Pair | Ratio | Required |
 |---|---:|---:|
@@ -52,6 +55,17 @@ As-built WCAG contrast verification for v0.2.12.0:
 | text / primary | 5.67:1 | 4.5:1 |
 | success / canvas | 5.35:1 | 4.5:1 |
 
+The v0.4 foundations retain the slate/sky/teal palette and remove the operational
+canvas's decorative dot grid and radial glow. Primary hover uses sky-800
+(`#075985`); danger hover uses rose-700 (`#be123c`). White text calculates to
+7.56:1 and 6.29:1 respectively. The danger action uses white, not the off-white
+primary text token. Token calculations do not replace checking rendered pairs,
+including alpha composition, focus, and every enabled control state.
+
+Attribution badges use the unchanged `MODE_COLOR` palette with the matching
+`MODE_BADGE.foreground`, including exported Digest rows. White is not a safe
+foreground for every category. Outline badges retain readable neutral text.
+
 ### 2.2 Typography
 
 - Preserve Plus Jakarta Sans for UI copy and Azeret Mono for code, paths, counters, timers, and tabular numbers.
@@ -61,6 +75,11 @@ As-built WCAG contrast verification for v0.2.12.0:
 - Small SVG/canvas ticks may be smaller only when non-interactive and fully duplicated by an accessible alternative.
 - Use tabular figures for changing numeric values.
 - Natural wrapping must remain correct without `text-wrap: balance`.
+- Page titles use 24–28px, section titles 18px, and panel titles 16px. Their
+  semantic heading level remains independent of visual size. Page descriptions
+  use 16px; supporting descriptions use 14px; metadata keeps the 12px floor.
+- Numeric emphasis uses tabular mono figures around 32px. Wrap long values and
+  preserve exact information; never transform-scale text to make a metric fit.
 
 ### 2.3 Shape, spacing, and elevation
 
@@ -79,7 +98,8 @@ As-built WCAG contrast verification for v0.2.12.0:
 | 360px | supported minimum |
 | 390px | phone reference |
 | 768px | tablet reference |
-| 1024px | persistent-sidebar shell switch |
+| 1024px | compact navigation drawer reference |
+| 1280px | persistent 14rem view-navigation switch |
 | 1440px | desktop reference |
 
 At every width, document `scrollWidth` must not exceed `clientWidth`. Horizontal scrolling is allowed only in an explicitly labelled local data or navigation scroller.
@@ -104,9 +124,12 @@ At very short viewport heights, an explicitly opened warning detail panel may sh
 - Every flex/grid boundary that can shrink needs `min-width: 0` and/or `min-height: 0`.
 - Do not clip `body` or the document to conceal an overflowing child.
 - Preserve the `#main-content` skip target and make the landmark programmatically focusable.
-- The header separates brand/scope, view navigation, status, and utilities.
-- Repo scope and view collections become labelled horizontal scrollers when they cannot wrap.
-- The status rail scrolls independently on narrow screens.
+- The header separates brand/build version, Repository, Commands, transport
+  status, Attention, System and Tools. Allow identity and controls to wrap.
+- Desktop view navigation occupies a 14rem left rail at 1280px and above.
+  Below that, a labelled Navigation control opens the shared modal drawer.
+- Repository selection and detailed repository status each use a named drawer.
+  The compact context line remains visible; do not rebuild a permanent status rail.
 - Installed-PWA header, drawers, dialogs, and bottom/right notices respect safe-area insets.
 - Sticky/fixed surfaces provide enough scroll padding that focus and hash targets remain visible.
 - The complete shell must reflow at 200% zoom and enlarged default text in portrait and landscape.
@@ -115,16 +138,35 @@ Repo scopes are a labelled selection group with `aria-pressed`. The workspace co
 
 Scope choices use a bounded 50-choice pager. Manual browsing must not snap back
 to the selected scope's page; the selected scope label remains visible even
-when its button is off-page. Without a remembered rail page, follow the selected
+when its button is off-page. Without a remembered scope page, follow the selected
 choice, including delayed membership hydration. Explicit scope navigation clears
 only the rail's same-view page memory; view changes retain their existing full
 page-memory reset. Back/Forward restores the saved page, not forced selection
 visibility. Preserve valid explicit pages on refresh/reordering and clamp after
 list shrink without changing the shared pager or other collection policies.
+Search is local to the open picker. Its query-keyed pager never writes the
+unfiltered page memory. Clearing search or reopening restores that position.
+Do not claim an empty workspace until its first complete snapshot is accepted.
+Before that snapshot, Changes/History show loading or failure and Focus/Digest
+activation is unavailable. Overview masks workspace-fed metrics/relationships,
+but independent accepted statistics, reports and dated snapshots remain usable.
+After acceptance, refresh failures retain the last snapshot with explicit context;
+they do not reset it to bootstrap-empty data. Keep pick navigation waiting during
+hydration under one generation-owned route-focus request. An accepted missing
+target falls back to the page heading; a hydration failure consumes the request.
+Never resurrect that jump later or let a retired frame steal dialog focus.
 
 The six top-level views are Changes, Mission, Overview, History, City, and Chronicle. Put them in a `nav` landmark and mark the active link/control with `aria-current="page"`. Do not claim tab semantics without a complete tab/tabpanel model.
 
-Below 1024px, replace the 18rem task sidebar with a labelled Tasks button and modal drawer. Keep repo scope, current view, Tasks, Attention, and More reachable. More owns secondary utilities once each; no responsive mode may show the same utility twice.
+Tasks uses a labelled button and the shared drawer at every width. Keep scope,
+current view, Tasks, Attention and Tools reachable. Tools groups reports,
+Experience and preferences once each at all widths, including Kat, Combo and
+Flow. Preserve visible preference/digest failures when Tools is closed.
+
+Brand version identifies the loaded UI build, read as validated data from the
+canonical Python version during Vite configuration. Badge and System button
+open the same existing health dialog. Never add a health request just to label
+the header; no package-version or Git fallback is permitted.
 
 Do:
 
@@ -140,9 +182,19 @@ Shared primitives are small implementation helpers, not a component framework. T
 
 ### 4.1 Surfaces and headings
 
-- `Surface` supplies the common panel background, border, radius, and padding.
-- `SectionHeading` establishes section name, concise supporting text, and owning actions.
+- `Surface` supplies the common panel background, border, radius, and 16px padding.
+  Its optional `tone` is `default`, `quiet`, or `raised`; quiet removes decorative
+  framing, not names, focus, or interactive boundaries. Local compact padding is
+  deliberate, not the default for every panel.
+- `SectionHeading` establishes section name, concise supporting text, and owning
+  actions. Optional `kind` selects `page`, `section`, or `panel` size without
+  changing `level`. A `data-view-heading` heading defaults to page size; level 4
+  defaults to panel size and other headings to section size. Presentation props
+  never leak onto DOM attributes.
 - Owning actions sit beside the heading and wrap below it at phone width.
+- Shared CSS roles cover toolbar, metadata, status label, work list/row, metric,
+  and empty state. Use the same role for the same intent; they introduce no state,
+  request, listener, storage or animation ownership.
 
 Do:
 
@@ -157,6 +209,13 @@ Do not:
 `ControlButton`, `IconButton`, and `SegmentedControl` expose default, hover, active, focus-visible, disabled, and busy states.
 
 - `ControlButton` and `IconButton` preserve native `aria-busy`, including explicit false. Shorthand `busy=true` takes precedence and disables the control; native `aria-busy` alone does not change its disabled state.
+- Primary actions use filled sky; ordinary secondary actions use the surface
+  plane; explicit `tone="quiet"` uses text and a transparent resting boundary.
+  Quiet controls retain visible labels and focus and cannot replace the only
+  recognizable primary action. Warning and danger tones retain distinct meaning.
+- Shared controls start at 32px in fine-pointer layouts, without changing the
+  24px minimum for legacy compact targets. Hover fallback has low specificity so
+  explicit semantic action tones retain their intended hover colors.
 - Fine-pointer controls remain compact and meet the 24x24 WCAG target floor unless the spacing exception is proven.
 - Coarse-pointer controls expose at least a 44x44 hit area without overlapping adjacent actions.
 - Enabled controls use a pointer cursor on fine pointers; disabled controls use native disabled semantics and a non-action cursor.
@@ -180,6 +239,18 @@ Do not:
 - Frequently changing status rails are not live regions.
 - One polite, deduplicated status region announces meaningful action results.
 - A persistent CLEAN record is durable state, not an auto-expiring transient toast.
+- Current clean/uncommitted summaries count only online repositories with valid
+  Git status, with explicit known coverage. Retained invalid/offline values are
+  unavailable, not zero or clean. WebSocket Connected describes transport only,
+  not fresh data or verification readiness.
+- Preserve Git validity and observation metadata in existing WebSocket updates,
+  including reconciliation against pending REST responses. Unknown/offline gaps
+  invalidate the clean-notification transition baseline; recovery alone is not an
+  observed dirty-to-clean event. Keep historical clean records distinct.
+- Attention reports pending initial snapshots and unavailable Git status; only
+  valid online values are current counts/branches. Captured picks and task nudges
+  remain separate facts. Kat uses an uncertain state for incomplete Git coverage;
+  live capture combos and earned wardrobe remain independent of Git status.
 - Warning banners show one compact summary row by default for any positive count. Their explicit disclosure provides the complete loaded, undismissed list through a bounded 50-row pager and a viewport-limited local scroller; no warning detail rows mount while collapsed. If the shell is too short for a visible in-flow detail row, the non-modal panel opens above the summary without shrinking the main view. Other banner/toast previews remain bounded and use a labelled “+N” disclosure where applicable.
 
 Do:
@@ -209,7 +280,14 @@ All modal dialogs and drawers use the shared portal-based dialog foundation. It 
 - safe focus restoration to a connected, visibly focusable opener or the main-content fallback;
 - layer 100 and safe-area padding.
 
-Command Palette, File Story, Session Timeline, Health, Wrapped, relationship-graph expansion, task drawer, and Focus Mode use this foundation. Focus Mode keeps its explicit-close fullscreen behavior.
+Command Palette, File Story, Session Timeline, System, Wrapped, relationship-graph
+expansion, Navigation/Repository/status/Tasks drawers and Focus Mode use this
+foundation. Focus Mode keeps its explicit-close fullscreen behavior.
+
+System always shows the UI build, including loading and failed health requests.
+Accept only an exact four-part server version; missing/malformed versions are
+Unknown. Explain a known UI/server mismatch without automatically reloading or
+claiming that a backend restart updates an already loaded browser tab.
 
 System health is a manually refreshed snapshot, not a live stream. Its stable
 Refresh/Retry control remains disabled while a single request is pending;
@@ -235,7 +313,12 @@ event-timestamp ordering from an ingestion-ID-based window. Use the shared
 dialog status primitive; do not change focus or fetch
 lifecycle merely to announce a result. Keep visible error/retry feedback too.
 
-More, Attention, Legend, and goal settings are disclosures, not ARIA menus. Use `aria-expanded` and `aria-controls` with ordinary buttons/links. Escape/outside close restores the connected opener. During disclosure-to-disclosure or disclosure-to-dialog handoff, suppress outgoing focus restoration until the destination owns focus. Never leave two header disclosures open.
+Tools, Attention, Legend, and goal settings are disclosures, not ARIA menus. Use
+`aria-expanded` and `aria-controls` with ordinary buttons/links. Escape closes and
+restores the connected opener; outside activation must not steal the destination's
+focus. During disclosure/dialog handoff, suppress outgoing focus restoration until
+the destination owns focus. Never leave two header disclosures open. Palette-to-
+Tools/Legend handoff waits for overlay teardown and checks the current owner.
 
 Do:
 
@@ -251,7 +334,9 @@ These rules extend the global shell; they do not replace it.
 
 ### 6.1 Changes
 
-- Desktop uses the persistent task sidebar; narrower layouts use the shared task drawer.
+- Tasks is available through the shared drawer at every width.
+- Keep unresolved attribution ahead of the grouped work list, with task/session
+  filters and clear actions visible in both task and folder modes.
 - Task, session, grouping, section-navigation, manual-pick, event, file-tree, and diff-line collections use bounded presentation when their source can exceed 50.
 - Filtering, select-all, assignment, counts, and exports always use the complete loaded model.
 - Classify a complete diff before paging lines, so hunk/header color and order remain correct across pages.
@@ -267,6 +352,11 @@ Preserve every shipped module and group them in this order:
 4. Relationships — task/commit graph.
 
 Use one SectionHeading and one Surface vocabulary. Chart canvases and informative graphics need concise summaries and exact-data alternatives. Overview and its graph reserve stable loading/error footprints.
+
+Now has four primary metrics: attribution needs, known uncommitted changes,
+known clean repositories and dated effort. Captured events, auto-attribution and
+busiest task remain secondary. No status data means unavailable, not zero.
+Never scale down metric text; wrap while retaining exact values and snapshot dates.
 
 ### 6.3 History
 
@@ -287,10 +377,13 @@ Use one SectionHeading and one Surface vocabulary. Chart canvases and informativ
 - Snapshot only the visible page; include its range in the document title, description, and collision-safe filename.
 - Retained SVG building/district operations have names, visible focus, Enter/Space parity, and dedicated non-overlapping 44x44 pointer target zones; the paged exact-data disclosure remains their structured alternative.
 - Reserve the no-data footprint and show an honest stale/unavailable state with Retry.
+- Invalid current Git status is labelled unavailable in plaques and exact data;
+  do not decorate retained clean values as a current clean district.
 
 ### 6.5 Chronicle
 
-- This contract owns only the React host, iframe sizing/name, fallback, and shell interaction.
+- This contract owns the React host and `pages.py` generated stylesheet only.
+  Keep a visible Chronicle heading and real new-tab link beside the reader.
 - The iframe fills the measured flex remainder; never subtract a hard-coded header height.
 - The host checks page availability with a bounded, abortable HEAD request.
   Before success, retry 10 seconds after each failed check, with a 10-second
@@ -303,7 +396,11 @@ Use one SectionHeading and one Surface vocabulary. Chart canvases and informativ
   page retains its own existing freshness/navigation behavior.
 - A focused same-origin iframe counts as activity and blocks attract-mode arming.
 - New-tab actions are real anchors with `target="_blank" rel="noopener"`.
-- The generated MkDocs theme/content under `Chronicle/runtime/` is outside this design scope and is never hand-edited.
+- Generated MkDocs runtime under `Chronicle/runtime/` is never hand-edited.
+  Harmonize its CSS through the generator: local Segoe UI/Consolas, quiet slate
+  canvas, readable muted text, focus-visible, reduced-motion and bounded long
+  content. Preserve pinned assets, signed runtime, sanitizer, navigation and
+  build/swap lifecycle. Inspect the generated document, not only its iframe host.
 
 ### 6.6 Mission
 
@@ -313,6 +410,9 @@ Use one SectionHeading and one Surface vocabulary. Chart canvases and informativ
   operator explicitly selects an exact repository + relative-plan pair.
 - Render backend readiness verbatim. The UI may format state labels but never
   infer, upgrade, or suppress a readiness state or blocker.
+- Make the selected Now plan visually primary. Plan scope and Forecast stay
+  secondary. Page all blockers and warnings at 50, with exact repository/plan
+  identity and total counts; do not silently truncate after the first page.
 - Attribution Forecast is a separate read-only preview from the last completed
   plan sync. Show the exact repo, Git/demo observation time, plan-context time,
   five mode totals, and actual dirty paths. Say that plan edits appear only after
@@ -508,7 +608,8 @@ Do not:
   seconds; their full text remains in the existing announcer. Other-repo
   disabled draft controls visibly say "copying elsewhere", not just in a title.
   Failure notes alone have Dismiss. Explicit dismissal returns focus to the
-  main-content region rather than leaving focus on a removed button.
+  active status drawer's detail region when inside that modal, otherwise to
+  main-content, rather than leaving focus on a removed button or inert target.
 - Browser preference storage is optional. Guard both the storage getter and
   reads/writes; keep existing defaults when reading fails. A failed save keeps
   the current visual choice but must show visible feedback and announce that

@@ -8,7 +8,7 @@ export function DraftFeedback ({ repo, result, onDismiss }: {
   onDismiss: () => void;
 }): JSX.Element {
   return (
-    <div className={`mt-1 flex min-w-0 flex-wrap items-start gap-2 text-xs ${
+    <div className={`mt-2 flex min-w-0 flex-wrap items-start gap-3 text-sm ${
       result === "copied" ? "text-emerald-300" : "text-ui-warning"}`}>
       <p
         role={result === "copied" ? undefined : "region"}

@@ -25,14 +25,14 @@ export function IdentityCard ({ identity, calendar, scope }: {
   let acc = 0; // running offset for the dasharray segments
   const effort = calendar.reduce((a, d) => a + d.minutes, 0);
   return (
-    <div>
+    <div className="min-w-0">
       <SectionHeading level={4} title="Repo identity"
         description={scope ?? "All repos"} />
       {ext_total === 0 ? (
-        <p className="py-6 text-sm text-slate-400">No captures classified yet.</p>
+        <p className="py-6 text-base text-ui-muted">No captures classified yet.</p>
       ) : (
         <figure>
-          <figcaption className="mb-2 text-[11px] text-slate-400">
+          <figcaption className="mb-3 text-xs text-ui-muted">
             File type distribution — {data.presentation === "bar" ? "horizontal bars" : "donut"}
           </figcaption>
           <div className={data.presentation === "bar"
@@ -67,13 +67,13 @@ export function IdentityCard ({ identity, calendar, scope }: {
                 ))}
               </div>
             )}
-            <div className="min-w-0 space-y-0.5 text-[11px] text-slate-300">
+            <div className="min-w-0 space-y-2 text-base text-ui-text">
             {slices.map((s) => (
               <div key={s.key} className="flex min-w-0 flex-wrap items-center gap-1.5">
                 <span className="inline-block h-2 w-2 shrink-0 rounded-sm"
                   style={{ backgroundColor: s.color }} aria-hidden="true" />
                 <span className="break-all font-mono">{s.label}</span>
-                <span className="text-slate-400">
+                <span className="text-xs tabular-nums text-ui-muted">
                   · {fmt(s.count)} ({Math.round((s.count / ext_total) * 100)}%)
                 </span>
               </div>
@@ -82,7 +82,7 @@ export function IdentityCard ({ identity, calendar, scope }: {
           </div>
         </figure>
       )}
-      <p className="mt-2 text-[11px] text-slate-400">
+      <p className="mt-4 break-words text-xs leading-relaxed text-ui-muted">
         {fmt(identity.sessions)} session{identity.sessions === 1 ? "" : "s"}
         {identity.first_event_ts &&
           ` · first capture ${fmtTs(identity.first_event_ts).slice(0, 10)}`}

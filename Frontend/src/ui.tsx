@@ -105,9 +105,16 @@ export function useDisclosureBehavior ({
   }, [initialFocusRef, open, returnFocusRef, rootRef, triggerRef]);
 }
 
-export const Surface = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-  function Surface ({ className, ...props }, ref) {
-    return <div ref={ref} className={cx("ui-surface", className)} {...props} />;
+export interface SurfaceProps extends HTMLAttributes<HTMLDivElement> {
+  tone?: "default" | "quiet" | "raised";
+}
+
+export const Surface = forwardRef<HTMLDivElement, SurfaceProps>(
+  function Surface ({ tone = "default", className, ...props }, ref) {
+    return <div ref={ref}
+      className={cx("ui-surface", tone === "quiet" && "ui-surface-quiet",
+        tone === "raised" && "ui-surface-raised", className)}
+      {...props} />;
   },
 );
 
@@ -118,6 +125,7 @@ interface SectionHeadingProps extends Omit<HTMLAttributes<HTMLDivElement>, "titl
   headingId?: string;
   headingProps?: HTMLAttributes<HTMLHeadingElement> & { "data-view-heading"?: boolean };
   level?: 2 | 3 | 4;
+  kind?: "page" | "section" | "panel";
 }
 
 export const SectionHeading = forwardRef<HTMLDivElement, SectionHeadingProps>(
@@ -128,21 +136,22 @@ export const SectionHeading = forwardRef<HTMLDivElement, SectionHeadingProps>(
     headingId,
     headingProps,
     level = 2,
+    kind,
     className,
     ...props
   }, ref) {
     const Heading = ("h" + level) as "h2" | "h3" | "h4";
     const { className: headingClassName, ...restHeadingProps } = headingProps ?? {};
-    const hierarchyClass = level === 2
-      ? "text-lg font-bold leading-7"
-      : level === 3
-        ? "text-base font-semibold leading-6"
-        : "text-sm font-semibold leading-5";
+    const headingKind = kind ?? (restHeadingProps["data-view-heading"]
+      ? "page" : level === 4 ? "panel" : "section");
+    const hierarchyClass = headingKind === "page" ? "ui-page-title"
+      : headingKind === "panel" ? "ui-panel-title" : "ui-section-title";
     return (
       <div
         ref={ref}
         className={cx(
-          "mb-3 flex min-w-0 flex-wrap items-start gap-x-3 gap-y-2",
+          "ui-section-heading",
+          headingKind === "page" && "ui-page-heading",
           className,
         )}
         {...props}
@@ -153,24 +162,26 @@ export const SectionHeading = forwardRef<HTMLDivElement, SectionHeadingProps>(
             {title}
           </Heading>
           {description && (
-            <p className="mt-0.5 max-w-prose text-xs leading-[1.5] text-ui-muted">
+            <p className={cx("ui-heading-description",
+              headingKind === "page" ? "text-base" : "text-sm")}>
               {description}
             </p>
           )}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-1.5">{actions}</div>}
+        {actions && <div className="ui-toolbar">{actions}</div>}
       </div>
     );
   },
 );
 
-type ControlTone = "neutral" | "primary" | "warning" | "danger";
+type ControlTone = "neutral" | "primary" | "quiet" | "warning" | "danger";
 
 const CONTROL_TONE: Record<ControlTone, string> = {
-  neutral: "bg-ui-raised text-ui-text hover:bg-ui-border",
+  neutral: "bg-ui-surface text-ui-text hover:bg-ui-raised",
   primary: "bg-ui-primary text-white hover:bg-ui-primary-hover",
+  quiet: "border-transparent bg-transparent text-ui-muted hover:border-ui-control-border hover:bg-ui-surface hover:text-ui-text",
   warning: "bg-ui-warning text-slate-950 hover:bg-amber-400",
-  danger: "bg-ui-danger text-white hover:bg-rose-500",
+  danger: "bg-ui-danger text-white hover:bg-rose-700",
 };
 
 export interface ControlButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

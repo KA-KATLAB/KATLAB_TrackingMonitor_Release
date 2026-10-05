@@ -1060,7 +1060,9 @@ test("App statically owns sound deadline, lifecycle and shared recovery surfaces
   assert.match(app, /owner\.clear\(\);\s*if \(isCurrent\(\)\) \{\s*soundOwnerRef\.current = null;\s*setSoundBusy\(false\)/);
   assert.match(app, /announceStatus\("Changing sounds\."\)/);
   assert.match(app, /disabledReason: soundBusy \?/);
-  assert.equal((app.match(/disabled=\{soundBusy\}/g) ?? []).length, 2);
+  assert.equal((app.match(/disabled=\{soundBusy\}/g) ?? []).length, 1, "one shared Tools control at every width");
+  assert.match(app, /<span>Tools<\/span>/);
+  assert.match(app, /setPanelOpen\(false\); setShowLegend\(false\); setMoreOpen\(true\);\s*void toggleSound\(\)/);
   assert.match(app, /Object\.entries\(preferenceFailures\)/);
   assert.doesNotMatch(app, /soundBusyRef/);
 });
@@ -1396,7 +1398,9 @@ test("App statically owns notification deadline, lifecycle and recovery surfaces
   assert.match(app, /owner\.clear\(\);\s*if \(isCurrent\(\)\) \{\s*notifyOwnerRef\.current = null;\s*setNotifyBusy\(false\)/);
   assert.match(app, /announceStatus\("Changing OS alerts\."\)/);
   assert.match(app, /disabledReason: notifyBusy \?/);
-  assert.equal((app.match(/disabled=\{notifyBusy\}/g) ?? []).length, 2);
+  assert.equal((app.match(/disabled=\{notifyBusy\}/g) ?? []).length, 1, "one shared Tools control at every width");
+  assert.match(app, /<span>Tools<\/span>/);
+  assert.match(app, /setPanelOpen\(false\); setShowLegend\(false\); setMoreOpen\(true\);\s*void toggleNotify\(\)/);
   assert.match(app, /Object\.entries\(preferenceFailures\)/);
   assert.doesNotMatch(app, /notifyBusyRef/);
 });

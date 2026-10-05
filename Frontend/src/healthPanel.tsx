@@ -8,6 +8,7 @@ import { fmtMinutes, fmtRel, fmtTs } from "./format";
 import { decodeChronicleHealth, hookRegistrationLabel } from "./healthModel";
 import { startHealthRequest } from "./healthRequest";
 import { CollectionPager, useBoundedPage } from "./ui";
+import { decodeAppVersion, UI_BUILD_VERSION } from "./appVersion";
 
 function fmtBytes (bytes: number): string {
   if (bytes < 1024) return bytes + " B";
@@ -35,6 +36,7 @@ export function HealthBody ({ data, receivedAt }: {
   receivedAt: string;
 }): JSX.Element {
   const { server, repos, activity, providers } = data;
+  const serverVersion = decodeAppVersion(server.version);
   const chronicle = decodeChronicleHealth(data);
   const activityAvailable = activity !== undefined && activity !== null;
   const providersAvailable = Array.isArray(providers);
@@ -69,7 +71,14 @@ export function HealthBody ({ data, receivedAt }: {
   return (
     <div className="min-w-0 text-xs">
       <h3 className="mb-1 font-semibold text-slate-300">Server</h3>
-      <Row label="version">{server.version}</Row>
+      <Row label="server version">{serverVersion ?? "Unknown"}</Row>
+      {serverVersion !== null && serverVersion !== UI_BUILD_VERSION && (
+        <p className="my-3 rounded-control border border-ui-border bg-ui-raised p-3 text-sky-200">
+          UI build and server versions differ. This does not indicate which is newer
+          or healthy. Rebuild and restart the intended installation, then reload
+          this page when you are ready.
+        </p>
+      )}
       <Row label="uptime">{fmtMinutes(uptimeMin)}</Row>
       <Row label="database">
         {server.db_bytes === null ? "—" : fmtBytes(server.db_bytes)}
@@ -95,7 +104,7 @@ export function HealthBody ({ data, receivedAt }: {
         <div className="mt-3 rounded-control border border-amber-700 bg-amber-950/30 p-3 text-amber-200">
           <p className="font-semibold">Additional health data unavailable</p>
           <p className="mt-1">
-            Server v{server.version} did not provide {missingExtensions}. Restart
+            Server version {serverVersion ?? "Unknown"} did not provide {missingExtensions}. Restart
             TrackingMonitor to load matching backend and frontend code.
           </p>
         </div>
@@ -178,7 +187,7 @@ export function HealthBody ({ data, receivedAt }: {
             >
               {repo.events_jsonl_bytes === null ? "—" : fmtBytes(repo.events_jsonl_bytes)}
             </span>
-            <span className={repo.warning_count > 0 ? "text-amber-300" : "text-slate-500"}>
+            <span className={repo.warning_count > 0 ? "text-amber-300" : "text-slate-400"}>
               {repo.warning_count} warning{repo.warning_count === 1 ? "" : "s"}
             </span>
           </div>
@@ -203,10 +212,11 @@ export function HealthButton ({ onClick }: { onClick: () => void }): JSX.Element
       type="button"
       onClick={onClick}
       aria-label="System health"
+      aria-haspopup="dialog"
       title="System health"
       className="ui-control border-0 bg-transparent text-ui-muted hover:bg-ui-raised hover:text-ui-text"
     >
-      sys
+      System
     </button>
   );
 }
@@ -229,6 +239,10 @@ export function HealthSnapshotContent ({ snapshot, error, busy, onRefresh }: {
   return (
     <>
       <DialogStatus>{status}</DialogStatus>
+      <div className="mb-4 rounded-panel bg-ui-canvas px-3 py-2 text-sm">
+        <Row label="UI build">v{UI_BUILD_VERSION}</Row>
+        <p className="text-xs text-ui-muted">The version of the interface loaded in this tab.</p>
+      </div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="min-w-0 break-words text-xs text-ui-muted">
           {snapshot ? <>Received locally: <time dateTime={snapshot.receivedAt}>

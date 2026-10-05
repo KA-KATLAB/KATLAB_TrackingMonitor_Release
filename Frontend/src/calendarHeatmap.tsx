@@ -30,7 +30,7 @@ export function rampBucket (n: number, max: number): number {
 // card renders it ONCE below whichever view (flat | city) is active.
 export function RampLegend () {
   return (
-    <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-400">
+    <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
       <span>less</span>
       {RAMP.map((color) => (
         <span key={color} className="inline-block h-2.5 w-2.5 rounded-sm"
@@ -81,23 +81,21 @@ export function CalendarHeatmap ({ calendar }: { calendar: CalDay[] }) {
     }
   });
 
-  // v0.1.5.0 CFT-3: right pad — a month label at the LAST week column (today
-  // within the current month's first week) needs ~18px but the column leaves
-  // 12px; svg clips by default, so the trailing label would truncate.
-  const width = LEFT + weeks.length * STEP + 14;
+  // Leave room for a readable month label in the final week column.
+  const width = LEFT + weeks.length * STEP + 24;
   const height = TOP + 7 * STEP;
   // v0.1.9.0 B.1 (RV8): the legend moved to the exported RampLegend — the
   // Overview card renders it once below whichever view is active.
   return (
     <svg width={width} height={height} aria-hidden="true" focusable="false">
       {months.map((m) => (
-        <text key={m.x} x={m.x} y={10} className="fill-slate-400" fontSize={9}>
+        <text key={m.x} x={m.x} y={12} className="fill-slate-400" fontSize={12}>
           {m.label}
         </text>
       ))}
       {WEEKDAYS.map(([row, label]) => (
         <text key={label} x={0} y={TOP + row * STEP + CELL - 2}
-          className="fill-slate-400" fontSize={9}>
+          className="fill-slate-400" fontSize={12}>
           {label}
         </text>
       ))}

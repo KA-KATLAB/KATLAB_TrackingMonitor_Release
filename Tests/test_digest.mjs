@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { test } from "node:test";
+import { runInNewContext } from "node:vm";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -24,6 +25,31 @@ const rowsOf = (count) => Array.from({ length: count }, (_, index) => row(index 
 const pagesFrom = (html) => JSON.parse(
   html.match(/<script id="digest-data" type="application\/json">([\s\S]*?)<\/script>/)[1],
 );
+
+// Execute the actual embedded export script against a minimal DOM boundary.
+// This checks mounted rows/styles and paging, not native layout or accessibility.
+function mountDigest (html) {
+  function node (tag) {
+    return { tag, style: {}, children: [], handlers: {}, textContent: "",
+      append(...items) { this.children.push(...items); },
+      replaceChildren(...items) { this.children = [...items]; },
+      setAttribute(name, value) { this[name] = value; },
+      removeAttribute(name) { delete this[name]; },
+      addEventListener(name, callback) { this.handlers[name] = callback; },
+    };
+  }
+  const ids = Object.fromEntries(["digest-data", "digest-page-root", "digest-page", "digest-prev",
+    "digest-next", "digest-range", "digest-fonts"].map((id) => [id, node(id)]));
+  ids["digest-data"].textContent = JSON.stringify(pagesFrom(html));
+  const script = html.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(script, "actual standalone renderer script exists");
+  runInNewContext(script[1], { document: {
+    getElementById: (id) => ids[id], createElement: node,
+    createTextNode: (textContent) => ({ tag: "text", textContent, children: [] }),
+  } }, { timeout: 1_000 });
+  const visit = (item) => [item, ...item.children.flatMap(visit)];
+  return { ids, rows: () => visit(ids["digest-page-root"]) };
+}
 
 test("actual day helper uses calendar midnights and six-digit UTC bounds across DST", () => {
   const ts = frontendRequire("typescript");
@@ -85,6 +111,7 @@ test("actual prepared Digest preserves its captured day and bounded export contr
   try {
     const { api } = await vite.ssrLoadModule("/src/api.ts");
     const { prepareDigest } = await vite.ssrLoadModule("/src/digest.ts");
+    const { MODE_BADGE, MODE_COLOR } = await vite.ssrLoadModule("/src/theme.ts");
     const originalEvents = api.events;
     const originalStats = api.stats;
 
@@ -138,6 +165,60 @@ test("actual prepared Digest preserves its captured day and bounded export contr
       assert.match(result.html, /≈ 1h 5m/);
       assert.match(result.html, /time on 2026-09-30 \(UTC\)/);
       assert.doesNotMatch(result.html, /time today \(UTC\)/);
+    });
+
+    await t.test("Git summary excludes retained unknown/offline values and names coverage", async () => {
+      const cases = [
+        { repos: [], value: "Unavailable", coverage: "0/0", offline: 0, unknown: 0 },
+        { repos: [{ clean: true, status_valid: false }, { clean: true, offline: true, status_valid: true },
+          { clean: true }], value: "Unavailable", coverage: "0/3", offline: 1, unknown: 2 },
+        { repos: [{ clean: true, status_valid: true }, { clean: false, status_valid: true },
+          { clean: true, status_valid: false }, { clean: true, offline: true, status_valid: true }],
+          value: "1/2", coverage: "2/4", offline: 1, unknown: 1 },
+        { repos: [{ clean: false, status_valid: true }], value: "0/1", coverage: "1/1", offline: 0, unknown: 0 },
+      ];
+      for (const fixture of cases) {
+        const before = JSON.stringify(fixture.repos);
+        const result = await run({ repos: fixture.repos });
+        assert.ok(result.html.includes(`font-weight:700">${fixture.value}</div><div style="font-size:12px;color:#94a3b8">repos clean (known status)`));
+        assert.ok(result.html.includes(`Git status coverage: ${fixture.coverage} repositories with valid online status; ${fixture.offline} offline; ${fixture.unknown} online status unavailable.`));
+        assert.doesNotMatch(result.html, /repos clean now/);
+        assert.equal(result.calls.length, 1);
+        assert.equal(result.statsCalls.length, 1);
+        assert.equal(JSON.stringify(fixture.repos), before);
+      }
+    });
+
+    await t.test("all shared badge foregrounds reach static legend and actual paged DOM", async () => {
+      const modes = Object.keys(MODE_BADGE);
+      const result = await run({ rows: Array.from({ length: 56 }, (_, index) =>
+        row(index, { mode: modes[index % modes.length] })) });
+      assert.doesNotMatch(result.html, /font-size:\s*(?:10|11)px/);
+      assert.match(result.html, /button,select\{min-height:44px;border:1px solid #64748b;border-radius:6px;background:#0f172a/);
+      for (const mode of modes) {
+        assert.ok(result.html.includes(`background:${MODE_COLOR[mode]};color:${MODE_BADGE[mode].foreground};`));
+      }
+      for (const summary of result.pages.flat()) {
+        const mode = modes.find((value) => MODE_BADGE[value].label === summary.modeLabel);
+        assert.equal(summary.modeForeground, MODE_BADGE[mode].foreground);
+      }
+      const mounted = mountDigest(result.html);
+      function assertBadges (expected) {
+        const badges = mounted.rows().filter((item) => item.className === "mode-badge");
+        assert.equal(badges.length, expected.length);
+        badges.forEach((badge, index) => {
+          assert.equal(badge.textContent, expected[index].modeLabel);
+          assert.equal(badge.style.backgroundColor, expected[index].modeColor);
+          assert.equal(badge.style.color, expected[index].modeForeground);
+        });
+      }
+      assertBadges(result.pages[0]);
+      assert.equal(mounted.ids["digest-prev"].disabled, true);
+      mounted.ids["digest-next"].handlers.click();
+      assertBadges(result.pages[1]);
+      assert.equal(mounted.ids["digest-next"].disabled, true);
+      mounted.ids["digest-prev"].handlers.click();
+      assertBadges(result.pages[0]);
     });
 
     await t.test("old rows in a full raw page do not hide later in-day rows", async () => {

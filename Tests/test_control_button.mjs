@@ -82,7 +82,7 @@ test("shared control buttons preserve declared busy metadata", { timeout: 30_000
       assert.equal(attribute(explicit, "aria-describedby"), "save-note");
       assert.equal(attribute(explicit, "data-probe"), "kept");
       assert.match(attribute(explicit, "class"), /\bui-control\b/);
-      assert.match(attribute(explicit, "class"), /\bbg-rose-500\b/);
+      assert.match(attribute(explicit, "class"), /\bbg-rose-700\b/);
       assert.match(attribute(explicit, "class"), /\bcustom-class\b/);
       assert.equal(attribute(explicit, "tone"), null);
       assert.equal(attribute(render({ busy: true }), "busy"), null);

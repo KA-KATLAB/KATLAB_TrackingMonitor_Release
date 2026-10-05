@@ -126,7 +126,7 @@ export function SnakeCalendar ({ calendar }: { calendar: CalDay[] }) {
         <div className="mb-1 flex justify-end">
           <button onClick={startRun}
             title="replay — the snake devours the year again"
-            className="rounded bg-slate-800 px-1.5 py-0.5 text-[11px] text-slate-300 hover:bg-slate-700">
+            className="rounded bg-slate-800 px-1.5 py-0.5 text-xs text-slate-300 hover:bg-slate-700">
             ▶ run
           </button>
         </div>
@@ -164,7 +164,7 @@ export function SnakeCalendar ({ calendar }: { calendar: CalDay[] }) {
         })}
       </svg>
       {finished && (
-        <p className="mt-1 text-[11px] text-slate-400">
+        <p className="mt-1 text-xs text-slate-400">
           year devoured — {fmt(snap.events)} events 🐍
         </p>
       )}

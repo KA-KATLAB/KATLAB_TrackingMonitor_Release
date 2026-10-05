@@ -236,19 +236,19 @@ export function DialogShell ({
           panelClassName,
         )}
       >
-        <div className="flex min-w-0 items-start gap-2 border-b border-ui-border px-4 py-3">
+        <div className="flex min-w-0 flex-wrap items-start gap-3 border-b border-ui-border p-4">
           <div className="min-w-0 flex-1">
-            <h2 id={titleId} className="break-words text-sm font-semibold text-ui-text">
+            <h2 id={titleId} className="ui-panel-title break-words text-ui-text">
               {title}
             </h2>
             {description && (
-              <div id={descriptionId} className="mt-0.5 break-words text-xs text-ui-muted">
+              <div id={descriptionId} className="mt-1 break-words text-sm leading-relaxed text-ui-muted [overflow-wrap:anywhere]">
                 {description}
               </div>
             )}
           </div>
           {headerActions && (
-            <div className="flex shrink-0 flex-wrap items-center gap-1">{headerActions}</div>
+            <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{headerActions}</div>
           )}
           <IconButton ref={closeRef} label={closeLabel} onClick={onClose}>
             <CloseIcon />
@@ -365,7 +365,7 @@ export function BoundedChoiceDialog ({
           triggerClassName,
         )}
       >
-        <span className="truncate">{selected?.label ?? placeholder}</span>
+        <span className="min-w-0 break-words [overflow-wrap:anywhere]">{selected?.label ?? placeholder}</span>
       </button>
       {disabledReason && <span id={helpId} className="sr-only">{disabledReason}</span>}
       {open && (
@@ -378,7 +378,7 @@ export function BoundedChoiceDialog ({
           panelClassName="max-w-xl"
         >
           <div id={`${dialogId}-panel`}>
-            <label className="block text-sm font-medium text-ui-text" htmlFor={`${dialogId}-search`}>
+            <label className="block text-base font-medium text-ui-text" htmlFor={`${dialogId}-search`}>
               {fieldLabel}
             </label>
             <input
@@ -387,7 +387,7 @@ export function BoundedChoiceDialog ({
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              className="ui-focus-ring mt-1 min-h-10 w-full rounded-control border border-ui-border bg-ui-canvas px-3 py-2 text-sm text-ui-text"
+              className="ui-focus-ring mt-1 min-h-10 w-full rounded-control border border-ui-control-border bg-ui-canvas px-3 py-2 text-base text-ui-text"
             />
             <p className="mt-1 text-xs text-ui-muted">
               {filtered.length.toLocaleString("en-US")} of {choices.length.toLocaleString("en-US")} choices
@@ -414,7 +414,7 @@ export function BoundedChoiceDialog ({
                     choice.disabledReason && "cursor-not-allowed opacity-50",
                   )}
                 >
-                  <span className="block break-words text-sm font-medium">
+                  <span className="block break-words text-base font-medium [overflow-wrap:anywhere]">
                     {choice.label}
                     {choice.id === value && (
                       <span className="ml-1 text-xs font-normal text-ui-muted">— current</span>

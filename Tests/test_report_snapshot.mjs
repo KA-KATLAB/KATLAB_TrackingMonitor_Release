@@ -32,7 +32,7 @@ function fixture (rows = calendar("2026-09-15")) {
 }
 
 function hero (html) {
-  const values = [...html.matchAll(/<div style="font-size:20px;[^"]*">([^<]*)<\/div>\s*<div style="[^"]*">([^<]*)<\/div>/g)];
+  const values = [...html.matchAll(/<div class="report-metric-value" style="[^"]*">([^<]*)<\/div>\s*<div style="[^"]*">([^<]*)<\/div>/g)];
   assert.equal(values.length, 4, "all four actual hero cards are present");
   return Object.fromEntries(values.map((match) => [match[2], match[1]]));
 }

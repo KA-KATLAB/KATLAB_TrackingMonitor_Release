@@ -49,8 +49,10 @@ function deepFreeze (value) {
   return value;
 }
 
-// Portable source guards, captured from the reviewed .30 baseline. No test
-// depends on Git history, a branch name, checkout depth, or the current HEAD.
+// Portable source guards: calculations retain the reviewed .30 baseline.
+// The Records row JSX hash reflects the reviewed v0.4 presentation-only update;
+// stripping className/tone proves its remaining AST identical to the baseline.
+// No test depends on Git history, a branch name, checkout depth, or current HEAD.
 function sourceHash (fileName, functionName, prelude = false) {
   const ts = frontendRequire("typescript");
   const file = ts.createSourceFile(fileName, readFileSync(resolve(frontendRoot, "src", fileName), "utf8"),
@@ -268,7 +270,7 @@ test("year snapshot period labels", { timeout: 30_000 }, async (t) => {
         ["records.tsx", "bestRolling7", false, "b4e5c4eaa26e8d3c3fdadc581536fc10b7bc010f80fa953f7adf146d7537a7fe"],
         ["records.tsx", "runEndingToday", false, "1761173cb88145ad013d2bde89e380975a27d4de86cdcf307b3f52e6474a264d"],
         ["records.tsx", "Records", true, "ddd803b9551c9c80fe343aa812e2b0084c6c24a6c131b26bcc450ec43c5725c7"],
-        ["records.tsx", "Records", "rows", "aa7ddfaea9aa46fdeebf98f8bbe16deb8b0bfcd4ca27217ccce3290bb95f0356"],
+        ["records.tsx", "Records", "rows", "5639484e6abe8d9f47f8e41fd588984f04444950aa794276e9ebea92f3b7f49f"],
         ["calendarHeatmap.tsx", "streakOf", false, "a3c3a010c51b117b2ddb23844e359590f86439d35e5e6536869baa48eac22149"],
         ["calendarHeatmap.tsx", "rampBucket", false, "2687399fc22fafc2bf19ba97ac1c0c2a0e69e803049edc0f9759e3c607b3794e"],
         ["pet.tsx", "wardrobeOf", false, "05f3e9ca1f744e174c0dd19b05f6a86aceb0ac9c017725f33aefc1a039c21e15"],

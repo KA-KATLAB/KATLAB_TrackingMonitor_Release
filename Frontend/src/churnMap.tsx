@@ -104,7 +104,7 @@ export function ChurnMap ({ churn, onOpenFileStory }: {
           );
         })}
       </svg>
-      <div className="mt-1 text-[11px] text-slate-400">
+      <div className="mt-1 text-xs text-slate-400">
         size = captures · color = recency · (top 20)
       </div>
       <DisclosureTable
