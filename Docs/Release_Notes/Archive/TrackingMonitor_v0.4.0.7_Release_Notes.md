@@ -20,7 +20,7 @@ response shape or settings change. It does not prove data freshness or server
 health. Synthetic actual-source tests reproduce the rendering failure; no live
 malformed backend response or native blank-screen reproduction is claimed.
 
-Follow the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart)
+Follow the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart)
 to rebuild and restart, then reload existing tabs. Their loaded code is not
 replaced by restarting Python alone. Verification, activation and publication
 evidence is in `temp/Plan/PLAN_v0.4.0.7_System_Health_Response_Guard.txt`.
@@ -29,5 +29,5 @@ Native v0.4 visual/interaction acceptance remains pending. Existing chunk notice
 default-branch dependency alerts, the unconfirmed launcher-fixture transient and
 the separately identified slow-WebSocket-client issue are not fixed here.
 
-Previous [v0.4.0.6 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.6_Release_Notes.md)
+Previous [v0.4.0.6 notes](TrackingMonitor_v0.4.0.6_Release_Notes.md)
 retain their historical scope, with only move-affected links rebased.

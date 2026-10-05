@@ -334,3 +334,16 @@ The established `{type,id,data}` frame stays compatible. New types are:
 Existing `event_resolved`, `task_updated`, `repo_status_changed`,
 `commit_detected`, and `warning` frames remain supported. Clients debounce and
 refetch the applicable REST resource after any invalidation or reconnect.
+
+Broadcast completion means an enqueue attempt, not delivery or acknowledgement.
+Each connected endpoint owns one FIFO writer and one reader. The FIFO admits at
+most 64 queued messages plus one in-flight send; this bounds references, not bytes,
+connection count or total memory. Frames retain their enqueue order per client.
+A full queue or send failure retires that client. The endpoint joins its owned
+work, attempts close with code 1013, then ends; normal disconnect uses code 1000.
+An explicit close frame may not reach a failed socket. Sends have a 2-second and
+close a 1-second cooperative deadline, not a hard bound on a blocked event loop
+or cancellation-resistant transport. Other clients and producers do not wait on
+that network I/O. Bursts may evict otherwise healthy clients. Existing reconnect
+refetches authoritative REST state; transient effects can be missed and are not
+durably replayed. There is no new cross-worker fanout or delivery guarantee.

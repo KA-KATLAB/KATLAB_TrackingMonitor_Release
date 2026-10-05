@@ -1,5 +1,20 @@
 # Version Notes
 
+## v0.4.0.8 - Slow WebSocket Client Isolation (2026-10-05)
+
+- Broadcast now enqueues one shared frame into each client's bounded FIFO and
+  yields scheduling fairness without waiting for socket delivery. Watchers and
+  post-persistence API responses are no longer held by a slow client send.
+- Each endpoint owns its reader/writer and cleanup. Queue overflow or ordinary
+  send failure retires the client; send and close use cooperative deadlines.
+  Endpoint exit lets ASGI finish transport cleanup, even if close cannot flush.
+- The 64-message queue bounds references, not bytes or total memory. Bursts can
+  evict otherwise healthy clients. Existing reconnect/REST sync restores current
+  data; no delivery acknowledgement, durable replay or replay of missed effects.
+- No frame shape, frontend layout, dependency, settings, REST/DB or Git behavior
+  change. Verification is isolated ASGI and automated/live metadata checks, not
+  native v0.4 visual/interaction acceptance, which remains pending.
+
 ## v0.4.0.7 - System Health Response Guard (2026-10-05)
 
 - System validates consumed health fields before accepting a response. Malformed

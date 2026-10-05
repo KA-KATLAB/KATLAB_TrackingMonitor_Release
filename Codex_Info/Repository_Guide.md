@@ -178,6 +178,14 @@ Plan-before-catch-up prevents permanent `UNKNOWN` attribution. The dedicated Git
 
 ### 4.7 Frontend
 
+- Backend WebSocket broadcast is enqueue-only with a fairness yield. Each
+  endpoint owns a 64-message FIFO writer, reader and joined cleanup; overflow or
+  send failure evicts the client for existing reconnect/REST resync. Send/close
+  deadlines are cooperative, not hard time bounds. Never restore serial socket
+  awaits in producers, detached per-message tasks, unbounded queues or a delivery
+  acknowledgement claim. Timed I/O has explicit task ownership and a final join,
+  including repeated cancellation on the supported Python baseline. See the
+  Mission API contract for resource/replay limits.
 - Follow [`Docs/UI_Design_System.md`](../Docs/UI_Design_System.md) for visual tokens, shared controls, dialog behavior, responsive composition, data alternatives, motion, and bounded rendering.
 - Treat `api.ts` interfaces as executable contract mirrors, not convenient approximations.
 - `App.tsx` owns global snapshots and cross-view effects; keep feature-specific algorithms in focused modules.
