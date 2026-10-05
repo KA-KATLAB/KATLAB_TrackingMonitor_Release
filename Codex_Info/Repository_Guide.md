@@ -58,6 +58,8 @@ When prose and running code disagree, do not silently choose one. Establish whet
 | `Scripts/Chronicle/scribe.py` | Intentionally disabled Scribe CLI and inert import-compatibility hook |
 | `Scripts/record_evidence.py` | Validated explicit manual check/review evidence publisher |
 | `Scripts/render_hook_config.py` | Read-only provider preflight and merge-ready hook renderer |
+| `Scripts/lifecycle_port.py` | Configured-port discovery, stop orchestration, readiness and browser handoff |
+| `Scripts/lifecycle_process.py` | Bounded Windows ownership proof and retained-handle termination |
 | `Scripts/*.bat` | Windows start/stop/restart lifecycle |
 | `Config/repos.yaml` | Server settings, monitored-repo registry, fail-closed capture allowlist |
 | `Config/checks.json` | Versioned automatic/manual verification registry |
@@ -279,6 +281,8 @@ Plan-before-catch-up prevents permanent `UNKNOWN` attribution. The dedicated Git
 - Change `Backend/app/version.py` only when release scope requires it.
 - Keep one current `TrackingMonitor_vX.Y.Z.W_Release_Notes.md` at the root.
 - Move the prior current release notes into `Docs/Release_Notes/Archive/`; do not copy stale claims forward.
+- Preserve historical content when archiving, rebasing only local links affected
+  by the move. Check the moved file's links and Chronicle's strict document build.
 - Update `Claude_Info/Version_Notes.md` with evidence-backed, as-built behavior.
 - Rebuild the frontend when its source changes and verify the served artifact when a release claim depends on it.
 - Never perform the commit, tag, or push unless the user explicitly requests that exact Git action.

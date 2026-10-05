@@ -15,6 +15,7 @@ from urllib import request
 import webbrowser
 
 from Backend.app.version import __version__
+from Scripts.lifecycle_process import ProcessOwnershipError, prepare_owned_processes
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -231,9 +232,17 @@ def _open_browser (profile: Profile) -> bool:
         return False
 
 
+def _stop_budget (deadline: float) -> float:
+    remaining = deadline - _monotonic()
+    if remaining <= 0:
+        raise LifecycleError("Stop deadline expired; stopped state is unconfirmed")
+    return min(COMMAND_TIMEOUT_SECONDS, remaining)
+
+
 def stop (mode: str) -> int:
     profile = load_profile(mode)
-    initial = _listening_pids(profile.port)
+    deadline = _monotonic() + STOP_TIMEOUT_SECONDS
+    initial = _listening_pids(profile.port, timeout=_stop_budget(deadline))
     if not initial:
         print(f"Port {profile.port} is clear.")
         return 0
@@ -241,33 +250,23 @@ def stop (mode: str) -> int:
         raise LifecycleError("Demo port is occupied without a verifiable config")
     if 0 in initial or 4 in initial:
         raise LifecycleError("System-owned listener cannot be stopped")
-    deadline = _monotonic() + STOP_TIMEOUT_SECONDS
-    for pid in sorted(initial):
-        remaining = deadline - _monotonic()
-        if remaining <= 0:
-            break
-        try:
-            # A failed taskkill may mean that this PID exited independently.
-            # Only the later port observation determines stop success.
-            _run_command(
-                ["taskkill", "/pid", str(pid), "/t", "/f"],
-                timeout=min(COMMAND_TIMEOUT_SECONDS, remaining),
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            pass
-    while True:
-        remaining = deadline - _monotonic()
-        current = _listening_pids(
-            profile.port,
-            timeout=min(COMMAND_TIMEOUT_SECONDS, max(0.1, remaining)),
-        )
-        if not current:
-            print(f"Port {profile.port} is clear.")
-            return 0
-        remaining = deadline - _monotonic()
-        if remaining <= 0:
-            raise LifecycleError("Port stayed occupied after stop attempts")
-        _sleep(min(POLL_SECONDS, remaining))
+    try:
+        with prepare_owned_processes(REPO_ROOT, initial, deadline) as owned:
+            # A port is discovery, never process authority. Every captured handle
+            # is verified before any mutation, and no replacement PID is added.
+            current = _listening_pids(profile.port, timeout=_stop_budget(deadline))
+            if current != initial:
+                raise LifecycleError("Tracker listener changed before stop; nothing was stopped")
+            _stop_budget(deadline)
+            owned.terminate_and_wait(deadline)
+            while True:
+                current = _listening_pids(profile.port, timeout=_stop_budget(deadline))
+                if not current:
+                    print(f"Port {profile.port} is clear.")
+                    return 0
+                _sleep(min(POLL_SECONDS, _stop_budget(deadline)))
+    except ProcessOwnershipError as exc:
+        raise LifecycleError("Tracker process ownership or stopped state could not be verified") from exc
 
 
 def preflight (mode: str) -> int:

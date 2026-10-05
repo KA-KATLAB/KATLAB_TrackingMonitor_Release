@@ -501,92 +501,98 @@ class LifecyclePortTests(unittest.TestCase):
             self.assertEqual(run.call_args.args[0], ["netstat", "-ano"])
             sleep.assert_not_called()
 
-    def test_stop_waits_for_port_clear_not_taskkill_exit_code (self):
-        occupied = NETSTAT_HEADER + netstat_row(8100, 4321)
-        for kill_code, snapshots in ((0, [occupied, NETSTAT_HEADER]),
-                                     (7, [occupied, NETSTAT_HEADER]),
-                                     (0, [occupied, occupied, NETSTAT_HEADER])):
-            with self.subTest(kill_code=kill_code, count=len(snapshots)):
-                results = iter([command_result("netstat", output=snapshots[0]),
-                                command_result("taskkill", code=kill_code)]
-                               + [command_result("netstat", output=state)
-                                  for state in snapshots[1:]])
+    def test_stop_requires_owned_handles_then_observed_port_clear (self):
+        for snapshots in ([{4321}, {4321}, set()],
+                          [{4321}, {4321}, {4321}, set()]):
+            with self.subTest(snapshots=snapshots):
                 with (patch.object(lifecycle, "load_profile", return_value=self.profile),
-                      patch.object(lifecycle, "_run_command", side_effect=lambda *_, **__: next(results))
-                      as run,
+                      patch.object(lifecycle, "_listening_pids", side_effect=snapshots),
+                      patch.object(lifecycle, "prepare_owned_processes") as prepare,
+                      patch.object(lifecycle, "_run_command") as run,
+                      patch.object(lifecycle, "_fetch_health") as health,
                       patch.object(lifecycle, "_monotonic", return_value=0),
                       patch.object(lifecycle, "_sleep") as sleep):
                     self.assertEqual(lifecycle.stop("tracker"), 0)
-                    self.assertEqual(run.call_args_list[1].args[0],
-                                     ["taskkill", "/pid", "4321", "/t", "/f"])
-                    self.assertEqual(sleep.call_count, len(snapshots) - 2)
+                    prepare.assert_called_once_with(REPO, {4321}, 15)
+                    prepare.return_value.__enter__.return_value.terminate_and_wait.assert_called_once_with(15)
+                    prepare.return_value.__exit__.assert_called_once()
+                    self.assertEqual(sleep.call_count, len(snapshots) - 3)
+                    run.assert_not_called()  # no taskkill or PID reopen
+                    health.assert_not_called()  # old/degraded owned versions may stop
 
-    def test_stop_bounds_each_kill_to_remaining_deadline (self):
-        occupied = (NETSTAT_HEADER + netstat_row(8100, 1111)
-                    + netstat_row(8100, 2222))
-        results = iter([command_result("netstat", output=occupied),
-                        command_result("taskkill"),
-                        command_result("netstat", output=NETSTAT_HEADER)])
+    def test_stop_deadline_begins_before_enumeration_and_blocks_late_mutation (self):
         with (patch.object(lifecycle, "load_profile", return_value=self.profile),
-              patch.object(lifecycle, "_run_command", side_effect=lambda *_, **__: next(results))
-              as run,
+              patch.object(lifecycle, "_listening_pids", return_value={4321}) as listeners,
+              patch.object(lifecycle, "prepare_owned_processes") as prepare,
               patch.object(lifecycle, "_monotonic", side_effect=monotonic_values(
-                  0, 14.8, 16, 16))):
-            self.assertEqual(lifecycle.stop("tracker"), 0)
-            kills = [call for call in run.call_args_list
-                     if call.args[0][0] == "taskkill"]
-            self.assertEqual(len(kills), 1)
-            self.assertEqual(kills[0].args[0][2], "1111")
-            self.assertAlmostEqual(kills[0].kwargs["timeout"], 0.2)
+                  0, 0, 14.8, 15.1))):
+            with self.assertRaisesRegex(lifecycle.LifecycleError, "deadline"):
+                lifecycle.stop("tracker")
+            self.assertEqual(listeners.call_args_list[0].kwargs["timeout"], 10)
+            self.assertAlmostEqual(listeners.call_args_list[1].kwargs["timeout"], 0.2)
+            prepare.return_value.__enter__.return_value.terminate_and_wait.assert_not_called()
+            prepare.return_value.__exit__.assert_called_once()
 
-    def test_timed_out_taskkill_requires_observed_port_clear (self):
-        occupied = NETSTAT_HEADER + netstat_row(8100, 4321)
-        for final_output, should_succeed in ((NETSTAT_HEADER, True), (occupied, False)):
-            with self.subTest(clear=should_succeed):
-                snapshots = iter((occupied, final_output))
-
-                def run (argv, **kwargs):
-                    if argv[0] == "taskkill":
-                        raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
-                    return command_result("netstat", output=next(snapshots))
-
+    def test_changed_membership_aborts_without_killing_any_process (self):
+        for replacement in (set(), {9999}, {4321, 9999}):
+            with self.subTest(replacement=replacement):
                 with (patch.object(lifecycle, "load_profile", return_value=self.profile),
-                      patch.object(lifecycle, "_run_command", side_effect=run),
-                      patch.object(lifecycle, "_monotonic", side_effect=monotonic_values(
-                          0, 0, 0, 16))):
-                    if should_succeed:
-                        self.assertEqual(lifecycle.stop("tracker"), 0)
+                      patch.object(lifecycle, "_listening_pids", side_effect=[{4321}, replacement]),
+                      patch.object(lifecycle, "prepare_owned_processes") as prepare):
+                    with self.assertRaisesRegex(lifecycle.LifecycleError, "changed"):
+                        lifecycle.stop("tracker")
+                    prepare.return_value.__enter__.return_value.terminate_and_wait.assert_not_called()
+                    prepare.return_value.__exit__.assert_called_once()
+
+    def test_stop_ownership_or_native_failure_is_sanitized_and_nonzero (self):
+        for stage in ("prepare", "terminate"):
+            with self.subTest(stage=stage):
+                with (patch.object(lifecycle, "load_profile", return_value=self.profile),
+                      patch.object(lifecycle, "_listening_pids", return_value={4321}),
+                      patch.object(lifecycle, "prepare_owned_processes") as prepare,
+                      patch.object(lifecycle, "_run_command") as run,
+                      contextlib.redirect_stderr(io.StringIO()) as errors):
+                    failure = lifecycle.ProcessOwnershipError("private command metadata")
+                    if stage == "prepare":
+                        prepare.return_value.__enter__.side_effect = failure
                     else:
-                        with self.assertRaises(lifecycle.LifecycleError):
-                            lifecycle.stop("tracker")
+                        prepare.return_value.__enter__.return_value.terminate_and_wait.side_effect = failure
+                    self.assertEqual(lifecycle.main(["stop", "tracker"]), 1)
+                    self.assertIn("[ABORT]", errors.getvalue())
+                    self.assertNotIn("private", errors.getvalue())
+                    run.assert_not_called()
 
-    def test_stop_refuses_persistent_or_unverifiable_listener (self):
-        occupied = NETSTAT_HEADER + netstat_row(8100, 4321)
-        for kill_code in (0, 7):
-            with self.subTest(kill_code=kill_code):
-                results = iter([command_result("netstat", output=occupied),
-                                command_result("taskkill", code=kill_code),
-                                command_result("netstat", output=occupied)])
+    def test_stop_never_kills_new_listener_during_confirmation (self):
+        for final_pids in ({4321}, {9999}):
+            with self.subTest(final_pids=final_pids):
                 with (patch.object(lifecycle, "load_profile", return_value=self.profile),
-                      patch.object(lifecycle, "_run_command", side_effect=lambda *_, **__: next(results)),
+                      patch.object(lifecycle, "_listening_pids", side_effect=[{4321}, {4321}, final_pids]),
+                      patch.object(lifecycle, "prepare_owned_processes") as prepare,
                       patch.object(lifecycle, "_monotonic", side_effect=monotonic_values(
-                          0, 0, 0, 16)),
+                          0, 0, 0, 0, 14.9, 15)),
                       patch.object(lifecycle, "_sleep") as sleep):
-                    with self.assertRaises(lifecycle.LifecycleError):
+                    with self.assertRaisesRegex(lifecycle.LifecycleError, "deadline"):
                         lifecycle.stop("tracker")
+                    prepare.assert_called_once_with(REPO, {4321}, 15)
+                    prepare.return_value.__enter__.return_value.terminate_and_wait.assert_called_once_with(15)
+                    prepare.return_value.__exit__.assert_called_once()
                     sleep.assert_not_called()
-        for results, kill_expected in (
-                ([command_result("netstat", code=1)], False),
-                ([command_result("netstat", output=occupied),
-                  command_result("taskkill"), command_result("netstat", code=1)], True)):
-            with self.subTest(initial=not kill_expected):
+
+    def test_port_observation_failure_does_not_become_success (self):
+        for fail_at in (0, 1, 2):
+            observations = [{4321}] * fail_at + [lifecycle.LifecycleError("unavailable")]
+            with self.subTest(fail_at=fail_at):
                 with (patch.object(lifecycle, "load_profile", return_value=self.profile),
-                      patch.object(lifecycle, "_run_command", side_effect=results) as run,
-                      patch.object(lifecycle, "_monotonic", return_value=0)):
+                      patch.object(lifecycle, "_listening_pids", side_effect=observations),
+                      patch.object(lifecycle, "prepare_owned_processes") as prepare):
                     with self.assertRaises(lifecycle.LifecycleError):
                         lifecycle.stop("tracker")
-                    self.assertEqual(any(call.args[0][0] == "taskkill"
-                                         for call in run.call_args_list), kill_expected)
+                    if fail_at == 0:
+                        prepare.assert_not_called()
+                    else:
+                        self.assertEqual(prepare.return_value.__enter__.return_value.terminate_and_wait.call_count,
+                                         int(fail_at == 2))
+                        prepare.return_value.__exit__.assert_called_once()
 
     def test_stop_refuses_system_pids_and_bad_pid_before_taskkill (self):
         for output in (NETSTAT_HEADER + netstat_row(8100, 0),

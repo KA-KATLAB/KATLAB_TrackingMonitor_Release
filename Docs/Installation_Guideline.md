@@ -212,6 +212,34 @@ Start TrackingMonitor with `Scripts/start_tracking_monitor.bat`; the default UI 
 `http://127.0.0.1:8100`. Mission is directly addressable with
 `http://127.0.0.1:8100/?view=mission`.
 
+### Safe stop and restart
+
+Use `Scripts/restart_tracking_monitor.bat` for upgrades. Stop identifies the
+configured port, but that port alone never authorizes termination. The supported
+process is the exact repository `.venv/Scripts/pythonw.exe` launcher running
+`-u -m Backend.app.main`, directly or through its verified base-pythonw child.
+The stop command itself must use this repository's venv interpreter.
+
+All listener and captured descendant identities are validated with retained
+native handles before termination, with an unchanged listener-set check. Stop
+then observes handle exit and port clearance under one deadline. Older versions
+and degraded watcher health are valid owned stop targets. A process that takes
+the port afterward is not added to the termination set. Restart never starts a
+replacement after an unsuccessful stop.
+
+On refusal, inspect the actual listener and launch configuration. Do not kill an
+arbitrary PID, run the script elevated merely to bypass the refusal, or weaken
+ownership checks. Manually launched/base-only processes are intentionally not
+recognized. Use the owning application's normal shutdown when appropriate;
+if the process has changed, re-establish its identity before another attempt.
+
+The proof protects against accidental foreign targeting and stale PID identity,
+not hostile same-owner injection. It identifies the repository launcher at the
+selected port, not its historical demo/configuration environment. Stop the old
+instance before changing ports or modes. The captured tree is bounded, not an
+atomic job controller: children created after the snapshot are not guaranteed
+to be captured. A partial termination failure is reported and cannot be undone.
+
 ## Optional local badge
 
 ```markdown

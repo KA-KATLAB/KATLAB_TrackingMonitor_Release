@@ -1,5 +1,22 @@
 # Version Notes
 
+## v0.4.0.1 — Owned Process Stop (2026-10-05)
+
+- Stop/restart no longer uses port-discovered PIDs as termination authority.
+  A bounded Windows metadata query proves the exact repository venv launcher,
+  supported base-pythonw child and captured descendant ancestry. Native handles
+  retain verified image/creation identity through mutation and observed exit.
+- All selected identities and the listener set are checked before termination.
+  Foreign/mixed/unverifiable processes fail closed. PID reuse, partial acquisition,
+  root/job cascade, transient descendant exit and deadline failures are covered.
+  Empty-port idempotence and hidden-launch/readiness contracts remain unchanged.
+- Stop ownership does not depend on current version or watcher health. Manual
+  launch shapes remain unsupported; proof is not historical mode/configuration
+  attestation or an atomic snapshot of future descendants. Partial termination
+  failure is reported, not rolled back. No dependencies or UI/data APIs changed.
+- The v0.4.0.0 native visual/focus acceptance matrix remains pending. Controlled
+  tests, finite native fixtures and HTTP/served-asset checks are separate evidence.
+
 ## v0.4.0.0 — Operational UI Redesign (activated 2026-10-05)
 
 - New work-first shell and visible canonical UI build beside the product name.

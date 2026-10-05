@@ -63,4 +63,4 @@ Detailed implementation/review/verification evidence is kept in the ignored plan
 `temp/Plan/PLAN_v0.4.0.0_Operational_UI_Redesign.txt`.
 
 Prior release notes are preserved byte-identically in the
-[v0.3.1.32 archive](Docs/Release_Notes/Archive/TrackingMonitor_v0.3.1.32_Release_Notes.md).
+[v0.3.1.32 archive](TrackingMonitor_v0.3.1.32_Release_Notes.md).
