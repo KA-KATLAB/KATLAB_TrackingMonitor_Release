@@ -8,6 +8,7 @@
 
 import { abortError, api } from "./api";
 import type { Repo, Task, TrackedEvent } from "./api";
+import { appendUniqueEvents } from "./eventPages";
 import type { PreparedDownload } from "./download";
 import { localDayWindow } from "./dayWindow";
 import type { LocalDayWindow } from "./dayWindow";
@@ -87,7 +88,7 @@ async function fetchToday (scope: string | undefined, signal: AbortSignal,
       const ts = new Date(e.ts).getTime();
       return ts >= window.startMs && ts < window.endMs;
     });
-    todays.push(...fresh);
+    appendUniqueEvents(todays, fresh);
     if (page.length < PAGE) return { todays, limitReached: false };
   }
   return { todays, limitReached: true };

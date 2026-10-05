@@ -516,6 +516,14 @@ locally; controlled callback/SSR checks do not certify native acceptance.
 
 ## 7. Data and visualization accessibility
 
+File Story, Session Timeline, Day Lanes and Digest accept each global captured-
+event ID once into their fresh owned buffers. Preserve the first observed record
+and source order before each caller's existing sort; local-day filtering precedes
+identity handling. Stop/cap decisions still use raw response sizes, not unique
+counts. A full final page retains the cap notice with the actual accepted count.
+This removes overlapping observations, not missing events, stale mutable fields
+or offset-read snapshot skew. Never claim complete/current history from deduping.
+
 - Every Chart.js canvas sits in a labelled figure with a concise text summary and an operable exact-payload table.
 - Event/history attribution charts and badges use the shared six-item order,
   labels, values, and colors, including MANUAL. The Mission Attribution Forecast

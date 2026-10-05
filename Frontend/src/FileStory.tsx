@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, createActionDeadline, isAbortError } from "./api";
 import type { TrackedEvent } from "./api";
+import { appendUniqueEvents } from "./eventPages";
 import { DialogShell } from "./dialog";
 import { DialogLoadStatus, EventWindowNotice } from "./dialogStatus";
 import { ExternalLinkIcon } from "./icons";
@@ -58,7 +59,7 @@ export function FileStory ({
             limit: API_PAGE,
             offset: pageIndex * API_PAGE,
           }, action.signal);
-          all.push(...page);
+          appendUniqueEvents(all, page);
           if (page.length < API_PAGE) {
             if (alive) setLimitReached(false);
             break;

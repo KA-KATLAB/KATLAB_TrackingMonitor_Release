@@ -1,5 +1,6 @@
 import { abortError, api } from "./api";
 import type { TrackedEvent } from "./api";
+import { appendUniqueEvents } from "./eventPages";
 import { localDayWindow } from "./dayWindow";
 
 const PAGE = 500, MAX_PAGES = 3;
@@ -24,7 +25,7 @@ export async function loadDayEvents (scope: string | undefined, day: string,
       limit: PAGE, offset: pageIndex * PAGE,
     }, signal);
     if (signal.aborted) throw abortError();
-    rows.push(...page.filter((row) => {
+    appendUniqueEvents(rows, page.filter((row) => {
       const timestamp = new Date(row.ts).getTime();
       return timestamp >= window.startMs && timestamp < window.endMs;
     }));

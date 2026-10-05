@@ -22,6 +22,35 @@ const render = (component, props) => renderToStaticMarkup(React.createElement(co
 const elements = (node) => Array.isArray(node) ? node.flatMap(elements)
   : React.isValidElement(node) ? [node, ...elements(node.props.children)] : [];
 
+// Reverse only the reviewed identity append, never replace the original hash.
+function originalDigestFetchCode (ast, fn) {
+  const calls = [];
+  const visit = (node) => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)
+        && node.expression.text === "appendUniqueEvents") calls.push(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(fn);
+  assert.equal(calls.length, 1, "one actual Digest identity append");
+  const call = calls[0];
+  assert.ok(ts.isExpressionStatement(call.parent));
+  assert.equal(call.questionDotToken, undefined, "the reviewed append is not optional");
+  assert.equal(call.typeArguments, undefined, "the reviewed append has no type arguments");
+  assert.equal(call.arguments.length, 2);
+  assert.equal(call.arguments[0].getText(ast), "todays");
+  assert.equal(call.arguments[1].getText(ast), "fresh");
+  const replacement = ts.factory.createExpressionStatement(ts.factory.createCallExpression(
+    ts.factory.createPropertyAccessExpression(ts.factory.createIdentifier("todays"), "push"),
+    undefined, [ts.factory.createSpreadElement(ts.factory.createIdentifier("fresh"))],
+  ));
+  const transformed = ts.transform(fn, [(context) => (node) => ts.visitNode(node, function restore(entry) {
+    if (entry === call.parent) return replacement;
+    return ts.visitEachChild(entry, restore, context);
+  })]);
+  try { return printer.printNode(ts.EmitHint.Unspecified, transformed.transformed[0], ast); }
+  finally { transformed.dispose(); }
+}
+
 test("shared reading presentation preserves reviewed non-presentation ownership", () => {
   // Whole modules differ only in JSX classes. These portable hashes retain all
   // lease, focus, cleanup, callback, escaping, disclosure and data algorithms.
@@ -50,8 +79,33 @@ test("shared reading presentation preserves reviewed non-presentation ownership"
   ]) {
     const ast = parse(file), fn = ast.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === name);
     assert.ok(fn, `${file}:${name}`);
-    assert.equal(hash(printer.printNode(ts.EmitHint.Unspecified, fn, ast)), expected, `${file}:${name}`);
+    const code = name === "fetchToday" ? originalDigestFetchCode(ast, fn)
+      : printer.printNode(ts.EmitHint.Unspecified, fn, ast);
+    assert.equal(hash(code), expected, `${file}:${name}`);
   }
+});
+
+test("Digest append oracle is portable and rejects broadened identity or owner changes", () => {
+  const source = read("digest.ts");
+  const code = (text) => {
+    const ast = ts.createSourceFile("digest.ts", text, ts.ScriptTarget.Latest, true);
+    const fn = ast.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "fetchToday");
+    assert.ok(fn);
+    return originalDigestFetchCode(ast, fn);
+  };
+  const expected = "712f2736f24ae00b8a0de17b8ea8474e1f7029686cd5b63c041dc4548b8c94eb";
+  for (const variant of [source.replace(/\r\n/g, "\n"), source.replace(/\r?\n/g, "\r\n")]) {
+    assert.equal(hash(code(variant)), expected);
+  }
+  const original = "appendUniqueEvents(todays, fresh);";
+  assert.ok(source.includes(original));
+  for (const replacement of ["todays.push(...fresh);", "appendUniqueEvents(fresh, todays);",
+    "appendUniqueEvents(todays, page);", "appendUniqueEvents?.(todays, fresh);",
+    "appendUniqueEvents<TrackedEvent>(todays, fresh);", original + "\n" + original]) {
+    assert.throws(() => code(source.replace(original, replacement)));
+  }
+  assert.notEqual(hash(code(source.replace("p < MAX_PAGES", "p <= MAX_PAGES"))), expected,
+    "an unrelated request-bound change still breaks the original whole-function hash");
 });
 
 test("actual reading components preserve visible states and semantics", { timeout: 30_000 }, async (t) => {

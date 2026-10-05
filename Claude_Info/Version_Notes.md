@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.4.0.18 - Unique Event Windows (2026-10-06)
+
+- Four bounded event collectors share first-observation identity handling: File
+  Story, Session Timeline, Day Lanes and Digest no longer count repeated offset
+  observations as additional captured events. Database IDs remain globally unique.
+- Keep the first record/order for an ID; local-day filtering still precedes
+  identity handling, and each caller retains its existing sort. Raw-page stopping,
+  three-by-500 caps, deadlines, cancellation and export ownership stay unchanged.
+- Unique counts and row keys do not imply snapshot isolation, latest mutable
+  fields or recovery of missing events during capture. Actual-source controlled
+  regressions are not native interaction/geometry acceptance; that remains pending.
+  No backend/API/schema, cursor, dependency, layout or request-owner changes.
+
 ## v0.4.0.17 - Declared File Patterns (2026-10-06)
 
 - Both Active plans declaration sites show '*'/'?' patterns as full, visible,
