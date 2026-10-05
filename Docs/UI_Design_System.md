@@ -384,6 +384,12 @@ Never scale down metric text; wrap while retaining exact values and snapshot dat
 
 ### 6.3 History
 
+- Keep the compact commit header and expose its full captured ID through a
+  default-closed native disclosure with a labelled, selectable read-only field.
+  The exact value is not truncated or transformed; long values scroll inside
+  the field. Scope/repo/full-hash changes remount the disclosure closed, while
+  unchanged identity and event paging retain native state. Do not fetch, write
+  the clipboard, autofocus or auto-select. The hover title is supplemental only.
 - Keep API fetch depth separate from the visible 50-row page.
 - Bound commit rows and per-commit event rows without changing endpoint limits.
 - The repo chooser uses the shared bounded choice dialog.

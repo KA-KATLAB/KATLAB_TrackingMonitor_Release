@@ -25,9 +25,9 @@ Native v0.4 acceptance remains pending. No new dependencies, request behavior,
 polling, backend contracts or configuration. Existing dependency/chunk notices
 and the earlier unconfirmed launcher-fixture transient are unchanged.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 CDD/CFT, verification, activation and publication evidence is recorded in
 `temp/Plan/PLAN_v0.4.0.12_Unavailable_View_States.txt`.
 
-Previous [v0.4.0.11 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.11_Release_Notes.md)
+Previous [v0.4.0.11 notes](TrackingMonitor_v0.4.0.11_Release_Notes.md)
 retain their historical scope, with only move-affected links rebased.

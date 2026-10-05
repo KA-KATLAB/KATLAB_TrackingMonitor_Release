@@ -5022,6 +5022,17 @@ function HistoryCommitCard ({ entry: { commit, events }, repos, scopeKeyValue, r
         <h3 className="min-w-0 flex-1 break-words text-base font-semibold [overflow-wrap:anywhere]">{commit.message}</h3>
         <span className="shrink-0 text-xs text-slate-400" title={commit.ts}>{fmtTs(commit.ts)}</span>
       </div>
+      <details key={JSON.stringify(["history-commit-id", scopeKeyValue, repoId, commit.hash])}
+        className="min-w-0 basis-full">
+        <summary className="ui-control list-item w-fit max-w-full cursor-pointer bg-ui-raised text-left">
+          Full commit ID<span className="sr-only"> for {repoId}: {commit.hash.slice(0, 10)}</span>
+        </summary>
+        <label className="mt-2 block min-w-0 break-words text-xs text-ui-muted [overflow-wrap:anywhere]">
+          Commit ID in {repoId}
+          <input type="text" readOnly value={commit.hash} spellCheck={false} autoComplete="off"
+            className="ui-field mt-1 block w-full min-w-0 font-mono text-xs" />
+        </label>
+      </details>
       <div className="min-w-0 basis-full">
         {events.length === 0 && (
           <p className="text-xs text-slate-400">No tracked events in this commit.</p>

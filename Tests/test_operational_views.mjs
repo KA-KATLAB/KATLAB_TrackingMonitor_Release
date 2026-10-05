@@ -78,6 +78,76 @@ test("actual Mission repository summary requires trusted status without changing
   assert.equal(label({repo_status:{status_valid:true,clean:false,count:3,branch:null}}),"3 changed on unknown branch");
 });
 
+test("production History only exposes cards for the current online repository snapshot", async () => {
+  const history = declaration(app, "HistoryView");
+  const call = oneNode(app, (node) => ts.isJsxSelfClosingElement(node)
+    && node.tagName.getText(app) === "HistoryView");
+  const reposAttribute = call.attributes.properties.find((node) => ts.isJsxAttribute(node)
+    && node.name.getText(app) === "repos");
+  assert.ok(reposAttribute && ts.isJsxExpression(reposAttribute.initializer));
+  const initializer = (name) => oneNode(history, (node) => ts.isVariableDeclaration(node)
+    && node.name.getText(app) === name).initializer.getText(app);
+  const enclosingExpression = (node) => {
+    while (node && !ts.isJsxExpression(node)) node = node.parent;
+    assert.ok(node?.expression, "actual JSX expression owns the render gate");
+    return node.expression;
+  };
+  const mount = enclosingExpression(call);
+  assert.ok(ts.isBinaryExpression(mount)
+    && mount.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken);
+  const capturedRegion = oneNode(history, (node) => ts.isJsxElement(node)
+    && node.openingElement.attributes.properties.some((attribute) => ts.isJsxAttribute(attribute)
+      && attribute.name.getText(app) === "aria-label"
+      && ts.isStringLiteral(attribute.initializer) && attribute.initializer.text === "Captured commits"));
+  const { availableRepos, selectedRepo, visibleEntries, canMount, cards } = await compile(`
+    export const availableRepos = (visibleRepos) => (${reposAttribute.initializer.expression.getText(app)});
+    export const selectedRepo = (repos, state) => (${initializer("repoId")});
+    export const visibleEntries = (loadedRepoRef, repoId, entries) => (${initializer("shownEntries")});
+    export const canMount = (membershipReady, workspaceReady, view) => (${mount.left.getText(app)});
+    export function cards(React, shownEntries, repoId, repos) {
+      const HistoryCommitCard = () => null, pager = { start: 0, end: 50 };
+      const scopeKeyValue = '["all"]', onStatus = () => {};
+      return (${enclosingExpression(capturedRegion).getText(app)});
+    }
+  `);
+  for (const membershipReady of [false, true]) {
+    for (const workspaceReady of [false, true]) {
+      assert.equal(canMount(membershipReady, workspaceReady, "history"), membershipReady && workspaceReady);
+      assert.equal(canMount(membershipReady, workspaceReady, "changes"), false);
+    }
+  }
+  const a = { id: "A", offline: false }, b = { id: "B", offline: false };
+  const entries = [{ commit: { hash: "a".repeat(40) }, events: [] }];
+  const scenarios = [
+    ["selected online A", [a, b], "A", "A", "A", ["A", "B"], true],
+    ["A offline falls back to B", [{ ...a, offline: true }, b], "A", "A", "B", ["B"], false],
+    ["all offline", [{ ...a, offline: true }, { ...b, offline: true }], "A", "A", "", [], false],
+    ["selected membership removed", [b], "A", "A", "B", ["B"], false],
+    ["no membership", [], "A", "A", "", [], false],
+    ["A returns but B remains selected", [a, b], "B", "B", "B", ["A", "B"], true],
+    ["return A waits for matching snapshot", [a, b], "A", "B", "A", ["A", "B"], false],
+    ["returned A snapshot accepted", [a, b], "A", "A", "A", ["A", "B"], true],
+    ["retained loaded fallback B", [{ ...a, offline: true }, b], "A", "B", "B", ["B"], true],
+  ];
+  for (const [name, input, requested, loaded, expectedRepo, expectedRepos, visible] of scenarios) {
+    const repos = availableRepos(input);
+    assert.deepEqual(repos.map((repo) => repo.id), expectedRepos, name);
+    const repoId = selectedRepo(repos, { repoId: requested });
+    assert.equal(repoId, expectedRepo, name);
+    const shownEntries = visibleEntries({ current: loaded }, repoId, entries);
+    assert.deepEqual(shownEntries, visible ? entries : [], name);
+    if (visible) assert.equal(shownEntries, entries, "matching accepted snapshot is retained exactly");
+    const region = cards(React, shownEntries, repoId, repos);
+    if (visible) {
+      const rows = React.Children.toArray(region.props.children);
+      assert.equal(rows.length, 1, name);
+      assert.equal(rows[0].props.entry, entries[0]);
+      assert.equal(rows[0].props.repoId, expectedRepo);
+      assert.equal(rows[0].props.repos, repos);
+    } else assert.equal(region, false, `${name}: old cards are absent before effects run`);
+  }
+});
+
 // Portable structural guard, no Git dependency in CI: these normalized pre-render
 // blocks include original filters, paging, request owners, callbacks and cleanup.
 // v0.4.0.12 EventRow adds only its owned row ref and neutral recovery announcement.
@@ -301,6 +371,176 @@ test("actual operational components preserve hierarchy, complete models and acti
       assert.match(html, /&lt;script&gt;long &amp; &quot;commit&quot;&lt;\/script&gt;/);
       assert.match(html, /1234567890 events: next page/);
       assert.doesNotMatch(html, />src\/file_50.ts</);
+    });
+
+    const cardElements = (node) => Array.isArray(node) ? node.flatMap(cardElements)
+      : React.isValidElement(node) ? [node, ...cardElements(node.props.children)] : [];
+    const cardText = (node) => Array.isArray(node) ? node.map(cardText).join("")
+      : React.isValidElement(node) ? cardText(node.props.children)
+        : node === null || node === undefined || typeof node === "boolean" ? "" : String(node);
+    const cardProps = (hash, overrides = {}) => ({ entry: {
+      commit: { hash, message: '<script>exact & "subject"</script>', ts: "2026-10-01T00:00:00Z" },
+      events: [],
+    }, repos: [], scopeKeyValue: '["all"]', repoId: "EA", onStatus: noop, ...overrides });
+    function capturedCard (props, pages = {}, onPageChange = noop) {
+      let tree;
+      function Capture () {
+        tree = subjects.HistoryCommitCard(props);
+        return tree;
+      }
+      const html = renderToStaticMarkup(React.createElement(deps.BoundedPageMemoryProvider,
+        { pages, onPageChange }, React.createElement(Capture)));
+      return { tree, html };
+    }
+    function commitDisclosure (tree) {
+      const details = cardElements(tree).filter((node) => node.type === "details");
+      assert.equal(details.length, 1, "actual card exposes one native full-identity disclosure");
+      return details[0];
+    }
+
+    await t.test("full commit identity uses a native closed disclosure and associated readonly exact field", () => {
+      const hashes = ["a".repeat(40), "b".repeat(64), "abc", "", "0123456789abcdef".repeat(64),
+        'abc<unsafe>&"hash"', "1234567890" + "a".repeat(30), "1234567890" + "b".repeat(30)];
+      for (const hash of hashes) {
+        const props = cardProps(hash, { repoId: '<repo>&"A"' });
+        const { tree, html } = capturedCard(props);
+        const details = commitDisclosure(tree);
+        const direct = React.Children.toArray(details.props.children);
+        assert.equal(direct[0].type, "summary", "summary is the first child");
+        const summary = direct[0];
+        assert.match(cardText(summary), /Full commit ID/);
+        const supplemental = cardElements(summary).find((node) => node.props.className?.split(/\s+/).includes("sr-only"));
+        assert.ok(supplemental, "summary context is supplemental, not hover-only");
+        assert.ok(cardText(supplemental).includes(props.repoId));
+        assert.ok(cardText(supplemental).includes(hash.slice(0, 10)));
+        assert.match(summary.props.className, /\bui-control\b/);
+        assert.match(summary.props.className, /list-item/);
+        assert.match(summary.props.className, /max-w-full/);
+        for (const node of [details, summary]) {
+          assert.equal(node.props.role, undefined, "preserve native disclosure semantics");
+          assert.equal(node.props["aria-expanded"], undefined);
+        }
+        assert.equal(details.props.open, undefined, "uncontrolled and default closed");
+        const input = cardElements(details).filter((node) => node.type === "input");
+        assert.equal(input.length, 1);
+        const field = input[0];
+        const label = cardElements(details).find((node) => node.type === "label"
+          && (cardElements(node).includes(field) || field.props.id && node.props.htmlFor === field.props.id));
+        assert.ok(label, "the visible label is associated with this input");
+        assert.ok(cardText(label).includes(`Commit ID in ${props.repoId}`));
+        assert.equal(field.props.type, "text");
+        assert.equal(field.props.value, hash, "never abbreviate, normalize or trim the exact value");
+        assert.equal(field.props.readOnly, true);
+        assert.notEqual(field.props.disabled, true);
+        assert.notEqual(field.props.tabIndex, -1);
+        assert.equal(field.props.maxLength, undefined);
+        assert.equal(field.props.spellCheck, false);
+        assert.equal(field.props.autoComplete, "off");
+        for (const token of ["ui-field", "w-full", "min-w-0", "font-mono", "text-xs"]) {
+          assert.ok(field.props.className.split(/\s+/).includes(token), token);
+        }
+        for (const node of cardElements(tree)) {
+          assert.notEqual(node.props.autoFocus, true);
+          assert.equal(node.props.dangerouslySetInnerHTML, undefined);
+          assert.deepEqual(Object.keys(node.props).filter((key) => /^on[A-Z]/.test(key)), [],
+            "native identity access adds no toggle, clipboard, selection or focus handlers");
+        }
+        assert.match(html, /&lt;script&gt;exact &amp; &quot;subject&quot;&lt;\/script&gt;/);
+        assert.match(html, /Commit ID in &lt;repo&gt;&amp;&quot;A&quot;/);
+        assert.doesNotMatch(html, /<script>|<unsafe>/);
+        if (hash.includes("<unsafe>")) assert.match(html, /value="abc&lt;unsafe&gt;&amp;&quot;hash&quot;"/);
+        assert.ok(cardElements(tree).some((node) => node.type === "span"
+          && node.props.title === hash && cardText(node) === hash.slice(0, 10)), "compact header is preserved");
+      }
+    });
+
+    await t.test("native identity key distinguishes scope, repo and full hash without callback state", () => {
+      const hash = "1234567890" + "a".repeat(30), props = cardProps(hash);
+      const key = (value) => commitDisclosure(capturedCard(value).tree).key;
+      const initial = key(props);
+      assert.equal(initial, JSON.stringify(["history-commit-id", props.scopeKeyValue, props.repoId, hash]));
+      assert.equal(key({ ...props, entry: { ...props.entry,
+        commit: { ...props.entry.commit, message: "Updated captured subject" }, events: [event(1)] } }), initial);
+      const changed = [
+        { ...props, scopeKeyValue: '["repo","EA"]' },
+        { ...props, repoId: "Other" },
+        { ...props, entry: { ...props.entry, commit: { ...props.entry.commit,
+          hash: "1234567890" + "b".repeat(30) } } },
+      ];
+      assert.equal(new Set([initial, ...changed.map(key)]).size, 4);
+      for (const value of changed) assert.equal(commitDisclosure(capturedCard(value).tree).props.open, undefined);
+      // Keys and element contracts are evidence, not a simulation of native DOM retention.
+    });
+
+    await t.test("commit identity leaves all 101 linked events reachable through the actual remembered pager", () => {
+      const props = cardProps("a".repeat(40));
+      props.entry.events = Array.from({ length: 101 }, (_, index) => event(index));
+      const memoryKey = JSON.stringify(["history-events", props.scopeKeyValue, props.repoId, props.entry.commit.hash]);
+      const pages = {}, observed = [];
+      let identityKey;
+      for (const [index, length] of [50, 50, 1].entries()) {
+        const { tree, html } = capturedCard(props, pages, (key, page) => {
+          assert.equal(key, memoryKey); pages[key] = page;
+        });
+        const details = commitDisclosure(tree);
+        identityKey ??= details.key;
+        assert.equal(details.key, identityKey, "local event paging preserves disclosure identity");
+        const rows = cardElements(tree).filter((node) => node.props.event);
+        assert.equal(rows.length, length);
+        observed.push(...rows.map((node) => node.props.event.id));
+        assert.ok(html.includes(`src/file_${index * 50}.ts`));
+        const pager = cardElements(tree).find((node) => node.type === deps.CollectionPager);
+        assert.ok(pager);
+        assert.equal(pager.props.page.page, index + 1);
+        assert.equal(pager.props.page.totalItems, 101);
+        const controls = deps.CollectionPager.render(pager.props, null);
+        const next = cardElements(controls).find((node) => node.props["aria-label"]?.endsWith(": next page"));
+        assert.equal(next.props.disabled, index === 2);
+        if (index < 2) next.props.onClick();
+      }
+      assert.deepEqual(observed, Array.from({ length: 101 }, (_, index) => index));
+    });
+
+    await t.test("actual interaction guard protects visible open native details, not closed or hidden ones", () => {
+      const keys = ["document", "window", "HTMLElement"];
+      const descriptors = Object.fromEntries(keys.map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+      class FixtureElement {
+        constructor(overrides = {}) {
+          Object.assign(this, { open: true, isConnected: true, hidden: false,
+            display: "block", visibility: "visible", rects: 1 }, overrides);
+        }
+        getClientRects() { return Array.from({ length: this.rects }, () => ({})); }
+      }
+      let rows = [];
+      const selectors = [];
+      try {
+        Object.defineProperty(globalThis, "HTMLElement", { configurable: true, value: FixtureElement });
+        Object.defineProperty(globalThis, "window", { configurable: true,
+          value: { getComputedStyle: (node) => ({ display: node.display, visibility: node.visibility }) } });
+        Object.defineProperty(globalThis, "document", { configurable: true, value: {
+          body: { dataset: {} }, activeElement: null,
+          querySelectorAll(selector) {
+            selectors.push(selector);
+            if (selector === '[aria-expanded="true"]') return [];
+            assert.equal(selector, "details[open]");
+            return rows.filter((node) => node.open);
+          },
+        } });
+        for (const [overrides, expected] of [[{}, true], [{ open: false }, false],
+          [{ hidden: true }, false], [{ isConnected: false }, false],
+          [{ display: "none" }, false], [{ visibility: "hidden" }, false], [{ rects: 0 }, false]]) {
+          rows = [new FixtureElement(overrides)];
+          assert.equal(deps.hasActiveInteraction(), expected, JSON.stringify(overrides));
+        }
+        rows = [new FixtureElement({ hidden: true }), new FixtureElement()];
+        assert.equal(deps.hasActiveInteraction(), true);
+        assert.ok(selectors.includes("details[open]"));
+      } finally {
+        for (const key of keys) {
+          if (descriptors[key]) Object.defineProperty(globalThis, key, descriptors[key]);
+          else delete globalThis[key];
+        }
+      }
     });
 
     await t.test("plan and provenance actual helpers retain composite scope, zero and exact-ratio semantics", async () => {

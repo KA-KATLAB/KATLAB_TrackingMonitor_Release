@@ -1,5 +1,17 @@
 # Version Notes
 
+## v0.4.0.13 - History Commit Identity (2026-10-05)
+
+- History cards expose the full captured commit ID through a compact native
+  disclosure and labelled read-only field. The short header remains; full identity
+  is no longer available only through hover. No programmatic clipboard operation.
+- The disclosure starts closed for a new scope/repository/full-hash identity;
+  unchanged identity and event paging retain native state. Existing visible-open
+  disclosure protection prevents attract mode during inspection.
+- No fetch, request-owner, event/page bounds, dependency or API change. Actual
+  source/SSR/controlled-boundary checks are not native keyboard, selection or
+  geometry acceptance. Native v0.4 verification remains pending.
+
 ## v0.4.0.12 - Unavailable View States (2026-10-05)
 
 - Accepted diff content retains its local Hide action while the repository is
