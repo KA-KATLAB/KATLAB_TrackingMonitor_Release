@@ -340,17 +340,17 @@ function LazyViewStatus ({ name }: { name: string }): JSX.Element {
 
 class LazyViewBoundary extends Component<
   { name: string; children: ReactNode },
-  { error: Error | null }
+  { failed: boolean }
 > {
-  state = { error: null as Error | null };
+  state = { failed: false };
   private failureNode: HTMLElement | null = null;
   private focusFrame: { handle: number | null } | null = null;
   private readonly captureFailureNode = (node: HTMLElement | null): void => {
     this.failureNode = node;
   };
 
-  static getDerivedStateFromError (error: Error) {
-    return { error };
+  static getDerivedStateFromError (_error: unknown) {
+    return { failed: true };
   }
 
   private cancelFocus (): void {
@@ -359,7 +359,7 @@ class LazyViewBoundary extends Component<
     if (owner && owner.handle !== null) window.cancelAnimationFrame(owner.handle);
   }
 
-  componentDidCatch (_error: Error, _info: ErrorInfo): void {
+  componentDidCatch (_error: unknown, _info: ErrorInfo): void {
     this.cancelFocus();
     const owner: { handle: number | null } = { handle: null };
     this.focusFrame = owner;
@@ -378,7 +378,7 @@ class LazyViewBoundary extends Component<
   }
 
   render (): ReactNode {
-    if (!this.state.error) return this.props.children;
+    if (!this.state.failed) return this.props.children;
     return (
       <section
         ref={this.captureFailureNode}

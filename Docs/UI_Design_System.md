@@ -159,6 +159,9 @@ Lazy-view error boundaries also own their failure node and pending focus frame.
 Revoke/cancel on replacement or unmount; consume the handoff before focusing only
 a connected, non-inert owned target without an active overlay. Never use a global
 failure ID to focus another boundary or replay blocked focus after a dialog closes.
+Track failure occurrence separately from the caught value: JavaScript may throw
+falsey or non-Error values. Select fallback for every caught failure without
+retaining, inspecting or rendering that raw value.
 
 The six top-level views are Changes, Mission, Overview, History, City, and Chronicle. Put them in a `nav` landmark and mark the active link/control with `aria-current="page"`. Do not claim tab semantics without a complete tab/tabpanel model.
 

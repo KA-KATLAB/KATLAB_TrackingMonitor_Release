@@ -195,3 +195,49 @@ test("independent boundary instances cannot cancel or consume each other's frame
   first.componentWillUnmount?.();
   assert.deepEqual(h.cancelled, [0], "repeated old cleanup cannot cancel another instance");
 });
+
+test("every caught value selects the named fallback without inspecting the value", async (t) => {
+  const privateValue = "private-render-error", privateStack = "private-render-stack";
+  const hostile = new Proxy({}, { get() { throw new Error("caught value was inspected"); } });
+  const cases = [
+    ["null", null], ["undefined", undefined], ["false", false], ["zero", 0],
+    ["negative zero", -0], ["NaN", NaN], ["empty string", ""], ["zero bigint", 0n],
+    ["string", privateValue], ["object", { message: privateValue, stack: privateStack }],
+    ["symbol", Symbol(privateValue)], ["Error", new Error(privateValue)], ["proxy", hostile],
+  ];
+  for (const [index, [label, value]] of cases.entries()) {
+    await t.test(label, () => {
+      const h = harness([0]);
+      const name = ["Mission", "Overview", "City"][index % 3];
+      const child = React.createElement("div", null, "ready");
+      const boundary = h.create(name, child);
+      assert.equal(boundary.render(), child, "a new boundary preserves the child identity");
+      // Pass the value directly: a default argument must not replace explicit undefined.
+      boundary.state = h.Boundary.getDerivedStateFromError(value);
+      const element = boundary.render();
+      assert.notEqual(element, child, "a caught value must never retry the failed children");
+      const html = renderToStaticMarkup(element);
+      assert.match(html, /id="lazy-view-failure"/);
+      assert.ok(html.includes(`${name} could not load`));
+      assert.doesNotMatch(html, /private-render-error|private-render-stack/);
+      const target = h.node(name);
+      assert.equal(typeof element.ref, "function");
+      element.ref(target);
+      h.state.documentTarget = h.node("foreign-same-id");
+      boundary.componentDidCatch(value, { componentStack: privateStack });
+      assert.equal(h.frames.length, 1);
+      h.run(h.frames[0]);
+      h.run(h.frames[0]);
+      assert.deepEqual(h.focused, [{ name, options: { preventScroll: true } }]);
+      assert.equal(h.state.lookups, 0);
+      assert.equal(h.state.reloads, 0, "catching or focusing does not reload automatically");
+      const buttons = React.Children.toArray(element.props.children).filter(child => child.type === "button");
+      assert.equal(buttons.length, 1, "Reload remains the sole explicit recovery action");
+      assert.equal(buttons[0].props.children, "Reload");
+      buttons[0].props.onClick();
+      assert.equal(h.state.reloads, 1);
+      boundary.componentWillUnmount?.();
+      assert.deepEqual(h.cancelled, []);
+    });
+  }
+});

@@ -1,5 +1,16 @@
 # Version Notes
 
+## v0.4.0.11 - Lazy Failure State Guard (2026-10-05)
+
+- Lazy-view error boundaries track failure occurrence separately from the caught
+  value. Falsey values now select the existing fallback instead of failed children.
+  Raw error values are neither retained in state nor displayed.
+- This corrects a reproduced boundary-contract gap, not an observed live incident.
+  Owned focus, explicit Reload, keyed remounts, deadlines and labels are unchanged.
+- Actual-class lifecycle/SSR regressions cover falsey and non-Error values;
+  they are not native render/focus acceptance. Native v0.4 verification remains
+  pending. No dependencies, API, settings or layout changes.
+
 ## v0.4.0.10 - Lazy Failure Focus Ownership (2026-10-05)
 
 - Lazy-view failure focus uses the boundary's own section, not a global ID lookup.
