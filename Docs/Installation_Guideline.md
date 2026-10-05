@@ -212,6 +212,21 @@ Start TrackingMonitor with `Scripts/start_tracking_monitor.bat`; the default UI 
 `http://127.0.0.1:8100`. Mission is directly addressable with
 `http://127.0.0.1:8100/?view=mission`.
 
+### Provider health observation
+
+Health reads each provider settings file with a 1 MiB (1,048,576 bytes) cap and
+strict UTF-8 decoding. Missing files remain `settings_missing`; unreadable,
+oversized or invalid JSON, including decoder depth/integer-limit failures, become
+`settings_invalid`. One invalid provider does not suppress the other provider or
+the remaining health facts. Settings are never trimmed or rewritten.
+
+This is a Tracker health-observation limit, not a provider configuration limit.
+The legacy hook indicator remains a text-presence scan: a readable malformed JSON
+file can still show the marker as present while provider configuration is invalid.
+An unreadable or oversized file cannot verify that marker. Neither indicator proves
+hook execution. Reads are not atomic across fields and have no added I/O deadline.
+The separate `render_hook_config.py --preflight` CLI is unchanged by this limit.
+
 ### Read-only Git requests
 
 The diff API treats a supplied commit as a revision, never as command options.

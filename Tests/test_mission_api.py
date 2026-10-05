@@ -3,6 +3,7 @@
 import json
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -996,6 +997,176 @@ class MissionApiTests(unittest.TestCase):
         self.assertEqual(observed(), {"state": "unavailable"})
         state.chronicle_runtime = None
         self.assertEqual(observed(), {"state": "unavailable"})
+
+    def test_settings_reader_uses_byte_limits_without_rewriting_files (self) -> None:
+        limit = provider_health.SETTINGS_MAX_BYTES
+        self.assertEqual(limit, 1_048_576)
+        path = self.root / "bounded-settings.json"
+        for raw, accepted in (
+                (b" " * (limit - 1), True), (b" " * limit, True),
+                (b" " * (limit + 1), False),
+                (("é" * (limit // 2)).encode("utf-8"), True),
+                (("é" * (limit // 2) + "x").encode("utf-8"), False)):
+            with self.subTest(bytes=len(raw), accepted=accepted):
+                path.write_bytes(raw)
+                if accepted:
+                    self.assertEqual(provider_health.read_settings_text(path), raw.decode("utf-8"))
+                else:
+                    with self.assertRaisesRegex(ValueError, "^Provider settings exceed the health observation limit$"):
+                        provider_health.read_settings_text(path)
+                self.assertEqual(path.read_bytes(), raw)
+
+    def test_settings_reader_bounds_reads_closes_and_checks_size_before_decode (self) -> None:
+        oversized = MagicMock()
+        oversized.__len__.return_value = provider_health.SETTINGS_MAX_BYTES + 1
+        for raw, read_error, expected_error in (
+                (b"{}", None, None), (b"\xff", None, UnicodeDecodeError),
+                (oversized, None, ValueError),
+                (None, OSError("PRIVATE_READ_FAILURE"), OSError)):
+            with self.subTest(error=expected_error), patch.object(Path, "open") as opened:
+                context = opened.return_value
+                stream = context.__enter__.return_value
+                stream.read.return_value = raw
+                stream.read.side_effect = read_error
+                if expected_error is None:
+                    self.assertEqual(provider_health.read_settings_text(self.root / "fixture"), "{}")
+                else:
+                    with self.assertRaises(expected_error):
+                        provider_health.read_settings_text(self.root / "fixture")
+                opened.assert_called_once_with("rb")
+                stream.read.assert_called_once_with(provider_health.SETTINGS_MAX_BYTES + 1)
+                context.__exit__.assert_called_once()
+                if read_error is None:
+                    context.__exit__.assert_called_once_with(None, None, None)
+        oversized.decode.assert_not_called()
+
+    def test_provider_settings_preserve_size_encoding_and_missing_states (self) -> None:
+        path = self.root / "provider-settings.json"
+        limit = provider_health.SETTINGS_MAX_BYTES
+        for provider in ("claude", "codex"):
+            rendered = json.dumps(render_config(provider)).encode("utf-8")
+            for size in (limit - 1, limit, limit + 1):
+                raw = rendered + b" " * (size - len(rendered))
+                path.write_bytes(raw)
+                with self.subTest(provider=provider, bytes=size):
+                    self.assertEqual(provider_health.validate_provider_settings(provider, path),
+                                     (True, "configured") if size <= limit else (False, "settings_invalid"))
+                    self.assertEqual(path.read_bytes(), raw)
+            for raw in (b"", b"\xff", b"\xef\xbb\xbf" + rendered,
+                        b"{", b"[]", b"null", b'"text"'):
+                path.write_bytes(raw)
+                with self.subTest(provider=provider, raw=raw[:12]):
+                    self.assertEqual(provider_health.validate_provider_settings(provider, path),
+                                     (False, "settings_invalid"))
+                    self.assertEqual(path.read_bytes(), raw)
+            self.assertEqual(provider_health.validate_provider_settings(provider, self.root / "missing.json"),
+                             (False, "settings_missing"))
+            with patch.object(Path, "open", side_effect=PermissionError("PRIVATE_OPEN_FAILURE")):
+                self.assertEqual(provider_health.validate_provider_settings(provider, path),
+                                 (False, "settings_invalid"))
+
+    def test_provider_decoder_failures_are_expected_not_blanket_isolation (self) -> None:
+        for provider in ("claude", "codex"):
+            for error_type in (ValueError, RecursionError, RuntimeError,
+                               MemoryError, KeyboardInterrupt, SystemExit):
+                with self.subTest(provider=provider, error=error_type), \
+                     patch.object(provider_health, "read_settings_text", return_value="{}"), \
+                     patch.object(provider_health.json, "loads", side_effect=error_type("PRIVATE_DECODER_FAILURE")):
+                    if error_type in (ValueError, RecursionError):
+                        self.assertEqual(provider_health.validate_provider_settings(provider, self.root / "fixture"),
+                                         (False, "settings_invalid"))
+                    else:
+                        with self.assertRaises(error_type):
+                            provider_health.validate_provider_settings(provider, self.root / "fixture")
+
+    def test_real_json_runtime_limits_degrade_without_changing_limits (self) -> None:
+        recursion_limit = sys.getrecursionlimit()
+        integer_limit = getattr(sys, "get_int_max_str_digits", lambda: 0)()
+        depth = max(5000, recursion_limit * 2)
+        cases = [("deep", '{"value":' + "[" * depth + "0" + "]" * depth + "}", RecursionError)]
+        if integer_limit:
+            cases.append(("integer", '{"value":' + "9" * (integer_limit + 1) + "}", ValueError))
+        for name, text, error_type in cases:
+            with self.subTest(case=name):
+                self.assertLess(len(text.encode("utf-8")), provider_health.SETTINGS_MAX_BYTES)
+                with self.assertRaises(error_type):
+                    json.loads(text)
+                path = self.root / f"{name}-settings.json"
+                path.write_text(text, encoding="utf-8")
+                for provider in ("claude", "codex"):
+                    self.assertEqual(provider_health.validate_provider_settings(provider, path),
+                                     (False, "settings_invalid"))
+                self.assertEqual(path.read_text(encoding="utf-8"), text)
+        self.assertEqual(sys.getrecursionlimit(), recursion_limit)
+        self.assertEqual(getattr(sys, "get_int_max_str_digits", lambda: 0)(), integer_limit)
+
+    def test_health_real_provider_failures_preserve_independent_facts_and_marker (self) -> None:
+        home = self.root / "provider-home"
+        paths = {"claude": home / ".claude" / "settings.json", "codex": home / ".codex" / "hooks.json"}
+        valid = {provider: json.dumps(render_config(provider)).encode("utf-8") for provider in paths}
+        for provider, path in paths.items():
+            path.parent.mkdir(parents=True)
+            path.write_bytes(valid[provider])
+            self._activity("session_start", provider=provider,
+                           session="bounded-health", ts=routes._now_z())
+        marker = b"katlab_tracking_hook.py PRIVATE_SETTINGS_SENTINEL"
+        depth = max(5000, sys.getrecursionlimit() * 2)
+        malformed = [
+            (marker, True), (b"\xff" + marker, False), (b"\xef\xbb\xbf" + marker, True),
+            (marker + b" " * provider_health.SETTINGS_MAX_BYTES, False),
+            (b'{"marker":"' + marker + b'","nested":' + b"[" * depth + b"0" + b"]" * depth + b"}", True),
+            (None, False),
+        ]
+        integer_limit = getattr(sys, "get_int_max_str_digits", lambda: 0)()
+        if integer_limit:
+            malformed.append((b'{"marker":"' + marker + b'","integer":' + b"9" * (integer_limit + 1) + b"}", True))
+        original_open = Path.open
+
+        def read_only_open (path, mode="r", *args, **kwargs):
+            self.assertEqual(mode, "rb", "health must not write settings")
+            return original_open(path, mode, *args, **kwargs)
+
+        with patch.object(routes.Path, "home", return_value=home), \
+             patch.object(provider_health, "DEFAULT_SETTINGS", paths):
+            baseline = self.client.get("/api/health").json()["data"]
+            self.assertEqual([row["provider"] for row in baseline["providers"]], ["claude", "codex"])
+            self.assertTrue(baseline["server"]["hook_registered"])
+            self.assertTrue(all(row["configuration_valid"] for row in baseline["providers"]))
+            self.assertTrue(all(row["recently_observed"] for row in baseline["providers"]))
+            for provider, path in paths.items():
+                for raw, marker_present in malformed:
+                    with self.subTest(provider=provider, bytes=None if raw is None else len(raw)):
+                        if raw is None:
+                            path.unlink()
+                        else:
+                            path.write_bytes(raw)
+                        with patch.object(Path, "open", autospec=True, side_effect=read_only_open) as opened:
+                            response = self.client.get("/api/health")
+                        self.assertEqual(response.status_code, 200)
+                        payload = response.json()
+                        self.assertEqual(set(payload), {"success", "data", "message", "timestamp"})
+                        self.assertIs(payload["success"], True)
+                        self.assertEqual(payload["message"], "")
+                        self.assertNotIn("PRIVATE_SETTINGS_SENTINEL", response.text)
+                        self.assertEqual(opened.call_count, 3)
+                        data = payload["data"]
+                        self.assertEqual([row["provider"] for row in data["providers"]], ["claude", "codex"])
+                        expected_marker = marker_present if provider == "claude" else True
+                        self.assertEqual(data["server"]["hook_registered"], expected_marker)
+                        for key in ("repos", "activity", "chronicle"):
+                            self.assertEqual(data[key], baseline[key])
+                        self.assertEqual({k: v for k, v in data["server"].items() if k != "hook_registered"},
+                                         {k: v for k, v in baseline["server"].items() if k != "hook_registered"})
+                        for row, prior in zip(data["providers"], baseline["providers"]):
+                            expected = dict(prior)
+                            if row["provider"] == provider:
+                                state = "settings_missing" if raw is None else "settings_invalid"
+                                expected.update(configuration_valid=False, configuration_state=state)
+                            self.assertEqual(row, expected)
+                        self.assertEqual(path.read_bytes() if path.exists() else None, raw)
+                        self.assertEqual(paths["codex" if provider == "claude" else "claude"].read_bytes(),
+                                         valid["codex" if provider == "claude" else "claude"])
+                        path.write_bytes(valid[provider])
 
     def test_rendered_provider_settings_validate_without_writes (self) -> None:
         paths = {}

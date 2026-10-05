@@ -173,8 +173,8 @@ def health (request: Request):
         db_bytes = None
     settings_path = Path.home() / ".claude" / "settings.json"
     try:
-        hook_registered = _HOOK_MARKER in settings_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError):
+        hook_registered = _HOOK_MARKER in provider_health.read_settings_text(settings_path)
+    except (OSError, ValueError):
         hook_registered = False
     repos = []
     for repo in tracker.config.repos:

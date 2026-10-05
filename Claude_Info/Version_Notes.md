@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.4.0.5 - Bounded Provider Health (2026-10-05)
+
+- Backend provider-settings observation and the legacy hook-marker scan share a
+  strict UTF-8 read capped at 1 MiB. Larger files are not truncated or accepted;
+  provider configuration becomes `settings_invalid` and the marker is unverified.
+- Expected decoder `ValueError` and `RecursionError` no longer turn optional
+  configuration into a health HTTP500. Both providers retain independent facts;
+  missing settings, exact registration validation and other health fields remain.
+- The legacy marker is still text presence, not proof of valid JSON or hook
+  execution. No settings writes, dependency/API-shape/UI-layout changes, I/O
+  deadline or coherent snapshot guarantee. The preflight CLI is unchanged.
+  Native v0.4 visual/interaction acceptance remains pending.
+
 ## v0.4.0.4 - Git Revision Boundary (2026-10-05)
 
 - Shared validation prevents dynamic revision parameters from becoming Git

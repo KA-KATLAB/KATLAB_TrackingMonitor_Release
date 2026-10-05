@@ -5,13 +5,13 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.4 - Git Revision Boundary**
+Current source version: **v0.4.0.5 - Bounded Provider Health**
 
-Git revision parameters are checked before subprocess execution so they cannot
-become command options. Normal refs and file-path handling remain unchanged.
-Owned-process restart protection and the UI build gate remain. Rebuild after
-version changes; restarting Python alone does not update UI assets. See the
-[current release notes](TrackingMonitor_v0.4.0.4_Release_Notes.md).
+Provider health now bounds settings reads and isolates expected JSON failures,
+preserving System and readiness facts when optional configuration is invalid.
+The Git revision guard, owned-process restart protection and UI build gate remain.
+Rebuild after version changes; restarting Python alone does not update UI assets.
+See the [current release notes](TrackingMonitor_v0.4.0.5_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -184,7 +184,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.4_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.5_Release_Notes.md)
 
 ## Guarantees
 

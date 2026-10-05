@@ -15,6 +15,7 @@ HOOK_PATH = (
     Path(__file__).resolve().parents[2] / "Hook" / HOOK_MARKER
 ).resolve(strict=False)
 RECENT_SECONDS = 24 * 60 * 60
+SETTINGS_MAX_BYTES = 1_048_576
 DEFAULT_SETTINGS = {
     "claude": Path.home() / ".claude" / "settings.json",
     "codex": Path.home() / ".codex" / "hooks.json",
@@ -107,12 +108,21 @@ def _signature_matches (provider: str, expected: tuple, observed: tuple) -> bool
     )
 
 
+def read_settings_text (path: Path) -> str:
+    """Bound health observation without rewriting or accepting a partial file."""
+    with path.open("rb") as stream:
+        raw = stream.read(SETTINGS_MAX_BYTES + 1)
+    if len(raw) > SETTINGS_MAX_BYTES:
+        raise ValueError("Provider settings exceed the health observation limit")
+    return raw.decode("utf-8")
+
+
 def validate_provider_settings (provider: str, path: Path) -> tuple[bool, str]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = json.loads(read_settings_text(path))
     except FileNotFoundError:
         return False, "settings_missing"
-    except (OSError, UnicodeError, json.JSONDecodeError):
+    except (OSError, ValueError, RecursionError):
         return False, "settings_invalid"
     if not isinstance(value, dict):
         return False, "settings_invalid"

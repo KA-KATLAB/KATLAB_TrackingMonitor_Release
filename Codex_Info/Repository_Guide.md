@@ -109,6 +109,12 @@ When prose and running code disagree, do not silently choose one. Establish whet
 
 ### 4.3 Configuration
 
+- Provider health and the legacy marker scan share `read_settings_text`: read at
+  most 1 MiB plus one detection byte, reject oversize before strict UTF-8 decode,
+  and never rewrite settings. Expected JSON/decoding/access errors degrade only
+  configuration facts. Keep provider rows independent and preserve the marker's
+  text-only meaning. This health cap is not a provider limit, I/O deadline or
+  coherent snapshot guarantee; the operator preflight CLI is separate.
 - Bad YAML, invalid/duplicate IDs, and duplicate normalized paths are authoring failures and must fail fast.
 - Missing repository paths are environmental drift: mark those repos offline and keep the server alive.
 - `Config/repos.yaml` is loaded once; configuration changes require restart.

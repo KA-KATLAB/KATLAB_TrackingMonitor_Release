@@ -17,7 +17,7 @@ Git configuration, external tools or future unvalidated command callers.
 
 ## Operation and verification
 
-Follow the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart)
+Follow the [safe upgrade procedure](../../../Docs/Installation_Guideline.md#safe-stop-and-restart)
 to rebuild the canonical UI version and restart; reload existing tabs afterward.
 Owned-process protection, stop phase diagnostics and frontend identity gates remain.
 No new Git operations/flags, dependencies, UI layout, data/API shapes, provider
@@ -31,5 +31,5 @@ CDD/CFT, safe activation and publication evidence is in the ignored plan:
 Native v0.4 visual/interaction acceptance remains pending. Existing chunk-size
 notices and default-branch dependency alerts are not resolved by this fix.
 
-Previous [v0.4.0.3 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.3_Release_Notes.md)
+Previous [v0.4.0.3 notes](TrackingMonitor_v0.4.0.3_Release_Notes.md)
 are archived with only move-affected links rebased.
