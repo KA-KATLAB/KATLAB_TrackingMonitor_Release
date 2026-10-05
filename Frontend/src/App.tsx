@@ -903,13 +903,14 @@ export default function App () {
         // commit is version-ENDed, so the moment fires ONLY on a 3-part-
         // prefix change (a 4th-part bump fast-forwards the release
         // branch; it is not a new release). Swept variants carry no
-        // message (guarded); the hash set = once-per-session (2nd belt).
+        // message (guarded); the repo/hash set = once-per-session (2nd belt).
         const d = msg.data as { repo?: string; hash?: string; message?: string; swept?: boolean };
+        const releaseKey = JSON.stringify([d.repo, d.hash]);
         if (d.swept !== true && typeof d.message === "string" && d.repo && d.hash
-            && !seenReleasesRef.current.has(d.hash)) {
+            && !seenReleasesRef.current.has(releaseKey)) {
           const m = RELEASE_RX.exec(d.message);
           if (m) {
-            seenReleasesRef.current.add(d.hash);
+            seenReleasesRef.current.add(releaseKey);
             const repo = d.repo;
             const version = m[0].trim();
             const prev = lastVersionRef.current.get(repo);

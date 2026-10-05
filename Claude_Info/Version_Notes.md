@@ -1,5 +1,17 @@
 # Version Notes
 
+## v0.4.0.15 - Repository Release Identity (2026-10-06)
+
+- Release-moment replay protection uses the repository + full commit hash pair,
+  not a workspace-global hash. Shared-history working copies update their own
+  baselines; one copy no longer suppresses another or causes its later patch
+  rider to announce a false release.
+- Version-END/prefix laws, silent first seed and history-seed race protection,
+  banner stack/timers, reduced motion and optional channel guards stay unchanged.
+- Actual-handler controlled regressions reproduce a supported topology, not a
+  live incident. Native visual/keyboard/OS/sound acceptance remains pending.
+  No API, request, dependency, setting or layout changes.
+
 ## v0.4.0.14 - Mission Plan Snapshot Prompts (2026-10-06)
 
 - Now, Verification rail and Evidence queue distinguish a loading or unavailable

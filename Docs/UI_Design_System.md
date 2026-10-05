@@ -246,6 +246,10 @@ Do not:
 - Frequently changing status rails are not live regions.
 - One polite, deduplicated status region announces meaningful action results.
 - A persistent CLEAN record is durable state, not an auto-expiring transient toast.
+- Release-moment replay identity is the repository + full commit hash pair;
+  shared history must not suppress another repository's own version baseline.
+  Preserve version-END/three-part-prefix rules, silent seeding, per-repository
+  banner ownership and the existing motion/optional notification/sound guards.
 - Current clean/uncommitted summaries count only online repositories with valid
   Git status, with explicit known coverage. Retained invalid/offline values are
   unavailable, not zero or clean. WebSocket Connected describes transport only,
