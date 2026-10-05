@@ -5,13 +5,13 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.13 - History Commit Identity**
+Current source version: **v0.4.0.14 - Mission Plan Snapshot Prompts**
 
-History has a compact Full commit ID disclosure with a labelled read-only field
-for selecting the exact captured identity. It works locally without a new request
-or Clipboard API permission; History paging and linked events are unchanged.
+Mission plan panels distinguish loading, unavailable and accepted empty snapshots.
+Selection guidance appears only when accepted plans exist; Refresh/Retry and
+selected readiness keep their existing ownership and behavior.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.13_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.14_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -184,7 +184,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.13_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.14_Release_Notes.md)
 
 ## Guarantees
 

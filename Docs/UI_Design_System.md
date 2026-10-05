@@ -438,6 +438,11 @@ Never scale down metric text; wrap while retaining exact values and snapshot dat
   Verification Rail, Evidence Queue, Session Flight Recorder, and Exact Data.
 - Spotlight a plan only when the current data proves one unique active plan or the
   operator explicitly selects an exact repository + relative-plan pair.
+- Now, Verification Rail and Evidence Queue distinguish loading/unavailable base
+  snapshots from accepted empty scopes. Ask for plan selection only when accepted
+  plans exist; accepted summary data outranks a pending busy transition. Keep
+  placeholders quiet and recovery in the existing Mission Refresh/Retry owner,
+  independent of additive Forecast and session/timeline availability.
 - Render backend readiness verbatim. The UI may format state labels but never
   infer, upgrade, or suppress a readiness state or blocker.
 - Make the selected Now plan visually primary. Plan scope and Forecast stay

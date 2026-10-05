@@ -1,5 +1,17 @@
 # Version Notes
 
+## v0.4.0.14 - Mission Plan Snapshot Prompts (2026-10-06)
+
+- Now, Verification rail and Evidence queue distinguish a loading or unavailable
+  base Mission snapshot from an accepted empty scope. They only ask for plan
+  selection when accepted plans exist; the existing Refresh/Retry owns recovery.
+- Accepted base data takes priority over the busy transition. Optional forecast
+  degradation does not turn valid plan data into unavailable guidance. Selected
+  readiness, plan identity, paging and independent activity remain unchanged.
+- Actual-source request/selection/SSR regressions are not native visual,
+  keyboard or assistive acceptance. Native v0.4 verification remains pending.
+  No request, deadline, dependency, API or layout changes.
+
 ## v0.4.0.13 - History Commit Identity (2026-10-05)
 
 - History cards expose the full captured commit ID through a compact native

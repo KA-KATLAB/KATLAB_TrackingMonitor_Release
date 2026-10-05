@@ -407,10 +407,27 @@ function MissionReasonList ({ kind, repo, planFile, reasons }: {
   );
 }
 
-function NowPanel ({ plan, scope, summary }: {
+function missionPlanPrompt (
+  summary: MissionPayload["summary"] | null,
+  scope: string | undefined,
+  busy: boolean,
+  instruction: string,
+): string {
+  if (!summary) {
+    return busy
+      ? "Loading Mission snapshot..."
+      : "Mission snapshot unavailable. Refresh Mission to retry.";
+  }
+  return summary.total === 0
+    ? `No tracked plans in ${scope ?? "all repositories"}.`
+    : instruction;
+}
+
+function NowPanel ({ plan, scope, summary, busy }: {
   plan: MissionPlan | null;
   scope: string | undefined;
   summary: MissionPayload["summary"] | null;
+  busy: boolean;
 }): JSX.Element {
   if (!plan) {
     return (
@@ -418,9 +435,8 @@ function NowPanel ({ plan, scope, summary }: {
         <SectionHeading title="Now" level={3}
           description="One exact plan is shown only after it is proven unique or explicitly selected." />
         <div className="ui-empty-state">
-          {summary?.total === 0
-            ? `No tracked plans in ${scope ?? "all repositories"}.`
-            : "Select a plan below; the current scope does not prove one unique active plan."}
+          {missionPlanPrompt(summary, scope, busy,
+            "Select a plan below; the current scope does not prove one unique active plan.")}
         </div>
       </Surface>
     );
@@ -1098,7 +1114,8 @@ export function MissionView ({ scope, invalidationNonce, entryState,
       {missionBusy && !mission && (
         <div className="ui-skeleton h-32 rounded-panel" aria-label="Loading Mission" />
       )}
-      <NowPanel plan={selectedPlan} scope={scope} summary={mission?.summary ?? null} />
+      <NowPanel plan={selectedPlan} scope={scope} summary={mission?.summary ?? null}
+        busy={missionBusy} />
 
       {mission && mission.plans.length > 0 && (
         <Surface tone="quiet">
@@ -1126,7 +1143,10 @@ export function MissionView ({ scope, invalidationNonce, entryState,
         <SectionHeading title="Verification rail" level={3}
           description="Current backend-evaluated gate state, freshness, and clean-review streak." />
         {!selectedPlan ? (
-          <p className="text-sm text-ui-muted">Select one exact plan to inspect its requirements.</p>
+          <p className="text-sm text-ui-muted [overflow-wrap:anywhere]">
+            {missionPlanPrompt(mission?.summary ?? null, scope, missionBusy,
+              "Select one exact plan to inspect its requirements.")}
+          </p>
         ) : selectedPlan.requirements.length === 0 ? (
           <p className="text-sm text-ui-muted">This plan declares no verification requirements.</p>
         ) : (
@@ -1185,7 +1205,10 @@ export function MissionView ({ scope, invalidationNonce, entryState,
         {evidenceError && <ErrorNotice message={evidenceError} onRetry={refresh}
           busy={refreshBusy} />}
         {!selectedPlan ? (
-          <p className="text-sm text-ui-muted">Select a plan to inspect evidence.</p>
+          <p className="text-sm text-ui-muted [overflow-wrap:anywhere]">
+            {missionPlanPrompt(mission?.summary ?? null, scope, missionBusy,
+              "Select a plan to inspect evidence.")}
+          </p>
         ) : (
           <div className="grid min-w-0 gap-4 xl:grid-cols-2">
             <section className="min-w-0" aria-labelledby="mission-requirement-queue-title">

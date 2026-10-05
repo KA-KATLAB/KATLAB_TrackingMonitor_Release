@@ -26,7 +26,7 @@ const extracted = [
     "getBoundedPageWindow", "collectionIdentityKey", "useBoundedPage", "CollectionPager"]
     .map((name) => declaration(ui, name)),
   ...["MISSION_PRESENTATION", "missionPresentation"].map((name) => declaration(model, name)),
-  ...["TONE_CLASS", "StateBadge", "PlanCard", "MissionReasonList", "NowPanel"]
+  ...["TONE_CLASS", "StateBadge", "PlanCard", "MissionReasonList", "missionPlanPrompt", "NowPanel"]
     .map((name) => declaration(mission, name)),
 ].join("\n");
 const code = ts.transpileModule(`
