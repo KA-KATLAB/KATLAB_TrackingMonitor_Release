@@ -285,6 +285,15 @@ Plan-before-catch-up prevents permanent `UNKNOWN` attribution. The dedicated Git
   by the move. Check the moved file's links and Chronicle's strict document build.
 - Update `Claude_Info/Version_Notes.md` with evidence-backed, as-built behavior.
 - Rebuild the frontend when its source changes and verify the served artifact when a release claim depends on it.
+- The Vite production HTML marker and UI constant share one canonical version.
+  `python -m Scripts.frontend_build check` validates bounded entry identity; it
+  does not certify all chunks or same-version source freshness. Both launchers
+  refuse stale existing output; missing-index first-run bootstrap is separate.
+- Tracker and demo share `Frontend/dist`. Stop both before manual production
+  builds. Automated release work must refuse an active, unauthorized sibling,
+  stop only the identified authorized tracker, confirm both ports clear, then
+  build, validate, restart and compare served artifacts. This is not an atomic
+  lock against concurrent external starts/builds. Existing tabs require reload.
 - Never perform the commit, tag, or push unless the user explicitly requests that exact Git action.
 
 ### 5.3 Onboarding contract changes

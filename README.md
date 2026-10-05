@@ -5,10 +5,12 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.1 — Owned Process Stop**
+Current source version: **v0.4.0.2 — UI Build Identity Gate**
 
-Stop/restart now proves repository process ownership before termination. An
-unrelated listener is refused, not killed. See the [current release notes](TrackingMonitor_v0.4.0.1_Release_Notes.md).
+Start/restart now refuses an existing stale or incomplete UI build before opening
+it. Rebuild after version changes; restarting Python alone does not update UI
+assets. Owned-process stop protection remains. See the
+[current release notes](TrackingMonitor_v0.4.0.2_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -178,7 +180,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.1_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.2_Release_Notes.md)
 
 ## Guarantees
 

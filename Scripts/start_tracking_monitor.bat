@@ -10,7 +10,7 @@ setlocal
 cd /d "%~dp0.."
 if errorlevel 1 (
     echo [ABORT] Could not enter the tracker repository root.
-    exit /b 1
+    goto :abort
 )
 
 echo [1/4] Checking venv...
@@ -20,11 +20,15 @@ if not exist ".venv\Scripts\python.exe" (
     if errorlevel 1 (
         echo [ABORT] venv creation failed - is Python on PATH?
         pause
-        exit /b 1
+        goto :abort
     )
     set "FRESH_VENV=1"
 )
 set "PY=.venv\Scripts\python.exe"
+
+REM Reject stale output before dependency setup; missing output may bootstrap.
+"%PY%" -m Scripts.frontend_build check --allow-missing
+if errorlevel 1 goto :abort
 
 REM A new venv needs PyYAML before the config/port preflight can run.
 if defined FRESH_VENV (
@@ -33,7 +37,7 @@ if defined FRESH_VENV (
     if errorlevel 1 (
         echo [ABORT] pip install failed - see errors above.
         pause
-        exit /b 1
+        goto :abort
     )
 )
 
@@ -45,7 +49,7 @@ if errorlevel 10 if not errorlevel 11 (
 )
 if errorlevel 1 (
     echo [ABORT] Tracker preflight failed; nothing was launched.
-    exit /b 1
+    goto :abort
 )
 
 REM Avoid pip mutation while a verified tracker is already running.
@@ -55,7 +59,7 @@ if not defined FRESH_VENV (
     if errorlevel 1 (
         echo [ABORT] pip install failed - see errors above.
         pause
-        exit /b 1
+        goto :abort
     )
 )
 
@@ -63,22 +67,29 @@ echo [3/4] Checking frontend build...
 if not exist "Frontend\dist\index.html" (
     echo     Frontend\dist missing - building ^(first run, F20^)...
     pushd Frontend
+    if errorlevel 1 (
+        echo [ABORT] Could not enter the frontend directory.
+        goto :abort
+    )
     call npm install --no-fund --no-audit
     if errorlevel 1 (
         popd
         echo [ABORT] npm install failed - is Node.js installed?
         pause
-        exit /b 1
+        goto :abort
     )
     call npm run build
     if errorlevel 1 (
         popd
         echo [ABORT] npm build failed - see errors above.
         pause
-        exit /b 1
+        goto :abort
     )
     popd
 )
+
+"%PY%" -m Scripts.frontend_build check
+if errorlevel 1 goto :abort
 
 echo [4/4] Starting HIDDEN (logs: data\logs\)...
 REM Create the ignored log directory before rotating the previous session.
@@ -92,12 +103,15 @@ REM The short-lived helper owns redirection; no persistent CMD wrapper.
 if errorlevel 1 (
     echo [ABORT] Could not launch the tracker - see errors above.
     pause
-    exit /b 1
+    goto :abort
 )
 "%PY%" -m Scripts.lifecycle_port ready tracker
 if errorlevel 1 (
     echo [ABORT] Tracker health was not confirmed; the child may still be starting. See data\logs\tracker.log.
-    exit /b 1
+    goto :abort
 )
 endlocal
 exit /b 0
+
+:abort
+exit /b 1

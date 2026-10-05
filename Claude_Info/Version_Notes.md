@@ -1,5 +1,21 @@
 # Version Notes
 
+## v0.4.0.2 — UI Build Identity Gate (2026-10-05)
+
+- Production HTML carries a build-only version marker from the same cached
+  canonical value as the visible UI version. No new dependency or layout change.
+- Both Windows start scripts reject existing obsolete, malformed or incomplete
+  entry builds before dependency setup. Genuinely absent output retains first-run
+  bootstrap; a strict check precedes log rotation, demo bootstrap and hidden launch.
+- Already-running and readiness browser handoffs recheck frontend identity after
+  matching backend health. Stop remains independent of UI validity and version.
+- Shared top-level abort labels preserve failure exit codes even for direct CMD
+  invocation after nested setup failures; frontend pushd is checked before npm.
+- This is release identity, not same-version source freshness, complete chunk
+  verification, a build-success receipt, concurrent-build locking or native UI
+  acceptance. Stop both shared-dist consumers before manual builds; reload old
+  tabs afterward. A ready-time refusal can leave the backend running.
+
 ## v0.4.0.1 — Owned Process Stop (2026-10-05)
 
 - Stop/restart no longer uses port-discovered PIDs as termination authority.

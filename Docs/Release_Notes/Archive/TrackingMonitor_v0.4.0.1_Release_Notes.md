@@ -24,7 +24,7 @@
 - Manual/base-only launch shapes are unsupported. This proof is not historical
   mode/configuration attestation, hostile same-owner protection or an atomic
   snapshot of children created in the future. Partial termination is not rolled
-  back. See [safe stop/restart](Docs/Installation_Guideline.md#safe-stop-and-restart).
+  back. See [safe stop/restart](../../Installation_Guideline.md#safe-stop-and-restart).
 - No dependency, UI, capture, database, API or monitored-repository change.
   Native rendered acceptance of the v0.4 redesign remains pending; tests and
   served HTTP/assets are not keyboard, layout or browser-reload evidence.
@@ -43,6 +43,6 @@ its separately verified original fixture handle is subsequently terminated.
 Full-suite, activation and publication results are recorded in the ignored plan:
 `temp/Plan/PLAN_v0.4.0.1_Owned_Process_Stop.txt`.
 
-The previous [v0.4.0.0 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.0_Release_Notes.md)
+The previous [v0.4.0.0 notes](TrackingMonitor_v0.4.0.0_Release_Notes.md)
 retain their historical content; their prior-release link is rebased to its
 sibling filename so both repository navigation and strict Chronicle builds work.

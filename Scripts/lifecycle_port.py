@@ -15,6 +15,7 @@ from urllib import request
 import webbrowser
 
 from Backend.app.version import __version__
+from Scripts.frontend_build import FrontendBuildError, validate_frontend
 from Scripts.lifecycle_process import ProcessOwnershipError, prepare_owned_processes
 
 
@@ -269,6 +270,16 @@ def stop (mode: str) -> int:
         raise LifecycleError("Tracker process ownership or stopped state could not be verified") from exc
 
 
+def _require_frontend () -> None:
+    try:
+        validate_frontend(REPO_ROOT, __version__)
+    except FrontendBuildError as exc:
+        raise LifecycleError(
+            "Frontend build is missing, invalid or not current; stop tracker and demo, "
+            "run npm run build in Frontend, then restart and reload existing tabs"
+        ) from exc
+
+
 def preflight (mode: str) -> int:
     profile = load_profile(mode)
     listeners = _listening_pids(profile.port)
@@ -278,6 +289,7 @@ def preflight (mode: str) -> int:
         raise LifecycleError("System-owned listener occupies the configured port")
     if not _health_matches(profile):
         raise LifecycleError("Occupied port is not a ready matching tracker")
+    _require_frontend()
     if not _open_browser(profile):
         raise LifecycleError("Ready tracker found, but the browser did not open")
     print(f"Already running: {profile.origin}")
@@ -291,6 +303,7 @@ def ready (mode: str) -> int:
     deadline = _monotonic() + READY_TIMEOUT_SECONDS
     while True:
         if _health_matches(profile):
+            _require_frontend()
             if not _open_browser(profile):
                 raise LifecycleError("Tracker is ready, but the browser did not open")
             print(f"Ready: {profile.origin}")

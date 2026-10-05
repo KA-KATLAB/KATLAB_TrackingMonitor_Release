@@ -17,6 +17,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from Backend.app import config as backend_config
+from Scripts import frontend_build as frontend
 from Scripts import launch_hidden as launcher
 from Scripts import lifecycle_port as lifecycle
 
@@ -54,6 +55,23 @@ def healthy_response (repo_ids: tuple[str, ...], *, version: str | None = None,
         "message": "OK",
         "timestamp": "2026-09-28T00:00:00Z",
     }
+
+
+def frontend_entry (version: str) -> str:
+    return ('<!doctype html><html><head>'
+            f'<meta name="katlab-ui-version" content="{version}">'
+            '<script type="module" src="/assets/index-test.js"></script>'
+            '<link rel="stylesheet" href="/assets/index-test.css">'
+            '</head><body><div id="root"></div></body></html>')
+
+
+def write_frontend (root: Path, version: str) -> None:
+    dist = root / "Frontend" / "dist"
+    assets = dist / "assets"
+    assets.mkdir(parents=True, exist_ok=True)
+    (dist / "index.html").write_text(frontend_entry(version), encoding="utf-8")
+    (assets / "index-test.js").write_text("export {};", encoding="utf-8")
+    (assets / "index-test.css").write_text("body{}", encoding="utf-8")
 
 
 @unittest.skipUnless(os.name == "nt", "Windows launcher contract")
@@ -177,13 +195,25 @@ class HiddenLauncherTests(unittest.TestCase):
                 self.assertNotIn("%errorlevel%", source.lower())
                 self.assertLess(source.index(preflight), source.index(
                     "if not defined FRESH_VENV ("))
+                early_ui = '"%PY%" -m Scripts.frontend_build check --allow-missing\n'
+                strict_ui = '"%PY%" -m Scripts.frontend_build check\n'
+                self.assertEqual(source.count(early_ui), 1)
+                self.assertEqual(source.count(strict_ui), 1)
+                self.assertLess(source.index(early_ui), source.index("if defined FRESH_VENV ("))
+                self.assertLess(source.index(strict_ui), source.index("move /y"))
+                self.assertLess(source.index(strict_ui), source.index(line))
+                if mode == "demo":
+                    self.assertLess(source.index(strict_ui), source.index('"%PY%" Scripts\\demo_bootstrap.py'))
+                self.assertIn("pushd Frontend\n    if errorlevel 1 (", source)
                 tail = source.split(line, 1)[1]
                 self.assertTrue(tail.startswith("if errorlevel 1 (\n"))
-                self.assertLess(tail.index("exit /b 1"), tail.index(ready))
+                self.assertLess(tail.index("goto :abort"), tail.index(ready))
                 self.assertNotIn("netstat -ano", source)
                 self.assertNotRegex(source, r'(?im)^\s*start\s+""\s+"http')
                 self.assertIn("move /y", source.split(line, 1)[0])
-                self.assertTrue(tail.endswith("endlocal\nexit /b 0\n"))
+                self.assertTrue(tail.endswith("endlocal\nexit /b 0\n\n:abort\nexit /b 1\n"))
+                self.assertEqual(source.count("\n:abort\n"), 1)
+                self.assertEqual(source.count("exit /b 1"), 1)
                 self.assertNotRegex(source, r"(?im)^exit(?:\s+\d+)?\s*$")
         for relative, start in (("Scripts/restart_tracking_monitor.bat", "start_tracking_monitor.bat"),
                                 ("Scripts/Demo/restart_demo.bat", "start_demo.bat")):
@@ -275,7 +305,10 @@ class HiddenLauncherTests(unittest.TestCase):
             self.assertIn("if errorlevel 10 if not errorlevel 11 (", guard)
             self.assertIn("if errorlevel 1 (", guard)
             self.assertNotIn("%errorlevel%", guard.lower())
-            self.assertEqual(guard.count("exit /b"), 2)
+            self.assertEqual(guard.count("exit /b 0"), 1)
+            self.assertEqual(guard.count("goto :abort"), 1)
+            abort = source[source.index("\n:abort\n") + 1:]
+            self.assertEqual(abort, ":abort\nexit /b 1\n")
             for helper_code, expected, continued in ((0, 0, True), (1, 1, False),
                                                      (10, 0, False)):
                 with self.subTest(mode=mode, helper=helper_code):
@@ -289,7 +322,8 @@ class HiddenLauncherTests(unittest.TestCase):
                         batch.write_text(
                             '@echo off\nsetlocal\ncall "%~dp0helper.bat"\n'
                             + guard + '\n'
-                            + 'echo continued>"%~dp0continued.txt"\nexit /b 0\n',
+                            + 'echo continued>"%~dp0continued.txt"\nexit /b 0\n'
+                            + abort,
                             encoding="utf-8")
                         helper.write_text(f'@echo off\nexit /b {helper_code}\n',
                                           encoding="utf-8")
@@ -302,6 +336,187 @@ class HiddenLauncherTests(unittest.TestCase):
                         self.assertEqual(result.returncode, expected,
                                          result.stderr.decode(errors="replace"))
                         self.assertEqual((root / "continued.txt").exists(), continued)
+
+    def _run_start_fixture (self, mode: str, scenario: str, *, fresh: bool = False,
+                            direct: bool = False):
+        relative = ("Scripts/start_tracking_monitor.bat" if mode == "tracker" else
+                    "Scripts/Demo/start_demo.bat")
+        source = (REPO / relative).read_text(encoding="utf-8")
+        self.assertEqual(source.count("python -m venv .venv"), 1)
+        self.assertEqual(source.count("call npm "), 2)
+        self.assertNotRegex(source, r"(?im)^\s*@?start\s")
+        with tempfile.TemporaryDirectory(prefix="katlab full start ") as directory:
+            root = Path(directory) / "repo with spaces"
+            root.mkdir()
+            write_frontend(root, lifecycle.__version__)
+            index = root / "Frontend" / "dist" / "index.html"
+            if scenario == "early-stale":
+                index.write_text(frontend_entry("0.0.0.0"), encoding="utf-8")
+            elif scenario in {"missing", "install-fail", "build-fail", "pushd-fail", "build-stale"}:
+                index.unlink()
+            fake_python = root / ".venv" / "Scripts" / "python.exe"
+            if not fresh:
+                fake_python.parent.mkdir(parents=True)
+                fake_python.write_bytes(b"fixture only")
+            logs = (["data/logs/tracker.log", "data/logs/chronicle.log"] if mode == "tracker"
+                    else ["Demo/runtime/demo.log"])
+            for relative_log in logs:
+                log = root / relative_log
+                log.parent.mkdir(parents=True, exist_ok=True)
+                log.write_bytes(b"previous fixture log")
+            config = {"scenario": scenario, "version": lifecycle.__version__,
+                      "html": frontend_entry(lifecycle.__version__),
+                      "stale_html": frontend_entry("0.0.0.0"), "source_repo": str(REPO)}
+            (root / "fixture.json").write_text(json.dumps(config), encoding="utf-8")
+            gateway = root / "fixture_gateway.py"
+            gateway.write_text(
+                "import json, sys\nfrom pathlib import Path\n"
+                "root=Path(__file__).resolve().parent\n"
+                "cfg=json.loads((root/'fixture.json').read_text(encoding='utf-8'))\n"
+                "sys.path.insert(0,cfg['source_repo'])\n"
+                "from Scripts.frontend_build import validate_frontend, FrontendBuildError\n"
+                "args=sys.argv[1:]; scenario=cfg['scenario']\n"
+                "def record(event):\n"
+                " with (root/'events.jsonl').open('a',encoding='utf-8') as out:\n"
+                "  out.write(json.dumps(event)+'\\n')\n"
+                "if args[:2]==['-m','venv']:\n"
+                " record('venv'); p=root/'.venv'/'Scripts'/'python.exe'\n"
+                " p.parent.mkdir(parents=True,exist_ok=True); p.write_bytes(b'fixture only')\n"
+                "elif args[:2]==['-m','Scripts.frontend_build']:\n"
+                " missing='--allow-missing' in args\n"
+                " record('ui-early' if missing else 'ui-strict')\n"
+                " try: validate_frontend(root,cfg['version'],allow_missing=missing)\n"
+                " except FrontendBuildError: sys.exit(1)\n"
+                "elif args[:2]==['-m','pip']:\n"
+                " record('pip')\n"
+                " if scenario=='pushd-fail': (root/'Frontend').rename(root/'parked-Frontend')\n"
+                " if scenario=='strict-stale':\n"
+                "  (root/'Frontend'/'dist'/'index.html').write_text(cfg['stale_html'],encoding='utf-8')\n"
+                "elif args[:2]==['-m','Scripts.lifecycle_port']:\n"
+                " action=args[2]; record(action)\n"
+                " if action=='preflight':\n"
+                "  sys.exit(10 if scenario=='already-running' else 1 if scenario=='preflight-fail' else 0)\n"
+                "elif args and args[0]=='npm':\n"
+                " action='npm-install' if args[1]=='install' else 'npm-build'\n"
+                " record(action)\n"
+                " if action=='npm-install' and scenario=='install-fail': sys.exit(7)\n"
+                " if action=='npm-build':\n"
+                "  if scenario=='build-fail': sys.exit(8)\n"
+                "  html=cfg['stale_html'] if scenario=='build-stale' else cfg['html']\n"
+                "  (root/'Frontend'/'dist'/'index.html').write_text(html,encoding='utf-8')\n"
+                "elif args and args[0].replace('\\\\','/')=='Scripts/demo_bootstrap.py':\n"
+                " record('bootstrap')\n"
+                "elif args and args[0].replace('\\\\','/')=='Scripts/launch_hidden.py':\n"
+                " record('launch')\n"
+                "else:\n"
+                " record('unexpected'); sys.exit(90)\n",
+                encoding="utf-8")
+            invocation = subprocess.list2cmdline([sys.executable, "-B", str(gateway)])
+            npm = root / "fixture_npm.bat"
+            npm.write_text('@echo off\nsetlocal\nset "ERRORLEVEL="\n'
+                           + invocation + ' npm %*\nexit /b %errorlevel%\n', encoding="utf-8")
+            # Preserve every product condition. Replace only process/UI effects;
+            # frontend checks execute the actual validator against scratch files.
+            fixture = source.replace("python -m venv .venv", invocation + " -m venv .venv")
+            fixture = fixture.replace('"%PY%"', invocation)
+            fixture = fixture.replace("call npm ", f'call "{npm}" ')
+            fixture = fixture.replace("pause", "echo fixture-pause")
+            self.assertNotIn("python -m venv", fixture)
+            self.assertNotIn("call npm ", fixture)
+            self.assertNotIn('"%PY%"', fixture)
+            batch = root / relative
+            batch.parent.mkdir(parents=True, exist_ok=True)
+            batch.write_text(fixture, encoding="utf-8")
+            environment = os.environ.copy()
+            environment["ERRORLEVEL"] = "10"
+            cmd = os.path.join(os.environ["SystemRoot"], "System32", "cmd.exe")
+            # Match restart's CALL by default; explicit direct-entry cases also
+            # protect the native wrapper's failure exit status.
+            invocation = f'""{batch}""' if direct else f'"call "{batch}""'
+            result = subprocess.run(
+                f'"{cmd}" /d /s /c {invocation}', cwd=root, env=environment,
+                stdin=subprocess.DEVNULL, capture_output=True, timeout=12,
+                creationflags=subprocess.CREATE_NO_WINDOW, check=False)
+            events = [json.loads(line) for line in (root / "events.jsonl").read_text(
+                encoding="utf-8").splitlines()]
+            previous_logs = [((root / path).exists(), (root / path).with_suffix(".prev.log").exists())
+                             for path in logs]
+            return result, events, previous_logs
+
+    def test_full_start_batches_reject_stale_before_fresh_or_existing_pip (self):
+        for mode in ("tracker", "demo"):
+            for fresh in (False, True):
+                with self.subTest(mode=mode, fresh=fresh):
+                    result, events, logs = self._run_start_fixture(mode, "early-stale", fresh=fresh)
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertEqual(events, (["venv"] if fresh else []) + ["ui-early"])
+                    self.assertTrue(all(old and not rotated for old, rotated in logs))
+
+    def test_full_start_batches_preserve_missing_index_bootstrap_and_current_path (self):
+        for mode in ("tracker", "demo"):
+            for scenario, fresh in (("missing", False), ("missing", True), ("current", False)):
+                with self.subTest(mode=mode, scenario=scenario, fresh=fresh):
+                    result, events, logs = self._run_start_fixture(mode, scenario, fresh=fresh)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    prefix = (["venv", "ui-early", "pip", "preflight"] if fresh else
+                              ["ui-early", "preflight", "pip"])
+                    if scenario == "missing":
+                        prefix += ["npm-install", "npm-build"]
+                    expected = prefix + ["ui-strict"] + (["bootstrap"] if mode == "demo" else [])
+                    self.assertEqual(events, expected + ["launch", "ready"])
+                    self.assertTrue(all(not old and rotated for old, rotated in logs))
+
+    def test_full_start_batches_stop_on_npm_pushd_and_strict_gate_failures (self):
+        cases = {
+            "install-fail": ["npm-install"],
+            "build-fail": ["npm-install", "npm-build"],
+            "pushd-fail": [],
+            "strict-stale": ["ui-strict"],
+            "build-stale": ["npm-install", "npm-build", "ui-strict"],
+        }
+        for mode in ("tracker", "demo"):
+            for scenario, tail in cases.items():
+                with self.subTest(mode=mode, scenario=scenario):
+                    result, events, logs = self._run_start_fixture(mode, scenario)
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertEqual(events, ["ui-early", "preflight", "pip"] + tail)
+                    self.assertTrue(all(old and not rotated for old, rotated in logs))
+
+    def test_full_start_batches_keep_current_already_running_and_preflight_refusal (self):
+        for mode in ("tracker", "demo"):
+            for scenario, code in (("already-running", 0), ("preflight-fail", 1)):
+                with self.subTest(mode=mode, scenario=scenario):
+                    result, events, logs = self._run_start_fixture(mode, scenario)
+                    self.assertEqual(result.returncode, code, result.stderr)
+                    self.assertEqual(events, ["ui-early", "preflight"])
+                    self.assertTrue(all(old and not rotated for old, rotated in logs))
+
+    def test_direct_start_wrappers_propagate_nested_bootstrap_failure (self):
+        for mode in ("tracker", "demo"):
+            for scenario in ("install-fail", "build-fail", "pushd-fail"):
+                with self.subTest(mode=mode, scenario=scenario):
+                    result, events, logs = self._run_start_fixture(mode, scenario, direct=True)
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertTrue(all(event not in events for event in (
+                        "ui-strict", "bootstrap", "launch", "ready")))
+                    self.assertTrue(all(old and not rotated for old, rotated in logs))
+
+    def test_direct_start_wrappers_keep_current_first_run_and_running_paths (self):
+        for mode in ("tracker", "demo"):
+            for scenario in ("current", "missing", "already-running"):
+                with self.subTest(mode=mode, scenario=scenario):
+                    result, events, logs = self._run_start_fixture(mode, scenario, direct=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    if scenario == "already-running":
+                        self.assertEqual(events, ["ui-early", "preflight"])
+                        self.assertTrue(all(old and not rotated for old, rotated in logs))
+                    else:
+                        expected = ["ui-early", "preflight", "pip"]
+                        if scenario == "missing":
+                            expected += ["npm-install", "npm-build"]
+                        expected += ["ui-strict"] + (["bootstrap"] if mode == "demo" else [])
+                        self.assertEqual(events, expected + ["launch", "ready"])
+                        self.assertTrue(all(not old and rotated for old, rotated in logs))
 
     def test_demo_batch_config_path_ignores_inherited_cd_shadow (self):
         marker = 'set "KATLAB_TRACKER_ACTIVITY_DIR=%cd%\\Demo\\runtime\\activity"\n'
@@ -613,9 +828,11 @@ class LifecyclePortTests(unittest.TestCase):
         with (patch.object(lifecycle, "load_profile", return_value=self.profile),
               patch.object(lifecycle, "_listening_pids", return_value={4321}),
               patch.object(lifecycle, "_fetch_health", return_value=good),
+              patch.object(lifecycle, "validate_frontend", return_value=True) as ui,
               patch.object(lifecycle, "_open_browser", return_value=True) as browser):
             self.assertEqual(lifecycle.preflight("tracker"), 10)
             browser.assert_called_once_with(self.profile)
+            ui.assert_called_once_with(REPO, lifecycle.__version__)
         cases = (
             healthy_response(self.profile.repo_ids, version="0.0.0.0"),
             healthy_response(("UM_Dev", "EA_Dev")),
@@ -641,9 +858,11 @@ class LifecyclePortTests(unittest.TestCase):
         with (patch.object(lifecycle, "load_profile", return_value=self.profile),
               patch.object(lifecycle, "_listening_pids", return_value=set()),
               patch.object(lifecycle, "_fetch_health") as health,
+              patch.object(lifecycle, "validate_frontend") as ui,
               patch.object(lifecycle, "_open_browser") as browser):
             self.assertEqual(lifecycle.preflight("tracker"), 0)
             health.assert_not_called()
+            ui.assert_not_called()
             browser.assert_not_called()
 
     def test_preflight_refuses_system_owned_listener_without_http_or_browser (self):
@@ -663,6 +882,7 @@ class LifecyclePortTests(unittest.TestCase):
         with (patch.object(lifecycle, "load_profile", return_value=profile),
               patch.object(lifecycle, "_listening_pids", return_value={4321}),
               patch.object(lifecycle, "_fetch_health", return_value=healthy_response(())),
+              patch.object(lifecycle, "validate_frontend", return_value=True),
               patch.object(lifecycle, "_open_browser", return_value=True)):
             self.assertEqual(lifecycle.preflight("tracker"), 10)
 
@@ -671,6 +891,7 @@ class LifecyclePortTests(unittest.TestCase):
         good = healthy_response(self.profile.repo_ids)
         with (patch.object(lifecycle, "load_profile", return_value=self.profile),
               patch.object(lifecycle, "_fetch_health", side_effect=[bad, good]) as health,
+              patch.object(lifecycle, "validate_frontend", return_value=True) as ui,
               patch.object(lifecycle, "_open_browser", return_value=True) as browser,
               patch.object(lifecycle, "_monotonic", side_effect=[0, 1]),
               patch.object(lifecycle, "_sleep") as sleep):
@@ -678,6 +899,7 @@ class LifecyclePortTests(unittest.TestCase):
             self.assertEqual(health.call_count, 2)
             sleep.assert_called_once_with(lifecycle.POLL_SECONDS)
             browser.assert_called_once_with(self.profile)
+            ui.assert_called_once_with(REPO, lifecycle.__version__)
         with (patch.object(lifecycle, "load_profile", return_value=self.profile),
               patch.object(lifecycle, "_fetch_health", return_value=bad),
               patch.object(lifecycle, "_open_browser") as browser,
@@ -695,6 +917,89 @@ class LifecyclePortTests(unittest.TestCase):
                 lifecycle.ready("demo")
             health.assert_not_called()
             browser.assert_not_called()
+
+    def test_actual_frontend_identity_gates_both_healthy_browser_handoffs (self):
+        for mode in ("tracker", "demo"):
+            for action in ("preflight", "ready"):
+                for current in (False, True):
+                    with self.subTest(mode=mode, action=action, current=current):
+                        with tempfile.TemporaryDirectory(prefix="katlab UI handoff ") as directory:
+                            root = Path(directory)
+                            write_frontend(root, lifecycle.__version__ if current else "0.0.0.0")
+                            with (patch.object(lifecycle, "REPO_ROOT", root),
+                                  patch.object(lifecycle, "load_profile", return_value=self.profile),
+                                  patch.object(lifecycle, "_listening_pids", return_value={4321}),
+                                  patch.object(lifecycle, "_fetch_health", return_value=healthy_response(
+                                      self.profile.repo_ids)),
+                                  patch.object(lifecycle, "_open_browser", return_value=True) as browser):
+                                if current:
+                                    self.assertEqual(getattr(lifecycle, action)(mode),
+                                                     10 if action == "preflight" else 0)
+                                    browser.assert_called_once_with(self.profile)
+                                else:
+                                    with self.assertRaisesRegex(lifecycle.LifecycleError, "Frontend build"):
+                                        getattr(lifecycle, action)(mode)
+                                    browser.assert_not_called()
+
+    def test_ready_reads_actual_frontend_only_after_delayed_health_matches (self):
+        for becomes_current in (False, True):
+            with self.subTest(becomes_current=becomes_current):
+                with tempfile.TemporaryDirectory(prefix="katlab UI readiness ") as directory:
+                    root = Path(directory)
+                    initial = "0.0.0.0" if becomes_current else lifecycle.__version__
+                    final = lifecycle.__version__ if becomes_current else "0.0.0.0"
+                    write_frontend(root, initial)
+                    events = []
+                    replies = iter([False, True])
+                    def health (_profile):
+                        events.append("health")
+                        return next(replies)
+                    def wait (_seconds):
+                        events.append("wait")
+                        write_frontend(root, final)
+                    def check (*args, **kwargs):
+                        events.append("ui")
+                        return frontend.validate_frontend(*args, **kwargs)
+                    def open_browser (_profile):
+                        events.append("browser")
+                        return True
+                    with (patch.object(lifecycle, "REPO_ROOT", root),
+                          patch.object(lifecycle, "load_profile", return_value=self.profile),
+                          patch.object(lifecycle, "_health_matches", side_effect=health),
+                          patch.object(lifecycle, "_sleep", side_effect=wait),
+                          patch.object(lifecycle, "validate_frontend", side_effect=check),
+                          patch.object(lifecycle, "_open_browser", side_effect=open_browser),
+                          patch.object(lifecycle, "_monotonic", return_value=0)):
+                        if becomes_current:
+                            self.assertEqual(lifecycle.ready("tracker"), 0)
+                        else:
+                            with self.assertRaises(lifecycle.LifecycleError):
+                                lifecycle.ready("tracker")
+                    self.assertEqual(events, ["health", "wait", "health", "ui"]
+                                     + (["browser"] if becomes_current else []))
+
+    def test_frontend_failure_is_sanitized_and_stop_never_depends_on_ui (self):
+        with (patch.object(lifecycle, "load_profile", return_value=self.profile),
+              patch.object(lifecycle, "_listening_pids", return_value={4321}),
+              patch.object(lifecycle, "_health_matches", return_value=True),
+              patch.object(lifecycle, "validate_frontend", side_effect=frontend.FrontendBuildError(
+                  "PRIVATE_FRONTEND_PATH")),
+              patch.object(lifecycle, "_open_browser") as browser,
+              contextlib.redirect_stderr(io.StringIO()) as errors):
+            self.assertEqual(lifecycle.main(["preflight", "tracker"]), 1)
+        self.assertNotIn("PRIVATE_FRONTEND_PATH", errors.getvalue())
+        self.assertIn("stop tracker and demo", errors.getvalue())
+        browser.assert_not_called()
+        for listeners in ([set()], [{4321}, {4321}, set()]):
+            with self.subTest(listeners=listeners):
+                with (patch.object(lifecycle, "load_profile", return_value=self.profile),
+                      patch.object(lifecycle, "_listening_pids", side_effect=listeners),
+                      patch.object(lifecycle, "prepare_owned_processes") as prepare,
+                      patch.object(lifecycle, "validate_frontend", side_effect=AssertionError(
+                          "Stop must not validate frontend")) as ui):
+                    self.assertEqual(lifecycle.stop("tracker"), 0)
+                    ui.assert_not_called()
+                    self.assertEqual(prepare.call_count, int(len(listeners) > 1))
 
     def test_http_probe_uses_configured_host_no_proxy_and_no_redirect (self):
         self.assertEqual(lifecycle.Profile("0.0.0.0", 8100, ()).origin,
@@ -752,6 +1057,7 @@ class LifecyclePortTests(unittest.TestCase):
               patch.object(lifecycle, "_listening_pids", return_value={4321}),
               patch.object(lifecycle, "_fetch_health", return_value=healthy_response(
                   self.profile.repo_ids)),
+              patch.object(lifecycle, "validate_frontend", return_value=True),
               patch.object(lifecycle.webbrowser, "open", side_effect=OSError("no browser")),
               contextlib.redirect_stderr(io.StringIO()) as errors):
             self.assertEqual(lifecycle.main(["preflight", "tracker"]), 1)

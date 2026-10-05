@@ -214,7 +214,25 @@ Start TrackingMonitor with `Scripts/start_tracking_monitor.bat`; the default UI 
 
 ### Safe stop and restart
 
-Use `Scripts/restart_tracking_monitor.bat` for upgrades. Stop identifies the
+For a source/version upgrade, stop Tracker with `Scripts/stop_tracking_monitor.bat`
+and stop any demo with its own `Scripts/Demo/stop_demo.bat`. Confirm both configured
+ports are clear: both profiles share `Frontend/dist`, which Vite replaces. Do not
+stop another listener just to make a build possible. From `Frontend/`, run
+`npm run build` and require its successful exit. From the repository root, run
+`.venv\Scripts\python.exe -m Scripts.frontend_build check`, then
+`Scripts/restart_tracking_monitor.bat`. Reload any existing browser tab afterward.
+Do not build concurrently with another start/build operation; these steps are not
+a cross-process build lock. Restarting Python alone does not rebuild existing UI.
+
+Both start scripts reject stale, unmarked, malformed or incomplete existing entry
+builds before dependency setup. Only a genuinely missing index may use first-run
+bootstrap. A second check precedes launch; healthy browser handoffs check again.
+The gate confirms release identity and local nonempty entry assets, not complete
+chunk integrity, same-version source freshness, build-success history or rendered
+UI correctness. A readiness-time refusal can leave the backend running; use the
+owned stop procedure below, not arbitrary PID termination.
+
+Use `Scripts/restart_tracking_monitor.bat` for a current-build restart. Stop identifies the
 configured port, but that port alone never authorizes termination. The supported
 process is the exact repository `.venv/Scripts/pythonw.exe` launcher running
 `-u -m Backend.app.main`, directly or through its verified base-pythonw child.

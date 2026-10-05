@@ -12,7 +12,7 @@ set "CD="
 cd /d "%~dp0..\.."
 if errorlevel 1 (
     echo [ABORT] Could not enter the tracker repository root.
-    exit /b 1
+    goto :abort
 )
 set "KATLAB_TRACKER_DEMO=1"
 set "KATLAB_TRACKER_CONFIG=%cd%\Demo\runtime\repos.demo.yaml"
@@ -26,11 +26,15 @@ if not exist ".venv\Scripts\python.exe" (
     if errorlevel 1 (
         echo [ABORT] venv creation failed - is Python on PATH?
         pause
-        exit /b 1
+        goto :abort
     )
     set "FRESH_VENV=1"
 )
 set "PY=.venv\Scripts\python.exe"
+
+REM Reject stale output before dependency setup; missing output may bootstrap.
+"%PY%" -m Scripts.frontend_build check --allow-missing
+if errorlevel 1 goto :abort
 
 REM A new venv needs PyYAML before the config/port preflight can run.
 if defined FRESH_VENV (
@@ -39,7 +43,7 @@ if defined FRESH_VENV (
     if errorlevel 1 (
         echo [ABORT] pip install failed.
         pause
-        exit /b 1
+        goto :abort
     )
 )
 
@@ -51,7 +55,7 @@ if errorlevel 10 if not errorlevel 11 (
 )
 if errorlevel 1 (
     echo [ABORT] Demo preflight failed; nothing was launched.
-    exit /b 1
+    goto :abort
 )
 
 if not defined FRESH_VENV (
@@ -60,26 +64,33 @@ if not defined FRESH_VENV (
     if errorlevel 1 (
         echo [ABORT] pip install failed.
         pause
-        exit /b 1
+        goto :abort
     )
 )
 
 echo [3/5] Checking frontend build...
 if not exist "Frontend\dist\index.html" (
     pushd Frontend
+    if errorlevel 1 (
+        echo [ABORT] Could not enter the frontend directory.
+        goto :abort
+    )
     call npm install --no-fund --no-audit
-    if errorlevel 1 ( popd & echo [ABORT] npm install failed. & pause & exit /b 1 )
+    if errorlevel 1 ( popd & echo [ABORT] npm install failed. & pause & goto :abort )
     call npm run build
-    if errorlevel 1 ( popd & echo [ABORT] npm build failed. & pause & exit /b 1 )
+    if errorlevel 1 ( popd & echo [ABORT] npm build failed. & pause & goto :abort )
     popd
 )
+
+"%PY%" -m Scripts.frontend_build check
+if errorlevel 1 goto :abort
 
 echo [4/5] Generating demo data (Demo\runtime\)...
 "%PY%" Scripts\demo_bootstrap.py
 if errorlevel 1 (
     echo [ABORT] demo bootstrap failed.
     pause
-    exit /b 1
+    goto :abort
 )
 
 echo [5/5] Starting DEMO HIDDEN (log: Demo\runtime\demo.log)...
@@ -89,12 +100,15 @@ REM Use the shared helper so no CMD wrapper survives the setup window.
 if errorlevel 1 (
     echo [ABORT] Could not launch the demo - see errors above.
     pause
-    exit /b 1
+    goto :abort
 )
 "%PY%" -m Scripts.lifecycle_port ready demo
 if errorlevel 1 (
     echo [ABORT] Demo health was not confirmed; the child may still be starting. See Demo\runtime\demo.log.
-    exit /b 1
+    goto :abort
 )
 endlocal
 exit /b 0
+
+:abort
+exit /b 1
