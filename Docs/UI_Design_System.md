@@ -288,6 +288,9 @@ System always shows the UI build, including loading and failed health requests.
 Accept only an exact four-part server version; missing/malformed versions are
 Unknown. Explain a known UI/server mismatch without automatically reloading or
 claiming that a backend restart updates an already loaded browser tab.
+Missing optional health fields do not establish a version mismatch. When offering
+update guidance, name stop Tracker/demo, rebuild UI, restart Tracker and reload
+the tab conditionally; show that sequence once if warning conditions overlap.
 
 System health is a manually refreshed snapshot, not a live stream. Its stable
 Refresh/Retry control remains disabled while a single request is pending;

@@ -1,5 +1,15 @@
 # Version Notes
 
+## v0.4.0.9 - System Upgrade Guidance (2026-10-05)
+
+- System no longer says a restart alone loads matching frontend/backend code.
+  Missing optional fields do not establish a version mismatch. The existing
+  missing-data and known-mismatch explanations retain their separate conditions.
+- One conditional update sequence says to stop Tracker and demo, rebuild the UI,
+  restart Tracker and reload the tab. It appears only once when warnings overlap.
+- Copy and actual-component SSR regressions only; no new controls, automatic
+  reload, request behavior or dependencies. Native v0.4 acceptance stays pending.
+
 ## v0.4.0.8 - Slow WebSocket Client Isolation (2026-10-05)
 
 - Broadcast now enqueues one shared frame into each client's bounded FIFO and

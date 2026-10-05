@@ -5,13 +5,13 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.8 - Slow WebSocket Client Isolation**
+Current source version: **v0.4.0.9 - System Upgrade Guidance**
 
-Watchers and API responses no longer wait for slow WebSocket delivery. Each client
-has a bounded FIFO and owned cleanup; lagging clients reconnect and resync through
-REST. System snapshot validation and the hook, Git and restart guards remain.
+System distinguishes missing health fields from a known version mismatch. Its
+update guidance names stop, build, restart and tab reload without duplicate
+actions. Slow-client isolation and the snapshot, hook, Git and restart guards remain.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.8_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.9_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -184,7 +184,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.8_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.9_Release_Notes.md)
 
 ## Guarantees
 

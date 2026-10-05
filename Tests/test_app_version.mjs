@@ -93,6 +93,57 @@ test("actual brand and System rendering distinguish UI build, known server versi
       }
     });
 
+    await t.test("System upgrade guidance separates missing fields from version mismatch without duplicate actions", () => {
+      const guidance = "If updating: stop Tracker and demo, rebuild the UI, restart Tracker, then reload this tab.";
+      const complete = {
+        server: { version, started_ts: "2026-10-01T00:00:00Z", db_bytes: 0,
+          watchers_alive: 1, watchers_total: 1, hook_registered: false, hook_settings_path: "" },
+        repos: [], activity: { pending: 0, rejected: 0, ignored_unscoped: 0,
+          registry_revision_mismatch: 0 }, providers: [], chronicle: { state: "running" },
+      };
+      const cases = [
+        [[], [], false],
+        [["activity"], ["activity inbox"], false],
+        [["providers"], ["provider health"], false],
+        [["chronicle"], ["Chronicle worker health"], false],
+        [["activity", "providers", "chronicle"],
+          ["activity inbox", "provider health", "Chronicle worker health"], false],
+        [["activity", "providers"], ["activity inbox", "provider health"], true],
+      ];
+      for (const serverVersion of [version, undefined, "99.98.97.96"]) {
+        for (const [keys, names, nullable] of cases) {
+          const data = structuredClone(complete);
+          data.server.version = serverVersion;
+          for (const key of keys) {
+            if (nullable) data[key] = null;
+            else delete data[key];
+          }
+          const html = render(HealthSnapshotContent, { snapshot: {
+            data, receivedAt: "2026-10-01T00:05:00Z" }, error: "", busy: false, onRefresh() {} });
+          const mismatch = serverVersion === "99.98.97.96";
+          assert.equal(html.includes("UI build and server versions differ"), mismatch);
+          assert.equal(html.split(guidance).length - 1, names.length || mismatch ? 1 : 0);
+          assert.doesNotMatch(html, /load matching backend and frontend code/);
+          if (names.length) {
+            const warning = html.match(/Additional health data unavailable<\/p><p[^>]*>(.*?)<\/p>/)?.[1];
+            assert.ok(warning, "inspect the actual missing-data warning, not another paragraph");
+            const missing = names.length > 1
+              ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0];
+            assert.ok(warning.includes(`did not provide ${missing}.`));
+            assert.ok(warning.includes("Missing fields do not establish a version mismatch."));
+            assert.ok(warning.includes(guidance));
+          } else {
+            assert.doesNotMatch(html, /Additional health data unavailable|Missing fields do not establish/);
+          }
+        }
+      }
+      const invalid = { ...complete, chronicle: { state: "unexpected" } };
+      const html = render(HealthSnapshotContent, { snapshot: {
+        data: invalid, receivedAt: "2026-10-01T00:05:00Z" }, error: "", busy: false, onRefresh() {} });
+      assert.ok(html.includes("Chronicle health data has an unexpected shape"));
+      assert.doesNotMatch(html, /Additional health data unavailable|If updating:/);
+    });
+
     await t.test("build is visible without health and mismatch is based only on accepted snapshots", () => {
       const base = { server: { version, started_ts: "2026-10-01T00:00:00Z", db_bytes: 0,
         watchers_alive: 1, watchers_total: 1, hook_registered: false, hook_settings_path: "" },

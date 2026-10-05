@@ -10,6 +10,8 @@ import { startHealthRequest } from "./healthRequest";
 import { CollectionPager, useBoundedPage } from "./ui";
 import { decodeAppVersion, UI_BUILD_VERSION } from "./appVersion";
 
+const UPGRADE_GUIDANCE = "If updating: stop Tracker and demo, rebuild the UI, restart Tracker, then reload this tab.";
+
 function fmtBytes (bytes: number): string {
   if (bytes < 1024) return bytes + " B";
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
@@ -75,8 +77,7 @@ export function HealthBody ({ data, receivedAt }: {
       {serverVersion !== null && serverVersion !== UI_BUILD_VERSION && (
         <p className="my-3 rounded-control border border-ui-border bg-ui-raised p-3 text-sky-200">
           UI build and server versions differ. This does not indicate which is newer
-          or healthy. Rebuild and restart the intended installation, then reload
-          this page when you are ready.
+          or healthy.{!missingExtensions && <> {UPGRADE_GUIDANCE}</>}
         </p>
       )}
       <Row label="uptime">{fmtMinutes(uptimeMin)}</Row>
@@ -104,8 +105,8 @@ export function HealthBody ({ data, receivedAt }: {
         <div className="mt-3 rounded-control border border-amber-700 bg-amber-950/30 p-3 text-amber-200">
           <p className="font-semibold">Additional health data unavailable</p>
           <p className="mt-1">
-            Server version {serverVersion ?? "Unknown"} did not provide {missingExtensions}. Restart
-            TrackingMonitor to load matching backend and frontend code.
+            Server version {serverVersion ?? "Unknown"} did not provide {missingExtensions}.
+            {" "}Missing fields do not establish a version mismatch. {UPGRADE_GUIDANCE}
           </p>
         </div>
       )}
