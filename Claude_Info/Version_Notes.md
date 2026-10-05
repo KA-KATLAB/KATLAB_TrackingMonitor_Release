@@ -1,5 +1,17 @@
 # Version Notes
 
+## v0.4.0.7 - System Health Response Guard (2026-10-05)
+
+- System validates consumed health fields before accepting a response. Malformed
+  successful JSON uses the existing error/Retry lane and cannot replace the last
+  valid data or receipt time. The diagnostic does not echo payload contents.
+- Legacy missing/null optional activity/provider data, empty collections, unknown
+  version and independently decoded Chronicle state remain supported. Future
+  string health provider labels do not enable new capture providers.
+- No layout, polling, request deadline, backend response, dependency or settings
+  changes. Regression evidence uses actual-source request/SSR checks, not native
+  interaction acceptance, which remains pending for the v0.4 UI.
+
 ## v0.4.0.6 - Bounded Hook Preflight (2026-10-05)
 
 - The standalone operator CLI now reads at most 1 MiB plus a detection byte and

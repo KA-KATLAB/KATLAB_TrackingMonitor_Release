@@ -22,7 +22,7 @@ memory-allocation ceiling or atomic/coherent snapshot guarantee is added. Tests
 use isolated settings fixtures, not operator configuration. Rejected files require
 operator review; no automatic trimming or repair is attempted.
 
-Follow the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart)
+Follow the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart)
 to rebuild the canonical UI version and restart, then reload existing tabs.
 CDD/CFT, focused/full tests, activation and publication evidence is recorded in
 `temp/Plan/PLAN_v0.4.0.6_Bounded_Hook_Preflight.txt`.
@@ -31,5 +31,5 @@ Native v0.4 visual/interaction acceptance remains pending. Existing chunk notice
 and default-branch dependency alerts are not resolved. The earlier one-off native
 launcher test-fixture failure is not claimed fixed by this CLI change.
 
-Previous [v0.4.0.5 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.5_Release_Notes.md)
+Previous [v0.4.0.5 notes](TrackingMonitor_v0.4.0.5_Release_Notes.md)
 retain their historical health-only scope, with only move-affected links rebased.

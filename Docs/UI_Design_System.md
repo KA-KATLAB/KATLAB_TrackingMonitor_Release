@@ -297,6 +297,15 @@ local browser receipt time, update it only on an accepted response, and base
 the displayed uptime on that receipt time. This is not a server observation
 timestamp or freshness guarantee. Health requests bypass browser cache.
 
+Validate consumed health fields before accepting a snapshot. Malformed successful
+JSON uses the existing static failure/Retry path without echoing its contents or
+replacing prior data/receipt time. Counts and byte sizes must be nonnegative safe
+integers (nullable sizes remain valid); server start time must parse for uptime.
+Other nullable timestamps retain string formatter fallbacks. Missing/null optional
+activity/providers, empty collections and extra fields remain compatible. Version
+and Chronicle keep their independent Unknown/missing/invalid decoders. This is a
+display-data guard, not proof of server health or a global render error boundary.
+
 Health's polite atomic status region lives inside the modal, outside the
 inert application root. Do not rely only on the background status announcer
 or mark the local status region busy while announcing a request. Refresh

@@ -9,11 +9,18 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const frontendRequire = createRequire(resolve(root, "Frontend/package.json"));
 const ts = frontendRequire("typescript");
 
-function loadTypeScript (name) {
+async function loadTypeScript (name) {
   const source = readFileSync(resolve(root, "Frontend/src", name), "utf8");
-  const emitted = ts.transpileModule(source, {
+  let emitted = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
   }).outputText;
+  if (name === "healthRequest.ts") {
+    const model = ts.transpileModule(readFileSync(resolve(root, "Frontend/src/healthModel.ts"), "utf8"), {
+      compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    emitted = emitted.replace('"./healthModel"',
+      JSON.stringify(`data:text/javascript;base64,${Buffer.from(model).toString("base64")}`));
+  }
   return import(`data:text/javascript;base64,${Buffer.from(emitted).toString("base64")}`);
 }
 
@@ -78,7 +85,39 @@ async function flush () {
   for (let index = 0; index < 6; index++) await Promise.resolve();
 }
 
-const payload = { server: { version: "0.3.1.6" }, repos: [] };
+const payload = { server: { version: "0.3.1.6", started_ts: "2026-09-30T00:00:00Z",
+  db_bytes: null, watchers_alive: 0, watchers_total: 0,
+  hook_registered: false, hook_settings_path: "" }, repos: [] };
+
+test("malformed success settles once with a static error; late malformed values are ignored", async () => {
+  await withClock(async (clock) => {
+    const results = [];
+    const action = createActionDeadline();
+    const stop = startHealthRequest({ action, request: async () => ({ server: null, secret: "do-not-echo" }),
+      onResult: result => results.push(result) });
+    await flush();
+    assert.deepEqual(results, [{ ok: false,
+      error: "System health response is invalid. Retry to request a new snapshot." }]);
+    assert.equal(clock.timers.size, 0);
+    stop();
+    assert.equal(action.signal.aborted, false);
+    for (const cancel of [false, true]) {
+      const pending = deferred();
+      const lateResults = [];
+      const lateAction = createActionDeadline();
+      const cleanup = startHealthRequest({ action: lateAction, request: () => pending.promise,
+        onResult: result => lateResults.push(result) });
+      if (cancel) cleanup();
+      else clock.advance(10_000);
+      pending.resolve(null);
+      await flush();
+      assert.equal(lateResults.length, cancel ? 0 : 1);
+      if (!cancel) assert.match(lateResults[0].error, /timed out/);
+      assert.equal(clock.timers.size, 0);
+      cleanup();
+    }
+  });
+});
 
 test("one request forwards the exact signal, accepts once, and releases its timer", async () => {
   await withClock(async (clock) => {
@@ -327,4 +366,74 @@ test("SSR covers loading, initial failure, accepted, refreshing, failed refresh,
   } finally {
     await vite.close();
   }
+});
+
+test("actual health fetch and owned decoder keep malformed data out of System SSR", {
+  timeout: 30_000,
+}, async () => {
+  const React = frontendRequire("react");
+  const { renderToStaticMarkup } = frontendRequire("react-dom/server");
+  const { createServer } = await import(pathToFileURL(frontendRequire.resolve("vite")).href);
+  const vite = await createServer({ root: resolve(root, "Frontend"),
+    server: { middlewareMode: true, hmr: false, ws: false }, appType: "custom",
+    optimizeDeps: { noDiscovery: true, entries: [] } });
+  try {
+    const { HealthSnapshotContent } = await vite.ssrLoadModule("/src/healthPanel.tsx");
+    const { UI_BUILD_VERSION } = await vite.ssrLoadModule("/src/appVersion.ts");
+    let response;
+    const malformed = [null, {}, { ...payload, server: null }, { ...payload, repos: null },
+      { ...payload, repos: [null] }, { ...payload, providers: [null] },
+      { ...payload, providers: [{ provider: "claude", configuration_state: 42 }] },
+      { ...payload, activity: { pending: { private: "do-not-echo" } } }];
+    await withGlobal("fetch", { value: async () => ({ ok: true,
+      json: async () => ({ success: true, data: response }) }) }, async () => withClock(async (clock) => {
+      const receive = async (value) => {
+        response = value;
+        const results = [];
+        const stop = startHealthRequest({ action: createActionDeadline(), request: api.health,
+          onResult: result => results.push(result) });
+        await flush();
+        assert.equal(results.length, 1);
+        assert.equal(clock.timers.size, 0);
+        stop();
+        return results[0];
+      };
+      const render = (snapshot, error) => renderToStaticMarkup(React.createElement(HealthSnapshotContent,
+        { snapshot, error, busy: false, onRefresh() {} }));
+      for (const value of malformed) {
+        const result = await receive(value);
+        assert.equal(result.ok, false);
+        const html = render(null, result.error);
+        assert.match(html, />Retry<\/button>/);
+        assert.ok(html.includes(UI_BUILD_VERSION));
+        assert.doesNotMatch(html, /<h3[^>]*>Server<\/h3>|do-not-echo/);
+      }
+      const first = await receive(payload);
+      assert.equal(first.ok, true);
+      const snapshot = { data: first.data, receivedAt: "2026-09-30T00:45:00Z" };
+      const before = structuredClone(snapshot);
+      for (const value of malformed) {
+        const result = await receive(value);
+        assert.equal(result.ok, false);
+        const html = render(snapshot, result.error);
+        assert.match(html, /Showing the last successful response/);
+        assert.match(html, /has not been updated/);
+        assert.match(html, /dateTime="2026-09-30T00:45:00Z"/i);
+        assert.match(html, /0\.3\.1\.6/);
+        assert.match(html, />Retry<\/button>/);
+        assert.deepEqual(snapshot, before);
+      }
+      const recovery = { ...payload, server: { ...payload.server, version: null },
+        activity: null, providers: [], chronicle: { state: "future-state" } };
+      const result = await receive(recovery);
+      assert.equal(result.ok, true);
+      assert.equal(result.data, recovery);
+      const html = render({ data: result.data, receivedAt: "2026-09-30T01:00:00Z" }, "");
+      assert.match(html, /dateTime="2026-09-30T01:00:00Z"/i);
+      assert.match(html, /Unknown|health data invalid/);
+      assert.match(html, /Additional health data unavailable/);
+      assert.match(html, />Refresh<\/button>/);
+      assert.doesNotMatch(html, /Showing the last successful response/);
+    }));
+  } finally { await vite.close(); }
 });

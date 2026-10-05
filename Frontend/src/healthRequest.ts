@@ -1,4 +1,5 @@
 import type { ActionDeadline, HealthPayload } from "./api";
+import { decodeHealthPayload } from "./healthModel";
 
 export type HealthRequestResult =
   | { ok: true; data: HealthPayload }
@@ -7,7 +8,7 @@ export type HealthRequestResult =
 /** One owned request; cleanup and deadline settlement never wait for transport. */
 export function startHealthRequest ({ action, request, onResult }: {
   action: ActionDeadline;
-  request: (signal: AbortSignal) => Promise<HealthPayload>;
+  request: (signal: AbortSignal) => Promise<unknown>;
   onResult: (result: HealthRequestResult) => void;
 }): () => void {
   let settled = false;
@@ -35,7 +36,13 @@ export function startHealthRequest ({ action, request, onResult }: {
   } else {
     try {
       void request(action.signal).then(
-        (data) => finish({ ok: true, data }),
+        (value) => {
+          if (settled) return;
+          const data = decodeHealthPayload(value);
+          finish(data === null
+            ? { ok: false, error: "System health response is invalid. Retry to request a new snapshot." }
+            : { ok: true, data });
+        },
         (errorValue) => finish({
           ok: false,
           error: `System health failed: ${String(errorValue).slice(0, 120)}`,

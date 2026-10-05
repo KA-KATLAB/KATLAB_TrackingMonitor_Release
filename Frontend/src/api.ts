@@ -1,7 +1,5 @@
 // REST client - UM envelope {success, data, message, timestamp}.
 
-import type { ChronicleWorkerState } from "./healthModel";
-
 export interface Repo {
   id: string;
   name: string;
@@ -22,7 +20,7 @@ export interface Repo {
 // v0.2.3.0 D2 (B.2): the /api/health payload — nullables mirror the
 // route's guarded stats; mtime is ISO-Z, comparable with last_event_ts.
 export interface HealthServer {
-  version: string;
+  version?: unknown; // Separately decoded for the Unknown version display.
   started_ts: string;
   db_bytes: number | null;
   watchers_alive: number;
@@ -45,7 +43,7 @@ export interface HealthActivity {
   registry_revision_mismatch: number;
 }
 export interface ProviderHealth {
-  provider: EventProvider;
+  provider: string; // Health labels can name future providers without enabling capture.
   adapter_present: boolean;
   configuration_valid: boolean;
   configuration_state: string;
@@ -57,9 +55,9 @@ export interface HealthPayload {
   repos: HealthRepo[];
   // Optional only at the live rollout boundary: an older server can briefly
   // serve newly built frontend assets until TrackingMonitor is restarted.
-  activity?: HealthActivity;
-  providers?: ProviderHealth[];
-  chronicle?: { state: ChronicleWorkerState };
+  activity?: HealthActivity | null;
+  providers?: ProviderHealth[] | null;
+  chronicle?: unknown; // Own decoder distinguishes missing, invalid and known state.
 }
 
 export interface Task {
@@ -358,7 +356,7 @@ async function call<T> (url: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   repos: (signal?: AbortSignal) => call<Repo[]>("/api/repos", { signal }),
-  health: (signal?: AbortSignal) => call<HealthPayload>("/api/health", { signal, cache: "no-store" }),
+  health: (signal?: AbortSignal) => call<unknown>("/api/health", { signal, cache: "no-store" }),
   tasks: (repo?: string, signal?: AbortSignal) => {
     const q = new URLSearchParams();
     if (repo) q.set("repo", repo);
