@@ -57,6 +57,67 @@ class GitAllowlistTests(unittest.TestCase):
         self.assertTrue(got["status_valid"])
         self.assertEqual(got["observed_at"], "2026-01-02T03:04:05Z")
 
+    def test_dynamic_revisions_reject_before_the_git_boundary (self) -> None:
+        invalid = (None, False, 7, b"HEAD", [], "", "HEAD\0PRIVATE_REF",
+                   "-", "--", "-p", "--output=PRIVATE_FILE", "--ext-diff")
+        calls = (
+            lambda ref: git_module.commit_file_diff(Path("synthetic"), ref, "file.txt"),
+            lambda ref: git_module.commit_info(Path("synthetic"), ref),
+            lambda ref: list(git_module._commit_hash_pages(Path("synthetic"), ref, 3)),
+        )
+        for index, call in enumerate(calls):
+            for ref in invalid:
+                with self.subTest(helper=index, ref=ref), \
+                     patch.object(git_module, "_run") as run, \
+                     patch.object(git_module.subprocess, "run") as process:
+                    with self.assertRaises(git_module.GitError) as raised:
+                        call(ref)
+                    self.assertEqual(str(raised.exception), "Invalid Git revision")
+                    run.assert_not_called()
+                    process.assert_not_called()
+
+    def test_revision_guard_keeps_generator_lazy_but_precedes_first_process (self) -> None:
+        with patch.object(git_module, "_run") as run:
+            pages = git_module._commit_hash_pages(Path("synthetic"), "--output=PRIVATE", 3)
+            run.assert_not_called()
+            with self.assertRaisesRegex(git_module.GitError, "^Invalid Git revision$"):
+                next(pages)
+            run.assert_not_called()
+
+    def test_normal_revision_arguments_are_not_rewritten_or_restricted_to_hashes (self) -> None:
+        repo = Path("synthetic")
+        revisions = ("a" * 40, "B" * 64, "a1b2c3d", "HEAD", "feature/review",
+                     "HEAD~1", "HEAD^{commit}", "base..HEAD", "HEAD:path with spaces",
+                     'HEAD:quote"name', "HEAD:line\nname")
+        for ref in revisions:
+            with self.subTest(ref=ref), patch.object(git_module, "_run") as run:
+                run.return_value = "patch"
+                self.assertEqual(git_module.commit_file_diff(repo, ref, "file.txt"), "patch")
+                run.assert_called_once_with(repo, "show", "--format=", ref, "--", "file.txt")
+                run.reset_mock()
+                run.return_value = "hash\nparent\n2026-10-05T00:00:00+00:00\nsubject\nfile.txt\n"
+                self.assertEqual(git_module.commit_info(repo, ref)["hash"], "hash")
+                run.assert_called_once_with(repo, "show", "--name-only", "--no-renames",
+                                            "--format=%H%n%P%n%cI%n%s", ref)
+                run.reset_mock()
+                run.return_value = "hash\n"
+                self.assertEqual(list(git_module._commit_hash_pages(repo, ref, 3)), [["hash"]])
+                run.assert_called_once_with(repo, "log", "--topo-order", "--max-count=3",
+                                            "--skip=0", "--format=%H", ref)
+
+    def test_dash_prefixed_paths_stay_after_the_file_separator (self) -> None:
+        repo, path = Path("synthetic"), "--output=literal-file.txt"
+        with patch.object(git_module, "_run", return_value="patch") as run:
+            git_module.file_diff(repo, path)
+            run.assert_called_once_with(repo, "diff", "HEAD", "--", path)
+            run.reset_mock()
+            git_module.commit_file_diff(repo, "HEAD", path)
+            run.assert_called_once_with(repo, "show", "--format=", "HEAD", "--", path)
+            run.reset_mock()
+            run.return_value = "?? " + path
+            self.assertEqual(git_module.file_state(repo, path), "untracked")
+            run.assert_called_once_with(repo, "status", "--porcelain", "--ignored", "--", path)
+
     def test_status_parser_handles_detached_unborn_and_clean (self) -> None:
         detached = git_module.parse_status_porcelain_v2(
             "# branch.oid 0123456789abcdef\0# branch.head (detached)\0"

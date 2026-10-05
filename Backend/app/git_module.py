@@ -2,6 +2,7 @@
 
 Only ``status``, ``diff``, ``log``, and ``show`` may reach the Git executable.
 The allowlist is enforced immediately before every subprocess invocation.
+Dynamic revision inputs are also guarded before they can become Git options.
 
 Failure isolation (F41/F42): every call site tolerates transient git
 failures (e.g. index.lock held while the user is mid-commit) - callers keep
@@ -143,10 +144,17 @@ def file_diff (repo: Path, file_path: str) -> str:
     return _run(repo, "diff", "HEAD", "--", file_path)
 
 
+def _require_revision (ref: str) -> None:
+    """Keep a revision as one argument, never an option; not a grammar parser."""
+    if not isinstance(ref, str) or not ref or "\0" in ref or ref.startswith("-"):
+        raise GitError("Invalid Git revision")
+
+
 def commit_file_diff (repo: Path, commit_hash: str, file_path: str) -> str:
     """v0.1.2.0 D3: ONE commit's change for ONE file. Empty --format
     suppresses the commit header (P7) so the output is a pure diff like the
     HEAD path. Empty output = file not part of that commit (swept events)."""
+    _require_revision(commit_hash)
     return _run(repo, "show", "--format=", commit_hash, "--", file_path)
 
 
@@ -185,6 +193,7 @@ def commit_info (repo: Path, ref: str = "HEAD") -> dict:
     via `git show`. v0.1.9.0 A.1: %P rides the SAME call - the raw value is
     space-separated full parent hashes; "" for a root commit (known-empty,
     distinct from the pre-upgrade NULL rows)."""
+    _require_revision(ref)
     out = _run(
         repo, "show", "--name-only", "--no-renames",
         "--format=%H%n%P%n%cI%n%s", ref,
@@ -207,6 +216,7 @@ def commit_info (repo: Path, ref: str = "HEAD") -> dict:
 def _commit_hash_pages (repo: Path, revision: str,
                         page_size: int):
     """Yield one stable revision's history in bounded topological pages."""
+    _require_revision(revision)
     offset = 0
     while True:
         out = _run(

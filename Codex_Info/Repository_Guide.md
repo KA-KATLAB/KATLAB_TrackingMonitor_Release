@@ -125,6 +125,11 @@ When prose and running code disagree, do not silently choose one. Establish whet
 
 - The allowed Git verbs are `status`, `diff`, `log`, and `show` only.
 - All Git calls belong in `git_module.py`, use bounded execution, and raise `GitError` for callers to isolate.
+- Validate every dynamic revision before `_run`: reject non-string, empty,
+  NUL-containing and leading-hyphen values with a static error. Do not normalize
+  refs or restrict ordinary revision expressions to hashes. Keep file paths after
+  `--`; a dash-prefixed filename is not a revision. A verb allowlist alone does
+  not make arbitrary options or repository Git configuration a safe sandbox.
 - The UI diff is against `HEAD` so staged changes remain visible.
 - Detect commits oldest-first and link eligible events before clean sweeps.
 - A clean sweep may attach otherwise-unlinkable events to `HEAD`; keep its documented attribution limitations honest.

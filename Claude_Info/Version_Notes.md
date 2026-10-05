@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.4.0.4 - Git Revision Boundary (2026-10-05)
+
+- Shared validation prevents dynamic revision parameters from becoming Git
+  options in commit diffs, commit metadata and paged history. Non-string, empty,
+  NUL-containing and leading-hyphen revisions fail before the subprocess boundary
+  with a static error that does not echo their contents.
+- The diff API retains its existing failure envelope without a working-tree
+  fallback. Missing/empty optional commit, normal refs/expressions, separated file
+  paths, demo/offline behavior and commit catch-up are unchanged.
+- No new Git commands/flags, dependencies, UI layout or data/API shape changes.
+  This fixes parameter handling, not arbitrary repository Git configuration or
+  future callers outside the validated helpers. Native UI acceptance remains pending.
+
 ## v0.4.0.3 - Stop Failure Diagnostics (2026-10-05)
 
 - Expected stop failures carry a fixed caller-phase code for configuration,

@@ -2,11 +2,13 @@
 
 import json
 import sqlite3
+import subprocess
 import tempfile
 import threading
 import unittest
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -187,6 +189,81 @@ class MissionApiTests(unittest.TestCase):
         self.assertEqual(self.client.get(
             "/api/mission", params={"repo": "missing"},
         ).status_code, 404)
+
+    def test_diff_rejects_revision_options_privately_without_fallback (self) -> None:
+        for revision in (
+                "--output=C:/PRIVATE_REVISION_SENTINEL/result.txt",
+                "-p", "--stat", "--", "HEAD\0PRIVATE_REVISION_SENTINEL"):
+            with self.subTest(revision=revision), \
+                 patch.object(routes.git_module.subprocess, "run") as run, \
+                 patch.object(routes.git_module, "file_diff") as working_diff, \
+                 patch.object(routes.git_module, "file_state") as file_state:
+                response = self.client.get("/api/diff", params={
+                    "repo": "Repo_A", "file": "src/fixture.py", "commit": revision,
+                })
+                self.assertEqual(response.status_code, 200)
+                body = response.json()
+                self.assertEqual(set(body), {"success", "data", "message", "timestamp"})
+                self.assertIs(body["success"], False)
+                self.assertIsNone(body["data"])
+                self.assertEqual(body["message"], "git diff failed: Invalid Git revision")
+                self.assertNotIn("PRIVATE_REVISION_SENTINEL", response.text)
+                run.assert_not_called()
+                working_diff.assert_not_called()
+                file_state.assert_not_called()
+
+    def test_diff_preserves_revision_and_working_tree_argument_paths (self) -> None:
+        file = "--output=literal-file.txt"
+        for revision in ("abcdef1", "HEAD", "feature/topic", "main..HEAD", "HEAD~1"):
+            completed = subprocess.CompletedProcess([], 0, "fixture diff\n", "")
+            with self.subTest(revision=revision), patch.object(
+                    routes.git_module.subprocess, "run", return_value=completed) as run:
+                response = self.client.get("/api/diff", params={
+                    "repo": "Repo_A", "file": file, "commit": revision,
+                })
+                self.assertEqual(response.status_code, 200)
+                self.assertIs(response.json()["success"], True)
+                self.assertEqual(response.json()["data"], {"file": file, "diff": "fixture diff\n"})
+                run.assert_called_once()
+                self.assertEqual(run.call_args.args[0], [
+                    "git", "-C", str(self.repo_a), "show", "--format=", revision, "--", file,
+                ])
+
+        for revision in (None, ""):
+            params = {"repo": "Repo_A", "file": file}
+            if revision is not None:
+                params["commit"] = revision
+            results = [subprocess.CompletedProcess([], 0, text, "")
+                       for text in ("", f"?? {file}\n")]
+            with self.subTest(revision=revision), patch.object(
+                    routes.git_module.subprocess, "run", side_effect=results) as run:
+                response = self.client.get("/api/diff", params=params)
+                self.assertEqual(response.status_code, 200)
+                self.assertIs(response.json()["success"], True)
+                self.assertIn("new untracked file", response.json()["data"]["diff"])
+                self.assertEqual([call.args[0][3:] for call in run.call_args_list], [
+                    ["diff", "HEAD", "--", file],
+                    ["status", "--porcelain", "--ignored", "--", file],
+                ])
+
+    def test_diff_unknown_offline_and_demo_repositories_never_invoke_git (self) -> None:
+        for repo_id, config_repo, expected in (
+                ("missing", self.repos[0], 404),
+                ("Repo_A", replace(self.repos[0], offline=True), 404),
+                ("Repo_A", replace(self.repos[0], demo_status={}), 200)):
+            config = replace(self.config, repos=(config_repo,))
+            with self.subTest(repo=repo_id, offline=config_repo.offline, expected=expected), \
+                 patch.object(self.tracker, "config", config), \
+                 patch.object(routes.git_module.subprocess, "run") as run:
+                response = self.client.get("/api/diff", params={
+                    "repo": repo_id, "file": "fixture.txt",
+                    "commit": "--output=PRIVATE_REVISION_SENTINEL.txt",
+                })
+                self.assertEqual(response.status_code, expected)
+                if expected == 200:
+                    self.assertIs(response.json()["success"], True)
+                    self.assertIn("intentionally disabled", response.json()["data"]["diff"])
+                run.assert_not_called()
 
     def test_forecast_uses_paired_paths_and_completed_plan_sync (self) -> None:
         repo_id = "Repo_A"

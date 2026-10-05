@@ -212,6 +212,15 @@ Start TrackingMonitor with `Scripts/start_tracking_monitor.bat`; the default UI 
 `http://127.0.0.1:8100`. Mission is directly addressable with
 `http://127.0.0.1:8100/?view=mission`.
 
+### Read-only Git requests
+
+The diff API treats a supplied commit as a revision, never as command options.
+Option-like or NUL-containing commit values return the existing failure envelope
+without echoing that input or falling back to a working-tree diff. The guard is
+not a full Git revision grammar validator. Normal refs/expressions and paths
+after Git's file separator retain their behavior. This does not sandbox arbitrary
+repository Git configuration or external tools configured by the repository owner.
+
 ### Safe stop and restart
 
 For a source/version upgrade, stop Tracker with `Scripts/stop_tracking_monitor.bat`

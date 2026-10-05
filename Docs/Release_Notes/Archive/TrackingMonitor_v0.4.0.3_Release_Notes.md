@@ -13,7 +13,7 @@
 
 ## Operation and limits
 
-See the [phase codes and safe restart procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+See the [phase codes and safe restart procedure](../../../Docs/Installation_Guideline.md#safe-stop-and-restart).
 Ownership checks, captured targets, one stop deadline, both launcher profiles and
 restart's failure cutoff are unchanged. There is no automatic retry or forced
 termination fallback. The exact cause of the earlier intermittent live refusal
@@ -38,5 +38,5 @@ hidden-launch and copied-batch checks remain. Full review, test, activation and
 publication results are recorded in the ignored plan:
 `temp/Plan/PLAN_v0.4.0.3_Stop_Failure_Diagnostics.txt`.
 
-Previous [v0.4.0.2 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.2_Release_Notes.md)
+Previous [v0.4.0.2 notes](TrackingMonitor_v0.4.0.2_Release_Notes.md)
 are archived with only move-affected links rebased.
