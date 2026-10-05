@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { canonicalPrintedText } from "./helpers/printed_source.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const frontendRoot = resolve(root, "Frontend");
@@ -69,8 +70,8 @@ function sourceHash (fileName, functionName, prelude = false) {
     visit(fn); assert.ok(list, "actual record row rendering is present"); nodes = [list];
   }
   const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
-  return createHash("sha256").update(nodes.map((node) =>
-    printer.printNode(ts.EmitHint.Unspecified, node, file)).join("\n")).digest("hex");
+  return createHash("sha256").update(canonicalPrintedText(nodes.map((node) =>
+    printer.printNode(ts.EmitHint.Unspecified, node, file)).join("\n"))).digest("hex");
 }
 
 test("year snapshot period labels", { timeout: 30_000 }, async (t) => {

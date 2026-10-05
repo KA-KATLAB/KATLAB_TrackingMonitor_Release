@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { canonicalPrintedText } from "./helpers/printed_source.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const frontend = resolve(root, "Frontend");
@@ -79,6 +80,27 @@ test("actual Mission repository summary requires trusted status without changing
 
 // Portable structural guard, no Git dependency in CI: these normalized pre-render
 // blocks include original filters, paging, request owners, callbacks and cleanup.
+// v0.4.0.12 EventRow adds only its owned row ref and neutral recovery announcement.
+// The printer retains source newlines in JSX text; canonicalize Windows CRLF.
+function preRenderCode (ast, name) {
+  const statements = [...declaration(ast, name).body.statements];
+  assert.ok(ts.isReturnStatement(statements.pop()), `${name} final render boundary`);
+  const printer = ts.createPrinter({ removeComments: true });
+  return canonicalPrintedText(statements.map((node) =>
+    printer.printNode(ts.EmitHint.Unspecified, node, ast)).join("\n"));
+}
+
+test("structural oracle treats LF and CRLF identically in actual early-return JSX", () => {
+  assert.equal(canonicalPrintedText("a\r\nb\\r\\n\r"), "a\nb\\r\\n\r",
+    "only physical CRLF is normalized, not escapes or bare CR");
+  const text = extract(app, "FolderView").replace(/\r\n/g, "\n");
+  const expected = preRenderCode(app, "FolderView");
+  for (const variant of [text, text.replace(/\n/g, "\r\n")]) {
+    const ast = ts.createSourceFile("App.tsx", variant, ts.ScriptTarget.Latest, true);
+    assert.equal(preRenderCode(ast, "FolderView"), expected);
+  }
+});
+
 test("operational restyling preserves all original computation and async-owner blocks", () => {
   const expected = {
     ChangesView: "4ede584f19ea9f02448560389fafcb70630c94f62dbc2c131c7d1e7853cfe49e",
@@ -86,16 +108,13 @@ test("operational restyling preserves all original computation and async-owner b
     TaskGroup: "c911db0234ae4e40b5304ddf7bf366552d67b55cba86978b20234648ec643b9f",
     PickSection: "46ed46052b639107004c618e7e165927a0ce9f233217821f7a0a5b5c495b0c09",
     PickRow: "b47550a34d63c8a09af31b4d2b14b337c86c3c027a20f5fdfd06eb4330e118d8",
-    EventRow: "8d1ac349134cd68c9361d99ec80d8332a6ee2a0eacb4dc10e7f180fdb55e5092",
+    EventRow: "82a0fcbdc83c2559febd75d234c3a859bf330fb897e1f370e457785fb4a6543a",
     HistoryCommitCard: "86651ba8904391f1fbdcdc0fb271a3cb5a0fb184f02bcd251bd82740ab23efb4",
     FolderView: "96c29b4b51de1753d67093b94e0396b277411a490a76dd73cb9b66c2c9aabac5",
     FolderRepoCard: "ec305e48ca03d3a63eb854894f83eb1237aaef42c9581e19aa6466d35240b3a4",
   };
-  const printer = ts.createPrinter({ removeComments: true });
   for (const [name, hash] of Object.entries(expected)) {
-    const statements = [...declaration(app, name).body.statements];
-    assert.ok(ts.isReturnStatement(statements.pop()), `${name} final render boundary`);
-    const code = statements.map((node) => printer.printNode(ts.EmitHint.Unspecified, node, app)).join("\n");
+    const code = preRenderCode(app, name);
     assert.equal(createHash("sha256").update(code).digest("hex"), hash, name);
   }
   assert.doesNotMatch(read("App.tsx"), /text-\[1[01]px\]/);

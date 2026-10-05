@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { canonicalPrintedText } from "./helpers/printed_source.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const frontend = resolve(root, "Frontend");
@@ -16,7 +17,7 @@ const read = (file) => readFileSync(resolve(frontend, "src", file), "utf8");
 const parse = (file) => ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true,
   file.endsWith("tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
 const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
-const hash = (text) => createHash("sha256").update(text).digest("hex");
+const hash = (text) => createHash("sha256").update(canonicalPrintedText(text)).digest("hex");
 const render = (component, props) => renderToStaticMarkup(React.createElement(component, props));
 const elements = (node) => Array.isArray(node) ? node.flatMap(elements)
   : React.isValidElement(node) ? [node, ...elements(node.props.children)] : [];

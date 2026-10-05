@@ -1,5 +1,20 @@
 # Version Notes
 
+## v0.4.0.12 - Unavailable View States (2026-10-05)
+
+- Accepted diff content retains its local Hide action while the repository is
+  offline, with explicit retained-data context. Load/Retry requires availability.
+  Offline Hide returns only its own focused button to the connected owned row;
+  it does not move another target's focus or interfere with an overlay.
+- Mission failed evidence/session/timeline reads no longer also assert empty
+  results. Exact data is unavailable after timeline failure or a failed session
+  list with no activity rows. Independently accepted nonempty activity stays usable.
+- Request ownership, deadlines, paging, backend contracts and dependencies are
+  unchanged. Actual-source controlled lifecycle/API/SSR tests are separate from
+  native v0.4 interaction and geometry acceptance, which remains pending.
+- Three structural test oracles share physical-CRLF normalization; unchanged
+  source no longer fails solely due to checkout line endings. Baseline hashes stay.
+
 ## v0.4.0.11 - Lazy Failure State Guard (2026-10-05)
 
 - Lazy-view error boundaries track failure occurrence separately from the caught

@@ -360,6 +360,11 @@ These rules extend the global shell; they do not replace it.
 - Filtering, select-all, assignment, counts, and exports always use the complete loaded model.
 - Classify a complete diff before paging lines, so hunk/header color and order remain correct across pages.
 - Long paths and diffs scroll only inside labelled local containers.
+- Offline repositories cannot load/retry a diff, but an accepted diff keeps local
+  Hide and explicit retained-data context. Pending/error copy must not promise an
+  unavailable retry. Before offline Hide removes its own focused control, focus
+  only its connected containing row, without scrolling, inertness or overlay
+  interference. Availability updates alone never move focus.
 
 ### 6.2 Overview
 
@@ -461,6 +466,11 @@ Never scale down metric text; wrap while retaining exact values and snapshot dat
   range/table selection.
 - The timeline is an enhancement over the same bounded rows shown in a labelled,
   keyboard-operable Exact Data table.
+- Failed evidence/session/timeline reads show their existing error/Retry, never
+  successful-empty claims. Suppress empty timeline selection guidance after list
+  failure. Exact data is hidden during timeline failure or failed session-list
+  reads with no activity rows; independently accepted nonempty timeline data
+  remains usable. Loading, unavailable and successful emptiness stay distinct.
 - Assignment uses the shared modal foundation, lists only currently eligible
   direct-link plan targets, and reports acknowledged completion through the shared
   polite status channel. Pending/failure feedback also stays visible and locally

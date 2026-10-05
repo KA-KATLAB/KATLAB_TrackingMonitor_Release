@@ -5,13 +5,13 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.11 - Lazy Failure State Guard**
+Current source version: **v0.4.0.12 - Unavailable View States**
 
-Lazy-view recovery now distinguishes a caught failure from its error value,
-so even falsey values select the existing error panel. Owned focus, explicit
-Reload, System guidance and runtime guards remain unchanged.
+Loaded diffs keep their local Hide action when a repository goes offline.
+Mission distinguishes failed reads from successful empty results, keeping
+existing Retry controls and independently accepted activity available.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.11_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.12_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -184,7 +184,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.11_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.12_Release_Notes.md)
 
 ## Guarantees
 

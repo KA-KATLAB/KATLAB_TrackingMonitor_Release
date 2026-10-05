@@ -1255,7 +1255,7 @@ export function MissionView ({ scope, invalidationNonce, entryState,
                 {evidenceBusy ? (
                   <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted"
                     role="status">Loading evidence ledger...</p>
-                ) : evidenceRows.length === 0 && (
+                ) : !evidenceError && evidenceRows.length === 0 && (
                   <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted">
                     No matching canonical evidence on this activity page.
                   </p>
@@ -1309,7 +1309,7 @@ export function MissionView ({ scope, invalidationNonce, entryState,
               {sessionsBusy ? (
                 <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted"
                   role="status">Loading sessions...</p>
-              ) : sessions.items.length === 0 && (
+              ) : !sessionsError && sessions.items.length === 0 && (
                   <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted">
                     No provider sessions recorded in this scope.
                   </p>
@@ -1365,7 +1365,7 @@ export function MissionView ({ scope, invalidationNonce, entryState,
                 ))}
                 {timelineBusy ? (
                   <p className="p-3 text-sm text-ui-muted" role="status">Loading session activity...</p>
-                ) : flight.rows.length === 0 && (
+                ) : !timelineError && !sessionsError && flight.rows.length === 0 && (
                   <p className="p-3 text-sm text-ui-muted">Select a recorded session to inspect its activity.</p>
                 )}
               </div>
@@ -1404,7 +1404,8 @@ export function MissionView ({ scope, invalidationNonce, entryState,
                 onPageChange={timelinePager.setPage} className="mt-3" />
             )}
 
-            {!timelineBusy && <details className="mt-3 rounded-panel border border-ui-border">
+            {!timelineBusy && !timelineError && (!sessionsError || flight.rows.length > 0)
+              && <details className="mt-3 rounded-panel border border-ui-border">
               <summary className="ui-control cursor-pointer border-0 bg-ui-raised px-3">
                 Exact data
               </summary>

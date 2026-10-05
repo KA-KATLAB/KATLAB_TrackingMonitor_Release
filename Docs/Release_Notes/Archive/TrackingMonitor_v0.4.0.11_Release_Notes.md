@@ -20,9 +20,9 @@ Native v0.4 acceptance remains pending. No new dependencies, layout, controls,
 automatic reloads, API or configuration changes. Existing dependency/chunk
 notices and the earlier unconfirmed launcher-fixture transient are unchanged.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../../Docs/Installation_Guideline.md#safe-stop-and-restart).
 CDD/CFT, verification, activation and publication evidence is recorded in
 `temp/Plan/PLAN_v0.4.0.11_Lazy_Failure_State_Guard.txt`.
 
-Previous [v0.4.0.10 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.10_Release_Notes.md)
+Previous [v0.4.0.10 notes](TrackingMonitor_v0.4.0.10_Release_Notes.md)
 retain their historical scope, with only move-affected links rebased.

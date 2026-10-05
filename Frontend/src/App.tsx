@@ -4378,6 +4378,7 @@ function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onS
   const diffBusyRef = useRef(false);
   const diffGenerationRef = useRef(0);
   const diffControllerRef = useRef<AbortController | null>(null);
+  const diffRowRef = useRef<HTMLDivElement | null>(null);
   const online = repos.some((r) => r.id === event.repo_id && !r.offline);
   // v0.1.6.0 D2 (C.2, RV14): differs-suffix - only when BOTH branches are
   // known AND differ (the different-branch signal, never same-branch noise).
@@ -4407,7 +4408,7 @@ function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onS
         ? "Diff timed out after 10 seconds."
         : `Diff failed: ${String(errorValue).slice(0, 100)}`;
       setDiffError(message);
-      onStatus?.(`${message} Retry is available.`);
+      onStatus?.(`${message} See the diff row for recovery.`);
     }).finally(() => {
       action.clear();
       if (diffGenerationRef.current === generation) {
@@ -4428,7 +4429,9 @@ function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onS
     setDiffBusy(false);
   };
   return (
-    <div className="ui-work-row">
+    <div ref={diffRowRef} role="group" tabIndex={-1}
+      aria-label={`Tracked change in ${event.repo_id}: ${event.file}`}
+      className="ui-work-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
       <div className="flex min-w-0 basis-full flex-wrap items-center gap-2 text-sm">
         <ModeBadge mode={event.mode} swept={event.swept === 1} />
         {onOpenFileStory ? (
@@ -4457,7 +4460,7 @@ function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onS
         <span className="text-xs text-slate-400" title={event.ts}>
           {event.tool} · {fmtRel(event.ts)}
         </span>
-        {online && (
+        {(online || diff !== null) && (
           <button className="ml-auto min-h-[24px] text-xs text-sky-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-40"
             disabled={diffBusy} aria-busy={diffBusy}
             aria-label={diffBusy
@@ -4465,15 +4468,34 @@ function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onS
               : diff === null
                 ? diffError ? `Retry diff for ${event.file}` : `Show diff for ${event.file}`
                 : `Hide diff for ${event.file}`}
-            onClick={diff !== null ? hideDiff : loadDiff}>
+            onClick={(clickEvent) => {
+              if (diff !== null) {
+                const row = diffRowRef.current;
+                if (!online && document.activeElement === clickEvent.currentTarget
+                    && row?.isConnected && row.contains(clickEvent.currentTarget)
+                    && !row.closest("[inert]") && !document.body.dataset.overlayOpen) {
+                  row.focus({ preventScroll: true });
+                }
+                hideDiff();
+              } else {
+                loadDiff();
+              }
+            }}>
             {diffBusy ? "loading…" : diff === null ? diffError ? "retry diff" : "diff" : "hide"}
           </button>
         )}
       </div>
+      {!online && !diffError && (diff !== null || diffBusy) && (
+        <p className="mt-1 basis-full break-words text-xs text-slate-400">
+          {diff !== null
+            ? "Repository offline. Showing the previously loaded diff; Hide remains available."
+            : "Repository offline. The pending diff load may fail."}
+        </p>
+      )}
       {diff !== null && <DiffView text={diff} repoId={event.repo_id} eventId={event.id} />}
       {diffError && (
         <p className="mt-1 rounded bg-rose-950/30 px-2 py-1 text-xs text-rose-300">
-          {diffError} Use “retry diff”.
+          {diffError} {online ? "Use “retry diff”." : "Restore repository availability before retrying the diff."}
         </p>
       )}
     </div>
