@@ -5,13 +5,13 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.16 - Truthful Workspace Presence**
+Current source version: **v0.4.0.17 - Declared File Patterns**
 
-Tab and installed-PWA presence require fully known workspace Git status. Missing,
-offline, invalid or failed-refresh data shows a neutral '?' tab icon and requests
-badge clearing instead of claiming CLEAN or counting retained values.
+Active plans distinguish scope patterns from concrete file destinations. Patterns
+show their full declaration without a fake File Story action; concrete paths keep
+their existing action. Large declaration cells use the existing 50-item pager.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.16_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.17_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -184,7 +184,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.16_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.17_Release_Notes.md)
 
 ## Guarantees
 

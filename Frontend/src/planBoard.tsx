@@ -64,6 +64,58 @@ export function groupActivePlans (tasks: Task[]): PlanGroup[] {
   return groups;
 }
 
+// Scope patterns are declarations, not literal File Story destinations.
+function DeclaredFile ({ repo, file, compact = false, onOpenFileStory }: {
+  repo: string;
+  file: string;
+  compact?: boolean;
+  onOpenFileStory: (repo: string, file: string) => void;
+}) {
+  if (/[*?]/.test(file)) {
+    return (
+      <span className="min-w-0 break-all rounded bg-ui-raised px-1.5 py-0.5 font-mono text-xs text-ui-muted">
+        <span className="font-sans">pattern</span>{" "}{file}
+      </span>
+    );
+  }
+  const label = `Open file story for ${file} in ${repo}`;
+  return (
+    <button type="button" onClick={() => onOpenFileStory(repo, file)}
+      aria-label={label} title={label}
+      className={compact
+        ? "min-w-0 break-all rounded bg-ui-raised px-1.5 py-0.5 text-xs text-sky-300 hover:bg-ui-border"
+        : "ui-focus-ring inline-flex min-h-6 min-w-6 max-w-full break-all items-center rounded font-mono text-sky-300 hover:underline"}>
+      {compact ? basename(file) : file}
+    </button>
+  );
+}
+
+function DeclaredFiles ({ task, onOpenFileStory }: {
+  task: Task;
+  onOpenFileStory: (repo: string, file: string) => void;
+}) {
+  const pager = useBoundedPage({
+    identity: ["active-plan-declared-files", task.repo, task.plan_file, task.task_ref],
+    totalItems: task.files.length,
+    pageSize: 50,
+  });
+  if (task.files.length === 0) return <>—</>;
+  return (
+    <div className="min-w-0 max-w-xl">
+      <div className="flex min-w-0 flex-wrap gap-1">
+        {task.files.slice(pager.start, pager.end).map((file, fileOrdinal) => (
+          <DeclaredFile key={JSON.stringify([file, pager.start + fileOrdinal])}
+            repo={task.repo} file={file} onOpenFileStory={onOpenFileStory} />
+        ))}
+      </div>
+      {task.files.length > 50 && (
+        <CollectionPager collectionLabel={`Declared files for ${task.repo}: ${task.task_ref}`}
+          page={pager} onPageChange={pager.setPage} className="mt-2" />
+      )}
+    </div>
+  );
+}
+
 const SEG: Record<Task["status"], string> = {
   done: "#14b8a6", "in-progress": "#f59e0b", pending: "#334155",
 };
@@ -123,13 +175,8 @@ export function PlanBoard ({ tasks, onOpenFileStory }: {
                 {t.files.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {t.files.slice(0, 4).map((f, fileOrdinal) => (
-                      <button key={JSON.stringify([f, fileOrdinal])} type="button"
-                        onClick={() => onOpenFileStory(t.repo, f)}
-                        aria-label={`${f} — open file story`}
-                        title={`${f} — open the file story`}
-                        className="min-w-0 break-all rounded bg-ui-raised px-1.5 py-0.5 text-xs text-sky-300 hover:bg-ui-border">
-                        {basename(f)}
-                      </button>
+                      <DeclaredFile key={JSON.stringify([f, fileOrdinal])}
+                        repo={t.repo} file={f} compact onOpenFileStory={onOpenFileStory} />
                     ))}
                     {t.files.length > 4 && (
                       <span className="self-center text-xs text-ui-muted">
@@ -179,15 +226,8 @@ export function PlanBoard ({ tasks, onOpenFileStory }: {
             sortValue: (task) => task.title },
           { key: "status", label: "Status", render: (task) => task.status,
             sortValue: (task) => task.status },
-          { key: "files", label: "Declared files", render: (task) => task.files.length === 0
-            ? "—"
-            : <span className="flex max-w-xl flex-wrap gap-1">{task.files.map((file, fileOrdinal) => (
-              <button key={JSON.stringify([file, fileOrdinal])} type="button"
-                onClick={() => onOpenFileStory(task.repo, file)}
-                className="ui-focus-ring inline-flex min-h-6 min-w-6 items-center rounded font-mono text-sky-300 hover:underline">
-                {file}
-              </button>
-            ))}</span> },
+          { key: "files", label: "Declared files", render: (task) =>
+            <DeclaredFiles task={task} onOpenFileStory={onOpenFileStory} /> },
         ]}
         className="mt-3 border-t border-slate-800 pt-3"
       />

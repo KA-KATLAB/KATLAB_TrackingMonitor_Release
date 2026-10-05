@@ -394,6 +394,15 @@ known clean repositories and dated effort. Captured events, auto-attribution and
 busiest task remain secondary. No status data means unavailable, not zero.
 Never scale down metric text; wrap while retaining exact values and snapshot dates.
 
+Active plans file declarations can be paths or custom-glob scope patterns. Show
+'*'/'?' patterns in full with a visible 'pattern' label, without a button, link or
+tab stop; only concrete paths open their exact repository/file Story. Brackets
+are literal. Preserve the four-entry spotlight preview and complete source model.
+Exact-data cells page declarations above50 using the existing 50-item local pager,
+with kind/repository/plan/task identity and global ordinal keys. Do not expand
+patterns, infer matching files or introduce new requests. Full declarations wrap
+locally; controlled callback/SSR checks do not certify native acceptance.
+
 ### 6.3 History
 
 - Keep the compact commit header and expose its full captured ID through a

@@ -1,5 +1,17 @@
 # Version Notes
 
+## v0.4.0.17 - Declared File Patterns (2026-10-06)
+
+- Both Active plans declaration sites show '*'/'?' patterns as full, visible,
+  non-interactive scope labels. Only concrete paths open File Story; brackets,
+  spaces and Unicode remain literal. No glob expansion or extra file discovery.
+- The four-entry spotlight preview remains compact. Exact-data declaration cells
+  retain their full source model while paging above50 with the standard local
+  50-item controls and repository/plan/task identity. Order and duplicate keys stay.
+- Actual-source callback, bounded-window and SSR regressions preserve grouping
+  and the whole PlanBoard pre-render fingerprint. Native interaction/geometry
+  acceptance remains pending. No API, fetch, dependency or global-state changes.
+
 ## v0.4.0.16 - Truthful Workspace Presence (2026-10-06)
 
 - Both existing presence effects share one pure coverage calculation. Only an
