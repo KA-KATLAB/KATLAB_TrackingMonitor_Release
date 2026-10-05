@@ -23,7 +23,7 @@ No added I/O deadline, no-follow filesystem authority, memory-allocation ceiling
 atomic cross-field snapshot is claimed. The preflight CLI is unchanged.
 
 No dependencies, schema, capture behavior, UI layout or API shape changed. Follow
-the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart)
+the [safe upgrade procedure](../../../Docs/Installation_Guideline.md#safe-stop-and-restart)
 to rebuild and restart, then reload existing tabs. Owned-process protection,
 frontend identity validation and the Git revision guard remain intact.
 
@@ -32,5 +32,5 @@ in `temp/Plan/PLAN_v0.4.0.5_Bounded_Provider_Health.txt`. Native v0.4 visual and
 interaction acceptance remains pending. Existing chunk-size notices and
 default-branch dependency alerts are not resolved by this change.
 
-Previous [v0.4.0.4 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.4_Release_Notes.md)
+Previous [v0.4.0.4 notes](TrackingMonitor_v0.4.0.4_Release_Notes.md)
 are archived with only move-affected links rebased.

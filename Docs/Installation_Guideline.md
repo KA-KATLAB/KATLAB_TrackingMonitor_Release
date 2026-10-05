@@ -28,6 +28,13 @@ Results:
   them. Do not paste another full copy.
 - `PREFLIGHT ERROR`: repair or explicitly review the settings JSON first.
 
+Preflight reads at most 1 MiB (1,048,576 bytes) plus one detection byte. Oversized
+settings or excessive JSON decoding/reference-walk nesting return exit 2 with
+no snippet. The CLI never trims or rewrites settings; review rejected files
+before proceeding. This is an independent preflight cap, not a provider settings
+limit. Missing-file success and collision exit 3 remain unchanged. No additional
+I/O deadline or atomic snapshot guarantee is provided.
+
 Render the provider's merge-ready snippet to the console:
 
 ```powershell
@@ -225,7 +232,9 @@ The legacy hook indicator remains a text-presence scan: a readable malformed JSO
 file can still show the marker as present while provider configuration is invalid.
 An unreadable or oversized file cannot verify that marker. Neither indicator proves
 hook execution. Reads are not atomic across fields and have no added I/O deadline.
-The separate `render_hook_config.py --preflight` CLI is unchanged by this limit.
+The separate `render_hook_config.py --preflight` CLI has its own bounded-read
+policy described in the activation instructions above; it does not use this
+backend helper or establish that the provider actually executes its hooks.
 
 ### Read-only Git requests
 

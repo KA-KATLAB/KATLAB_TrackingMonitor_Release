@@ -115,6 +115,10 @@ When prose and running code disagree, do not silently choose one. Establish whet
   configuration facts. Keep provider rows independent and preserve the marker's
   text-only meaning. This health cap is not a provider limit, I/O deadline or
   coherent snapshot guarantee; the operator preflight CLI is separate.
+- The standalone hook preflight has its own 1 MiB byte cap and refuses decoder
+  or reference-walker recursion with static error/exit 2 before rendering. Keep
+  its stdlib independence, exact existing reference counting, missing-file
+  success and collision exit 3; never silently accept an oversized prefix.
 - Bad YAML, invalid/duplicate IDs, and duplicate normalized paths are authoring failures and must fail fast.
 - Missing repository paths are environmental drift: mark those repos offline and keep the server alive.
 - `Config/repos.yaml` is loaded once; configuration changes require restart.

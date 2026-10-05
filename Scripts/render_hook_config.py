@@ -12,6 +12,7 @@ from typing import Iterator
 
 ROOT = Path(__file__).resolve().parents[1]
 HOOK = ROOT / "Hook" / "katlab_tracking_hook.py"
+PREFLIGHT_MAX_BYTES = 1_048_576
 PROVIDER_BASELINES = {
     "claude": "Claude Code 2.1.258",
     "codex": "Codex CLI 0.153.4",
@@ -113,7 +114,11 @@ def existing_katlab_registrations (settings_path: Path,
     """Count existing references; read only and fail loudly on invalid JSON."""
     if not settings_path.exists():
         return 0
-    value = json.loads(settings_path.read_text(encoding="utf-8"))
+    with settings_path.open("rb") as stream:
+        raw = stream.read(PREFLIGHT_MAX_BYTES + 1)
+    if len(raw) > PREFLIGHT_MAX_BYTES:
+        raise ValueError("settings file exceeds the 1 MiB preflight limit")
+    value = json.loads(raw.decode("utf-8"))
     if not isinstance(value, dict):
         raise ValueError("settings root must be a JSON object")
     expected = os.path.normcase(str((hook_path or HOOK).resolve(strict=False)))
@@ -140,6 +145,9 @@ def main (args: list[str] | None = None) -> int:
     if options.preflight is not None:
         try:
             count = existing_katlab_registrations(options.preflight)
+        except RecursionError:
+            print("PREFLIGHT ERROR: settings JSON is too deeply nested", file=sys.stderr)
+            return 2
         except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
             print(f"PREFLIGHT ERROR: {exc}", file=sys.stderr)
             return 2

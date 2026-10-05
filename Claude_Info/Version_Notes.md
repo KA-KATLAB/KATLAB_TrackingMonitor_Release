@@ -1,5 +1,17 @@
 # Version Notes
 
+## v0.4.0.6 - Bounded Hook Preflight (2026-10-05)
+
+- The standalone operator CLI now reads at most 1 MiB plus a detection byte and
+  refuses oversized settings before strict UTF-8 decoding. Its independent cap
+  does not change provider settings or the backend health reader.
+- Excessive JSON decoder or reference-walker recursion returns a static
+  `PREFLIGHT ERROR`, exit 2 and no rendered snippet. Integer-decoder errors already
+  used exit 2. Missing-file success, collision exit 3, reference-count semantics
+  and normal rendering remain unchanged; no interpreter limits are modified.
+- No hook installation, settings writes, dependency/UI/API changes or new
+  deadline/atomic snapshot guarantees. Native v0.4 acceptance remains pending.
+
 ## v0.4.0.5 - Bounded Provider Health (2026-10-05)
 
 - Backend provider-settings observation and the legacy hook-marker scan share a
