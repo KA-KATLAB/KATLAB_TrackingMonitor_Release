@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { canonicalPrintedText } from "./helpers/printed_source.mjs";
+import { restoreMissionOwnerRetirement } from "./helpers/missionOwnerRetirement.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(resolve(root, "Frontend/package.json"));
@@ -136,11 +137,13 @@ const payload = (plans = [], extra = {}) => ({ scope: { kind: "all", repo: null 
   plans, ...extra });
 
 test("Mission presentation preserves the entire baseline pre-render computation and owners", () => {
-  const statements = [...view.body.statements];
+  const original = ts.createSourceFile("MissionView.tsx", restoreMissionOwnerRetirement(read("MissionView.tsx")),
+    ts.ScriptTarget.Latest, true);
+  const statements = [...declaration(original, "MissionView").body.statements];
   assert.ok(ts.isReturnStatement(statements.pop()));
   const printer = ts.createPrinter({ removeComments: true });
   const normalized = canonicalPrintedText(statements.map((node) =>
-    printer.printNode(ts.EmitHint.Unspecified, node, mission)).join("\n"));
+    printer.printNode(ts.EmitHint.Unspecified, node, original)).join("\n"));
   assert.equal(createHash("sha256").update(normalized).digest("hex"),
     "df16cb940a79eb34b4b81dfbb55186bca2dac5265011b295b9a3e4e56d860f20");
 });

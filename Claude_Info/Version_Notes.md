@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.4.0.23 - Retired Mission Request Owners (2026-10-06)
+
+- Mission request cleanup explicitly retires that owner. Queued transport/HTTP
+  errors and expired-run callbacks cannot overwrite a replacement's error or
+  loading state. All four existing read effects share the owner retirement rule.
+- Current timeouts, already-expired current owners and final-part settlement
+  retain existing error/Refresh feedback. Preserve tokens, generations, pending
+  accounting, selection deferrals, API contracts, paging and all render paths.
+- Controlled regressions execute complete actual owners/effects and protect the
+  original pre-render, whole-source and outside-function fingerprints through
+  strict four-edit restoration. This is not native UI or assistive acceptance.
+  Native H.1, held synthetic-row cleanup, prior launcher fixture limitations
+  and the build-only advisory remain independent and unresolved by this change.
+
 ## v0.4.0.22 - Observed Relationship History (2026-10-06)
 
 - Relationships commit counts/cells require a matching accepted History response.

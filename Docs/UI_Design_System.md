@@ -479,6 +479,13 @@ locally; controlled callback/SSR checks do not certify native acceptance.
 
 ### 6.6 Mission
 
+- Effect cleanup retires the corresponding read owner before aborting it.
+  Queued failures and timed-out predecessors cannot overwrite a replacement's
+  error/loading state or current Refresh result. A current deadline timeout
+  remains visible, including owners created after that deadline expires and
+  final-part settlement after the run reference clears. Preserve per-part
+  generations, refresh tokens/accounting, selection deferrals and existing Retry.
+
 - Compose the view in this order: Now, plan scope, Attribution Forecast,
   Verification Rail, Evidence Queue, Session Flight Recorder, and Exact Data.
 - Spotlight a plan only when the current data proves one unique active plan or the

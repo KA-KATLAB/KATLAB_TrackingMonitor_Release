@@ -5,14 +5,14 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.22 - Observed Relationship History**
+Current source version: **v0.4.0.23 - Retired Mission Request Owners**
 
-Relationships distinguishes unavailable commit links from observed zero links.
-Its exact-data table retains task details and labels the accepted History window
-of up to 500 commits. Pending or failed map updates identify any retained diagram
-as its previous accepted render; request and rendering ownership stay unchanged.
+Mission discards errors and timeout settlement from requests canceled by effect
+replacement. A retired predecessor cannot overwrite the current request's error
+or loading state. Current failures, timeouts and Refresh feedback remain visible;
+the existing API, layout, paging and deadline contracts stay unchanged.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.22_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.23_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -185,7 +185,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.22_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.23_Release_Notes.md)
 
 ## Guarantees
 

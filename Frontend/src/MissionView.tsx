@@ -790,9 +790,10 @@ export function MissionView ({ scope, invalidationNonce, entryState,
     if (run?.action.signal.aborted) controller.abort();
     else run?.action.signal.addEventListener("abort", abortForDeadline, { once: true });
     let settled = false;
+    let retired = false;
     return {
       controller,
-      timedOut: () => run?.action.didTimeout() ?? false,
+      timedOut: () => !retired && (run?.action.didTimeout() ?? false),
       finish: (failed = false) => {
         if (settled) return;
         settled = true;
@@ -800,6 +801,7 @@ export function MissionView ({ scope, invalidationNonce, entryState,
         finishRefreshPart(run, part, generation, failed);
       },
       abort: () => {
+        retired = true;
         run?.action.signal.removeEventListener("abort", abortForDeadline);
         controller.abort();
       },
@@ -833,7 +835,7 @@ export function MissionView ({ scope, invalidationNonce, entryState,
       }
     }, (errorValue) => {
       const timedOut = owner.timedOut();
-      if (isAbortError(errorValue) && !timedOut) return;
+      if ((owner.controller.signal.aborted || isAbortError(errorValue)) && !timedOut) return;
       failed = true;
       setMissionError(timedOut
         ? "Mission snapshot timed out after 10 seconds."
