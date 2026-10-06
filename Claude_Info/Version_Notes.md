@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.4.0.35 - Precision-Safe Warning Chronology (2026-10-06)
+
+- Warning details retain ascending order across bare UTC seconds and six-digit
+  fractions. Local comparison copies pad only bare seconds; microseconds stay
+  exact and equivalent instants retain stable input order.
+- Raw timestamps/JSON dismissal keys/messages/scopes/counts/summary/paging and
+  the complete disclosure/focus lifecycle remain unchanged. This is ordering
+  within the loaded model, not backend retention or timestamp normalization.
+- Complete actual-component and finite actual-producer regressions reproduce
+  the defect. Strict inverse and narrow old-oracle adapters retain immutable
+  App/owner/test pins, negatives and the original diff-test prefix.
+- No backend production, stored data, API/schema/configuration/dependency change
+  or live incidence claim. Native H.1/build-only advisory limits remain pending.
+
 ## v0.4.0.34 - Unambiguous Commit Draft Reasons (2026-10-06)
 
 - Duplicate current task display references in one repository keep the existing

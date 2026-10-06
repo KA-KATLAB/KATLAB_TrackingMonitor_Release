@@ -394,6 +394,13 @@ Preserve warning-owned layout recovery, initial focus, latest close callback,
 listeners, effect dependencies, reopen/StrictMode protection and dialog ownership.
 Controlled focus-call tests do not establish native keyboard or focus acceptance.
 
+Warning details sort ascending across the backend's bare-second and six-digit
+UTC timestamps. Pad only local comparison copies of bare seconds with six zeros;
+retain full microsecond precision and stable ties. Do not mutate raw timestamps,
+JSON dismissal keys, messages, input arrays or repository scope. Counts, collapsed
+summary, fifty-row paging and disclosure/focus recovery stay authoritative.
+This fixes loaded warning order, not backend retention or global normalization.
+
 Palette ArrowUp/ArrowDown reveal the selected command inside its existing local
 list viewport without moving input focus or scrolling an outer container.
 Opening, raw query edits, paging and result replacement reveal the first current

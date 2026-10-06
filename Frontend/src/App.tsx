@@ -2921,8 +2921,11 @@ function WarningsBanner ({ repos, dismissed, scopeKeyValue, onDismiss }:
   } | null>(null);
   const items = repos.flatMap((r) =>
     r.warnings.map((w) => ({ key: JSON.stringify([r.id, w.ts, w.message]), repo: r.id, ...w })),
-  ).filter((w) => !dismissed.has(w.key)).sort((left, right) =>
-    left.ts < right.ts ? -1 : left.ts > right.ts ? 1 : 0);
+  ).filter((w) => !dismissed.has(w.key)).sort((left, right) => {
+    const leftTs = left.ts.replace(/(T\d{2}:\d{2}:\d{2})Z$/, "$1.000000Z");
+    const rightTs = right.ts.replace(/(T\d{2}:\d{2}:\d{2})Z$/, "$1.000000Z");
+    return leftTs < rightTs ? -1 : leftTs > rightTs ? 1 : 0;
+  });
   const disclosureOpen = expanded && items.length > 0;
   useDisclosureBehavior({
     open: disclosureOpen,

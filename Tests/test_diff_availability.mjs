@@ -457,10 +457,11 @@ test("strict disclosure restoration preserves original whole App, complete owner
   const { canonicalPrintedText } = await import("./helpers/printed_source.mjs");
   const { restoreDiffDisclosureState, DIFF_DISCLOSURE_WINDOW, DIFF_DISCLOSURE_WINDOW_SHA } =
     await import("./helpers/diffDisclosureState.mjs");
+  const { restoreWarningTimestampOrder } = await import("./helpers/warningTimestampOrder.mjs");
   const sha = value => createHash("sha256").update(value).digest("hex");
   const printer = ts.createPrinter({ removeComments: true });
   assert.equal(sha(DIFF_DISCLOSURE_WINDOW), DIFF_DISCLOSURE_WINDOW_SHA);
-  const lf = read("App.tsx").replace(/\r\n/g, "\n");
+  const lf = restoreWarningTimestampOrder(read("App.tsx")).replace(/\r\n/g, "\n");
   for (const newline of ["\n", "\r\n"]) {
     const source = lf.replace(/\n/g, newline), restored = restoreDiffDisclosureState(source);
     const ast = disclosureAst(restored), owner = disclosureOwner(ast);
@@ -536,6 +537,11 @@ test("all six old diff tests and every old History oracle survive exact append-o
     assert.ok(current.subarray(15449).toString("utf8").startsWith(
       "\n// v0.4.0.25: appended diff disclosure regressions.\n"));
     let history = historyLF.replace(/\n/g, newline).replace(/\r\n/g, "\n");
+    history = disclosureReplaceOnce(history,
+      'import { restoreWarningTimestampOrder } from "./helpers/warningTimestampOrder.mjs";\n', "");
+    history = disclosureReplaceOnce(history,
+      "const ast = parse(restoreDiffDisclosureState(restoreWarningTimestampOrder(text)));",
+      "const ast = parse(restoreDiffDisclosureState(text));");
     history = disclosureReplaceOnce(history,
       'import { restoreDiffDisclosureState } from "./helpers/diffDisclosureState.mjs";\n', "");
     history = disclosureReplaceOnce(history, "const ast = parse(restoreDiffDisclosureState(text));", "const ast = parse(text);");

@@ -324,9 +324,11 @@ class ActivityIngestTests(unittest.TestCase):
         real_validate = activity.validate_activity
 
         def replace_after_read (raw: bytes, stem: str, repo_ids: set[str]):
-            path.write_bytes(json.dumps(
+            temporary = path.with_suffix(".tmp")
+            temporary.write_bytes(json.dumps(
                 replacement, sort_keys=True, separators=(",", ":"),
             ).encode())
+            temporary.replace(path)
             return real_validate(raw, stem, repo_ids)
 
         with patch("Backend.app.activity.validate_activity", side_effect=replace_after_read):

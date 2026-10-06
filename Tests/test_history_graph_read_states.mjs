@@ -7,6 +7,7 @@ import { after, before, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { canonicalPrintedText } from "./helpers/printed_source.mjs";
 import { restoreDiffDisclosureState } from "./helpers/diffDisclosureState.mjs";
+import { restoreWarningTimestampOrder } from "./helpers/warningTimestampOrder.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const frontend = resolve(root, "Frontend");
@@ -406,7 +407,7 @@ function restoredOutsideGraph (ast) {
   finally { changed.dispose(); }
 }
 function checkPreservation (text) {
-  const ast = parse(restoreDiffDisclosureState(text));
+  const ast = parse(restoreDiffDisclosureState(restoreWarningTimestampOrder(text)));
   const fn = one(ast.statements, (node) => ts.isFunctionDeclaration(node) && node.name?.text === "HistoryView");
   const statements = [...fn.body.statements];
   assert.ok(ts.isReturnStatement(statements.pop()));
