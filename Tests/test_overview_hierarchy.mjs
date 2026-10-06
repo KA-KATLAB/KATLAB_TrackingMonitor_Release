@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { restoreRelationshipHistory } from "./helpers/relationshipHistory.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const frontend = resolve(root, "Frontend");
@@ -175,10 +176,14 @@ test("count-up, chart cleanup and request owners are unchanged except the review
   };
   const printer = ts.createPrinter({ removeComments: true });
   for (const [name, hash] of Object.entries(hashes)) {
-    const node = declaration(name);
+    const ownerSource = name === "GraphPanel" ? ts.createSourceFile("OverviewView.tsx",
+      restoreRelationshipHistory(read("OverviewView.tsx")), ts.ScriptTarget.Latest, true) : ast;
+    const node = name === "GraphPanel" ? ownerSource.statements.find((entry) =>
+      ts.isFunctionDeclaration(entry) && entry.name?.text === name) : declaration(name);
+    assert.ok(node, `actual restored owner exists: ${name}`);
     const nodes = name === "OverviewView" || name === "GraphPanel"
       ? [...node.body.statements].slice(0, -1) : [node];
-    let code = nodes.map((entry) => printer.printNode(ts.EmitHint.Unspecified, entry, ast)).join("\n");
+    let code = nodes.map((entry) => printer.printNode(ts.EmitHint.Unspecified, entry, ownerSource)).join("\n");
     if (name === "GraphPanel") {
       // The only pre-render change is display copy for the removed permanent
       // sidebar. Normalize that exact text, not a callback or calculation.

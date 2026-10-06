@@ -760,7 +760,9 @@ function GraphPanel ({ tasks, uncommitted, repos, scope, selection, onSelectionC
   const semanticKeyRef = useRef(semanticKey);
   semanticKeyRef.current = semanticKey;
   const [svg, setSvg] = useState("");
-  const [graphRows, setGraphRows] = useState<BackboneRow[]>([]);
+  const [graphRows, setGraphRows] = useState<{
+    selectionKey: string; historyObserved: boolean; rows: BackboneRow[];
+  }>({ selectionKey: "", historyObserved: false, rows: [] });
   const [note, setNote] = useState("");
   const [failure, setFailure] = useState<RelationshipFailure | null>(null);
   const [settledKey, setSettledKey] = useState("");
@@ -807,9 +809,10 @@ function GraphPanel ({ tasks, uncommitted, repos, scope, selection, onSelectionC
     );
     void (async () => {
       try {
-        const history: HistoryEntry[] = reposRef.current.some(
+        const historyObserved = reposRef.current.some(
           (repo) => repo.id === selectionValue.repoId,
-        )
+        );
+        const history: HistoryEntry[] = historyObserved
           ? await api.history(selectionValue.repoId, 500, 0, owner.controller.signal)
           : [];
         const input = {
@@ -821,7 +824,7 @@ function GraphPanel ({ tasks, uncommitted, repos, scope, selection, onSelectionC
         const prepared = buildBackbone(input);
         if (workGenerationRef.current !== generation || owner.controller.signal.aborted
             || semanticKeyRef.current !== workSemanticKey) return;
-        setGraphRows(prepared.rows);
+        setGraphRows({ selectionKey, historyObserved, rows: prepared.rows });
         const result = await renderBackbone(input, {
           origin: owner.action ? "foreground" : "background",
           key: workSemanticKey,
@@ -884,7 +887,7 @@ function GraphPanel ({ tasks, uncommitted, repos, scope, selection, onSelectionC
       pending?.action.controller.abort();
       pending?.action.clear();
       setSvg("");
-      setGraphRows([]);
+      setGraphRows({ selectionKey: "", historyObserved: false, rows: [] });
       setNote("");
       setFailure(null);
       setSettledKey("");
@@ -938,7 +941,7 @@ function GraphPanel ({ tasks, uncommitted, repos, scope, selection, onSelectionC
     const action = createActionDeadline();
     pendingActionRef.current = { selectionKey: choiceId, action };
     setSvg("");
-    setGraphRows([]);
+    setGraphRows({ selectionKey: "", historyObserved: false, rows: [] });
     setNote("");
     setFailure(null);
     setExpanded(false);
@@ -958,7 +961,9 @@ function GraphPanel ({ tasks, uncommitted, repos, scope, selection, onSelectionC
     history: [],
     uncommitted: uncommitted.filter((event) => event.repo_id === selected.repoId),
   }).rows : [], [selected, tasks, uncommitted]);
-  const accessibleRows = graphRows.length > 0 ? graphRows : taskOnlyRows;
+  const currentGraphRows = graphRows.selectionKey === selectedValue ? graphRows.rows : [];
+  const historyObserved = graphRows.selectionKey === selectedValue && graphRows.historyObserved;
+  const accessibleRows = currentGraphRows.length > 0 ? currentGraphRows : taskOnlyRows;
   const linkedCommits = accessibleRows.reduce((sum, row) => sum + row.commits.length, 0);
   const pendingTasks = accessibleRows.filter((row) => row.uncommitted).length;
 
@@ -1000,11 +1005,29 @@ function GraphPanel ({ tasks, uncommitted, repos, scope, selection, onSelectionC
         </div>
       )}
       {selected && (
+        <p className="mb-2 text-xs leading-5 text-ui-muted">
+          {historyObserved
+            ? "Commit links describe the last accepted History response (up to 500 commits)."
+            : !repos.some((repo) => repo.id === selected.repoId)
+              ? "Commit history unavailable for this offline or missing repository. Task details are shown."
+              : failure
+                ? "Commit history unavailable. Task details are shown."
+                : "Commit history not loaded yet. Task details are shown."}
+          {failure
+            ? " Latest map update failed; any visible diagram is from its previous accepted render."
+            : busy || settledKey !== semanticKey
+              ? " Map update pending; any visible diagram is from its previous accepted render."
+              : ""}
+        </p>
+      )}
+      {selected && (
         <DisclosureTable
           label="Relationship map"
           summary={accessibleRows.length === 0
             ? "This plan has no tasks to relate."
-            : `${accessibleRows.length} tasks; ${linkedCommits} commit link${linkedCommits === 1 ? "" : "s"}; `
+            : `${accessibleRows.length} tasks; `
+              + (historyObserved ? `${linkedCommits} commit link${linkedCommits === 1 ? "" : "s"}; `
+                : "commit links unavailable; ")
               + `${pendingTasks} task${pendingTasks === 1 ? "" : "s"} with uncommitted activity.`}
           rows={accessibleRows}
           rowKey={(row) => JSON.stringify([row.taskRef, row.taskId])}
@@ -1017,7 +1040,8 @@ function GraphPanel ({ tasks, uncommitted, repos, scope, selection, onSelectionC
             { key: "files", label: "Declared files", render: (row) =>
               row.files.length > 0 ? row.files.join(", ") : "—" },
             { key: "commits", label: "Commits", render: (row) =>
-              row.commits.length > 0 ? row.commits.map((hash) => hash.slice(0, 10)).join(", ") : "—" },
+              !historyObserved ? "Unavailable"
+                : row.commits.length > 0 ? row.commits.map((hash) => hash.slice(0, 10)).join(", ") : "—" },
             { key: "pending", label: "Uncommitted", render: (row) => row.uncommitted ? "yes" : "no",
               sortValue: (row) => row.uncommitted ? 1 : 0 },
           ]}
@@ -1032,8 +1056,8 @@ function GraphPanel ({ tasks, uncommitted, repos, scope, selection, onSelectionC
             ▭ task · ⬭ commit · ⬡ uncommitted (dashed edge = not committed yet)
           </p>
         </>
-      ) : !busy && selected && !note && !failure && (
-        <p className="text-sm text-slate-400">No committed history for this plan yet.</p>
+      ) : !busy && selected && historyObserved && !note && !failure && (
+        <p className="text-sm text-slate-400">No relationship diagram is available for this accepted History response.</p>
       )}
       {!selected && <p className="text-sm text-slate-400">Pick a plan to see its task → commit map.</p>}
       {expanded && svg && (

@@ -5,14 +5,14 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.21 - Exact Session Identity**
+Current source version: **v0.4.0.22 - Observed Relationship History**
 
-Session Timeline keeps its compact header and exposes the complete session ID
-on demand as a labelled, read-only ASCII JSON string. Quotes and escapes preserve
-special characters; decoding JSON recovers the original ID. Raw API identity,
-event paging and existing recovery remain unchanged.
+Relationships distinguishes unavailable commit links from observed zero links.
+Its exact-data table retains task details and labels the accepted History window
+of up to 500 commits. Pending or failed map updates identify any retained diagram
+as its previous accepted render; request and rendering ownership stay unchanged.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.21_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.22_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -185,7 +185,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.21_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.22_Release_Notes.md)
 
 ## Guarantees
 

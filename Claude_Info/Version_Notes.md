@@ -1,5 +1,22 @@
 # Version Notes
 
+## v0.4.0.22 - Observed Relationship History (2026-10-06)
+
+- Relationships commit counts/cells require a matching accepted History response.
+  Initial, pending, first-failure and offline synthetic task-only rows disclose
+  unavailable commit links rather than measured zero. Independent task details
+  remain available; link counts describe associations within up to 500 commits.
+- Row metadata publishes at the original guarded point before diagram rendering.
+  Same-plan accepted data is retained and labelled during refresh/failure. Every
+  provenance branch qualifies pending/failed updates and any previous-render map,
+  including offline synthetic rows while an old accepted SVG remains visible.
+- Preserve requests, generation/cancellation/deadline/trailing refresh, module
+  Reload/Retry, App remount policy, SVG ownership and bounded exact-data paging.
+  Strict restoration retains original full-source and hierarchy fingerprints.
+  Controlled source/SSR/API evidence is not native geometry, keyboard or assistive
+  acceptance. Native H.1, held synthetic-row cleanup, earlier launcher fixture
+  limitations and the build-only advisory remain separate.
+
 ## v0.4.0.21 - Exact Session Identity (2026-10-06)
 
 - Session Timeline exposes the full ID through a default-closed native disclosure

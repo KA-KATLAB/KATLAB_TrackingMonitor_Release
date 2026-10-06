@@ -394,6 +394,16 @@ Preserve every shipped module and group them in this order:
 
 Use one SectionHeading and one Surface vocabulary. Chart canvases and informative graphics need concise summaries and exact-data alternatives. Overview and its graph reserve stable loading/error footprints.
 
+Relationships commit-link counts and cells require a matching accepted History
+response, not task-only placeholders, row count or diagram settlement. Keep task
+details independently available; unknown links are unavailable, not zero. Label
+the last accepted window of up to 500 commits, not complete plan history. Publish
+row provenance before diagram rendering at the original guarded point; offline
+synthetic rows remain unobserved. Every provenance branch identifies pending or
+failed map updates and any retained previous-render diagram. Preserve requests,
+render owners, cancellation, deadlines, Retry/Reload, composite selection and
+bounded exact-data paging. Controlled source/SSR checks are not native acceptance.
+
 Now has four primary metrics: attribution needs, known uncommitted changes,
 known clean repositories and dated effort. Captured events, auto-attribution and
 busiest task remain secondary. No status data means unavailable, not zero.
