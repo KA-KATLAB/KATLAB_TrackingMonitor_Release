@@ -5,15 +5,14 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.20 - Honest History Graph States**
+Current source version: **v0.4.0.21 - Exact Session Identity**
 
-History's graph distinguishes loading, unavailable, preparation and accepted
-empty data. Same-repository accepted rows remain usable on later failures;
-automatic repository fallback cannot label the previous graph as new data.
-Safe restart also distinguishes provably older stale-parent-PID subtrees from
-the actual owned tracker, retaining its native identity and refusal safeguards.
+Session Timeline keeps its compact header and exposes the complete session ID
+on demand as a labelled, read-only ASCII JSON string. Quotes and escapes preserve
+special characters; decoding JSON recovers the original ID. Raw API identity,
+event paging and existing recovery remain unchanged.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.20_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.21_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -186,7 +185,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.20_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.21_Release_Notes.md)
 
 ## Guarantees
 

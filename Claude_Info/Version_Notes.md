@@ -1,5 +1,20 @@
 # Version Notes
 
+## v0.4.0.21 - Exact Session Identity (2026-10-06)
+
+- Session Timeline exposes the full ID through a default-closed native disclosure
+  while retaining its compact provider/short-ID header. The labelled read-only
+  field is printable ASCII JSON with quotes and escapes, not the raw API value;
+  decoding recovers controls, Unicode and the exact original frontend string.
+- Use existing control/field styles and tabIndex0 for the current modal trap.
+  Provider/full-ID key is stable across same-session paging. No product helper,
+  new state/effect/request/clipboard action, shared dialog or paging change.
+- Actual complete-component/encoded-value and controlled trap tests preserve
+  original pre-render, full-source and append-restored collector fingerprints.
+  Static/SSR/HTTP evidence does not establish native selection, keyboard, layout,
+  clipboard or assistive acceptance. Native H.1 remains pending; earlier launcher,
+  unused synthetic-row cleanup and build-only advisory limits remain separate.
+
 ## v0.4.0.20 - Honest History Graph States (2026-10-06)
 
 - Commit graph distinguishes loading, unavailable, preparation and accepted

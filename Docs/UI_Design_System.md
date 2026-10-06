@@ -781,6 +781,15 @@ Do not:
 
 - Repo ids, branches, task titles, paths, and commit messages use shrink containment plus wrap/ellipsis.
 - Preserve full accessible text or provide an adjacent operable disclosure; `title` is supplemental only.
+- Session Timeline keeps the compact provider/short-ID header and exposes full
+  identity in a default-closed native disclosure. Its labelled read-only field
+  contains printable ASCII JSON, including quotes and escapes, not a raw API
+  argument. Decode JSON to recover the original ID; do not trim, normalize or
+  truncate legacy IDs. Input/container CSS contains long values locally, without
+  imposing a data-length cap. Provider/full-ID keys preserve same-session paging
+  state and reset changed identity. The summary has tabIndex0 for the existing
+  modal trap. No new request, clipboard action, autofocus or selection handler;
+  controlled encoding/focus/SSR evidence is not native interaction acceptance.
 - Tables, diffs, timelines, charts, and maps scroll inside labelled local containers.
 - Cards impose no global minimum width.
 - Empty states say what is empty and, when useful, the next action.

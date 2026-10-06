@@ -48,9 +48,9 @@ The build-only `braces` issue remains open in the
 [primary advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm);
 no dependency major migration, patched-version claim or chunk-notice suppression.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Evidence and publication details are recorded in
 `temp/Plan/PLAN_v0.4.0.20_Honest_History_Graph_States.txt`.
 
-Previous [v0.4.0.19 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.19_Release_Notes.md)
+Previous [v0.4.0.19 notes](TrackingMonitor_v0.4.0.19_Release_Notes.md)
 retain their historical scope with only the two move-affected links rebased.

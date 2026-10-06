@@ -138,6 +138,24 @@ export function SessionTimeline ({
       backdropClose
       closeLabel="Close session timeline"
     >
+      <details key={JSON.stringify(["session-full-id", session.provider, session.sessionId])}
+        className="mb-3 min-w-0">
+        <summary tabIndex={0}
+          className="ui-control list-item w-fit max-w-full cursor-pointer bg-ui-raised text-left">
+          Full session ID
+        </summary>
+        <label className="block text-sm text-ui-muted">
+          Session ID for {session.provider} (JSON string)
+          <input type="text" readOnly spellCheck={false} autoComplete="off"
+            aria-describedby="session-timeline-id-help"
+            className="ui-field mt-2 block w-full min-w-0 font-mono text-base"
+            value={JSON.stringify(session.sessionId).replace(/[\u007f-\uffff]/g, (unit) =>
+              `\\u${unit.charCodeAt(0).toString(16).padStart(4, "0")}`)} />
+        </label>
+        <p id="session-timeline-id-help" className="mt-2 text-xs text-ui-muted">
+          Includes quotes and escapes. Decode JSON to recover the original ID.
+        </p>
+      </details>
       <div id="session-timeline-events" className="min-w-0 text-base">
         <DialogLoadStatus label="Session timeline" busy={busy} error={error}
           count={rows?.length ?? null} limitReached={limitReached} />
