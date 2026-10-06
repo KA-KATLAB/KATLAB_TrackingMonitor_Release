@@ -5,14 +5,14 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.30 - Nonfinite Duration Display**
+Current source version: **v0.4.0.31 - Chronological Effort Aggregation**
 
-The shared duration formatter shows "Unavailable" for nonfinite values instead
-of bogus approximate minutes. All finite output, raw data, caller gates,
-formulas, requests, paging and focus stay intact. This is display honesty, not
-a timestamp or effort repair; controlled checks do not prove native acceptance.
+Backend effort groups are copy-sorted by parsed epoch before the existing gap
+rule, correcting mixed-precision duration totals and Wrapped task ranking.
+Raw data, grouping, scope and approximate formulas stay intact. Text-based
+window cutoffs and date buckets remain unchanged; native acceptance is pending.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.30_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.31_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -185,7 +185,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.30_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.31_Release_Notes.md)
 
 ## Guarantees
 

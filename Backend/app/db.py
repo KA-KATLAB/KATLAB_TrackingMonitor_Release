@@ -1170,6 +1170,7 @@ def _cluster_minutes (sorted_epochs: list[float]) -> int:
     An ESTIMATE by construction - every UI surface renders it with '≈'."""
     if not sorted_epochs:
         return 0
+    sorted_epochs = sorted(sorted_epochs)
     total = 0.0
     block_start = prev = sorted_epochs[0]
     for t in sorted_epochs[1:]:
@@ -1280,7 +1281,8 @@ def get_stats (repo_ids: list[str], now_iso: str) -> dict:
     # non-null (provider, session_id), with legacy NULL provider = Claude)
     # and the per-UTC-day minutes (all events; a block
     # crossing midnight splits at the bucket boundary - accepted). The
-    # SELECT is ORDER BY ts, so every per-group list stays sorted.
+    # SQL timestamp spelling is not chronology across mixed precision.
+    # _cluster_minutes orders a copy of each parsed epoch group.
     # v0.1.7.0 D3 (A.1): the punch card rides the SAME scan — 7x24 counts in
     # SERVER-LOCAL hours; row = (weekday() + 1) % 7 (Sunday-first; Python
     # weekday() is MONDAY=0 — the RV2 trap). Labelled "(local time)" in UI.

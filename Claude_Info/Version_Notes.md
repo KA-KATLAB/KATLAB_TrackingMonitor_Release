@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.4.0.31 - Chronological Effort Aggregation (2026-10-06)
+
+- Copy-sort each backend parsed epoch group before the existing effort gap rule.
+  Accepted mixed-precision timestamps no longer undercount task/calendar effort
+  or select the wrong Wrapped task. Wrapped days still project calendar minutes.
+- Keep strict 15-minute gap, two-minute tail, rounding, raw timestamps/IDs/offsets,
+  scopes, provider/session counts, grouping, API shape and SQL unchanged.
+- One assignment and one false-comment correction only. Actual in-memory
+  aggregation/ranking and strict original-source reversal protect the change;
+  all original tests remain untouched.
+- Raw date buckets, lexical window boundaries and unrelated timestamp logic
+  remain separate. Effort stays approximate; native H.1 and prior limits remain.
+
 ## v0.4.0.30 - Nonfinite Duration Display (2026-10-06)
 
 - The shared duration formatter returns "Unavailable" for NaN and either

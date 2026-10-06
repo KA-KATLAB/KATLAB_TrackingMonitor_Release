@@ -364,6 +364,13 @@ repair. Keep raw invalid date labels and admitted event rows. Existing caller
 mount predicates remain authoritative; this does not promise every malformed
 surface displays the fallback. The generic label also fits uptime and gaps.
 
+Backend effort aggregation copy-sorts each parsed epoch group before applying
+the unchanged strict 15-minute gap, two-minute tail and whole-minute rounding.
+Mixed timestamp precision must not invent effort gaps or reorder task ranking.
+Keep the approximate marker; calendar and Wrapped share the existing estimator.
+Stored timestamps, raw date buckets and lexical time-window selection remain
+unchanged. Do not present this bounded ordering fix as global UTC normalization.
+
 Tools, Attention, Legend, and goal settings are disclosures, not ARIA menus. Use
 `aria-expanded` and `aria-controls` with ordinary buttons/links. Escape closes and
 restores the connected opener; outside activation must not steal the destination's
