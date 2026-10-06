@@ -356,6 +356,14 @@ focus. During disclosure/dialog handoff, suppress outgoing focus restoration unt
 the destination owns focus. Never leave two header disclosures open. Palette-to-
 Tools/Legend handoff waits for overlay teardown and checks the current owner.
 
+Palette ArrowUp/ArrowDown reveal the selected command inside its existing local
+list viewport without moving input focus or scrolling an outer container.
+Opening, raw query edits, paging and result replacement reveal the first current
+option. Hover alone does not scroll. Already-visible options cause no scroll
+write; oversized options align their leading edge. This bounded rule does not
+resolve outer-dialog clipping at very short viewport heights or establish native
+keyboard, geometry or assistive acceptance.
+
 Do:
 
 > Move focus into the destination dialog before releasing the shared overlay lease.

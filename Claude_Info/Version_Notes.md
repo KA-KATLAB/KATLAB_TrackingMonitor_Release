@@ -1,5 +1,20 @@
 # Version Notes
 
+## v0.4.0.24 - Local Palette Keyboard Visibility (2026-10-06)
+
+- Arrow navigation reveals the selected option inside the Palette's existing
+  local list viewport, including wraparound. Opening, raw query edits, paging
+  and result replacement reveal the first current option. Already-visible rows
+  do not scroll; oversized options align their leading edge.
+- Preserve input focus, hover, full-model sorting, paging, actions, disabled
+  behavior, handoff and modal owners. No requests, imports, timers, listeners,
+  dependencies, shared layout or CSS changes.
+- Controlled complete-component/paging regressions protect original complete
+  source through strict six-insertion restoration. Local visibility does not
+  resolve outer-dialog clipping at very short heights or prove native keyboard,
+  geometry or assistive acceptance. Native H.1, held synthetic-row cleanup,
+  prior launcher fixture limits and the build-only advisory remain separate.
+
 ## v0.4.0.23 - Retired Mission Request Owners (2026-10-06)
 
 - Mission request cleanup explicitly retires that owner. Queued transport/HTTP

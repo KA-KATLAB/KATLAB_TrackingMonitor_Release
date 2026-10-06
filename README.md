@@ -5,14 +5,15 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.23 - Retired Mission Request Owners**
+Current source version: **v0.4.0.24 - Local Palette Keyboard Visibility**
 
-Mission discards errors and timeout settlement from requests canceled by effect
-replacement. A retired predecessor cannot overwrite the current request's error
-or loading state. Current failures, timeouts and Refresh feedback remain visible;
-the existing API, layout, paging and deadline contracts stay unchanged.
+Palette keyboard navigation exposes the selected command in its local list,
+including wraparound. Opening, raw search edits and paging expose the first
+current option. Input focus, hover, sorting, actions and modal owners stay intact.
+Very short screens may still clip the list in the outer dialog; native acceptance
+remains pending.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.23_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.24_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -185,7 +186,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.23_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.24_Release_Notes.md)
 
 ## Guarantees
 

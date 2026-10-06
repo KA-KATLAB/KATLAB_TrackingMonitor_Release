@@ -96,6 +96,7 @@ export function CommandPalette ({
   const [query, setQuery] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
   const openRef = useRef(open);
   openRef.current = open;
   const changeOpenRef = useRef(onOpenChange);
@@ -135,6 +136,27 @@ export function CommandPalette ({
   useEffect(() => {
     setActiveId(matches[0]?.entry.id ?? null);
   }, [resultIdentity]);
+
+  const revealOption = (id: string | null): void => {
+    const list = listRef.current;
+    if (!list?.isConnected || !id || list.clientHeight <= 0) return;
+    const optionId = paletteOptionDomId(id);
+    const option = Array.from(list.children).find((child) => child.id === optionId);
+    if (!(option instanceof HTMLElement) || !option.isConnected) return;
+    const row = option.getBoundingClientRect();
+    if (row.height <= 0) return;
+    const top = list.getBoundingClientRect().top + list.clientTop;
+    const bottom = top + list.clientHeight;
+    const delta = row.height > list.clientHeight
+      ? row.top - top
+      : row.top < top ? row.top - top
+        : row.bottom > bottom ? row.bottom - bottom : 0;
+    if (delta !== 0) list.scrollTop += delta;
+  };
+
+  useEffect(() => {
+    if (open) revealOption(visibleMatches[0]?.entry.id ?? null);
+  }, [open, query, resultIdentity, pager.page]);
 
   const closePalette = useCallback(() => changeOpenRef.current(false), []);
 
@@ -222,6 +244,7 @@ export function CommandPalette ({
             if (visibleMatches.length > 0) {
               const next = (currentIndex + 1) % visibleMatches.length;
               setActiveId(visibleMatches[next].entry.id);
+              revealOption(visibleMatches[next].entry.id);
             }
           } else if (event.key === "ArrowUp") {
             event.preventDefault();
@@ -229,6 +252,7 @@ export function CommandPalette ({
               const next = (currentIndex - 1 + visibleMatches.length)
                 % visibleMatches.length;
               setActiveId(visibleMatches[next].entry.id);
+              revealOption(visibleMatches[next].entry.id);
             }
           } else if (event.key === "Enter") {
             event.preventDefault();
@@ -237,6 +261,7 @@ export function CommandPalette ({
         }}
       />
       <ul
+        ref={listRef}
         id="palette-list"
         role="listbox"
         aria-label="Command results"
