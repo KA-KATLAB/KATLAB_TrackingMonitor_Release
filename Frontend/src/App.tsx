@@ -3716,10 +3716,24 @@ function ChangesView ({ events, tasks, repos, effortByTask, taskFilter, onClearF
   }
 
   return (
-    <div className="min-w-0 space-y-6">
+    <div className="changes-workbench min-w-0 space-y-6" data-has-picks={needsPick.length > 0}>
       <SectionHeading title="Changes" kind="page"
         description="Resolve attribution, then inspect captured work by task or folder."
         headingProps={{ "data-view-heading": true, tabIndex: -1 }} />
+      <dl className="changes-command-deck" aria-label="Captured work summary">
+        <div className="changes-command-metric changes-command-metric-action">
+          <dt>Needs attribution</dt>
+          <dd>{needsPick.length.toLocaleString()}<span className="changes-command-description">Unfiltered captured edits requiring a task choice</span></dd>
+        </div>
+        <div className="changes-command-metric">
+          <dt>Captured edits</dt>
+          <dd>{events.length.toLocaleString()}<span className="changes-command-description">Loaded uncommitted capture window</span></dd>
+        </div>
+        <div className="changes-command-metric">
+          <dt>Task groups</dt>
+          <dd>{groupEntries.length.toLocaleString()}<span className="changes-command-description">{groupMode === "folder" ? "With saved task filters" : "In the current task filter"}</span></dd>
+        </div>
+      </dl>
       {(taskFilter || sessionFilter) && (
         <section aria-label="Active change filters" className="ui-surface ui-surface-raised">
           <p className="mb-3 text-sm text-ui-muted">
@@ -4889,7 +4903,7 @@ function HistoryView ({ repos, scopeKeyValue, state, onStateChange, onStatus }: 
           />
         </div>
         <ControlButton disabled={!repoId} onClick={toggleGraph}
-          aria-pressed={showGraph} title="toggle the commit graph (latest 20 commits, real parents)"
+          aria-pressed={showGraph} title="Toggle the bounded commit sequence (latest 20 commits; parent data in the table)"
           tone={showGraph ? "primary" : "neutral"}>
           Commit graph
         </ControlButton>
@@ -4950,7 +4964,7 @@ function HistoryView ({ repos, scopeKeyValue, state, onStateChange, onStatus }: 
             className="ui-local-scroller" role="img" aria-label="commit graph" />
           {graphSvg && !!repoId && loadedRepoRef.current === repoId && (
             <p className="mt-1 text-xs text-slate-400">
-              latest {graphShown} of {shownEntries.length} fetched commits · merge side branches summarized to their tip (*)
+              latest {graphShown} of {shownEntries.length} fetched commits · bounded sequence; oldest visible commit seeds the sequence; later merge tips summarized (*); parent data in the table
             </p>
           )}
           {!!repoId && loadedRepoRef.current === repoId && !loading && !historyHydrating

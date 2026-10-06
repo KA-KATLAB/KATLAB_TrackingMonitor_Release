@@ -84,6 +84,12 @@ class _EntryParser(HTMLParser):
         self.scripts = []
         self.styles = []
 
+    def parse_html_declaration (self, i: int) -> int:
+        # Reject marked declarations before tolerant stdlib comment fallback.
+        if self.rawdata.startswith("<![", i):
+            _fail()
+        return super().parse_html_declaration(i)
+
     def handle_starttag (self, tag: str, attrs) -> None:
         if tag in {"base", "plaintext"}:
             _fail()

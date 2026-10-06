@@ -8,6 +8,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { canonicalPrintedText } from "./helpers/printed_source.mjs";
 import { restoreDiffDisclosureState } from "./helpers/diffDisclosureState.mjs";
 import { restoreWarningTimestampOrder } from "./helpers/warningTimestampOrder.mjs";
+import { restoreGitGraphBoundaryCopy } from "./helpers/gitGraphMergeSeed.mjs";
+import { restoreChangesWorkbench } from "./helpers/changesWorkbench.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const frontend = resolve(root, "Frontend");
@@ -407,7 +409,7 @@ function restoredOutsideGraph (ast) {
   finally { changed.dispose(); }
 }
 function checkPreservation (text) {
-  const ast = parse(restoreDiffDisclosureState(restoreWarningTimestampOrder(text)));
+  const ast = parse(restoreDiffDisclosureState(restoreWarningTimestampOrder(restoreGitGraphBoundaryCopy(restoreChangesWorkbench(text)))));
   const fn = one(ast.statements, (node) => ts.isFunctionDeclaration(node) && node.name?.text === "HistoryView");
   const statements = [...fn.body.statements];
   assert.ok(ts.isReturnStatement(statements.pop()));

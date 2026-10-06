@@ -312,6 +312,8 @@ test("retained offline DiffView keeps actual fifty-line paging and hunk classifi
 
 // v0.4.0.25: appended diff disclosure regressions.
 // The complete original 311-line test prefix above remains byte-identical.
+import { restoreGitGraphBoundaryCopy, restoreGitGraphOracleAdapters } from "./helpers/gitGraphMergeSeed.mjs";
+import { restoreChangesWorkbench, restoreChangesWorkbenchOracleAdapters } from "./helpers/changesWorkbench.mjs";
 async function withDisclosure (body) {
   const h = harness();
   try { await body(h); }
@@ -461,7 +463,7 @@ test("strict disclosure restoration preserves original whole App, complete owner
   const sha = value => createHash("sha256").update(value).digest("hex");
   const printer = ts.createPrinter({ removeComments: true });
   assert.equal(sha(DIFF_DISCLOSURE_WINDOW), DIFF_DISCLOSURE_WINDOW_SHA);
-  const lf = restoreWarningTimestampOrder(read("App.tsx")).replace(/\r\n/g, "\n");
+  const lf = restoreWarningTimestampOrder(restoreGitGraphBoundaryCopy(restoreChangesWorkbench(read("App.tsx")))).replace(/\r\n/g, "\n");
   for (const newline of ["\n", "\r\n"]) {
     const source = lf.replace(/\n/g, newline), restored = restoreDiffDisclosureState(source);
     const ast = disclosureAst(restored), owner = disclosureOwner(ast);
@@ -526,7 +528,7 @@ test("all six old diff tests and every old History oracle survive exact append-o
   const { createHash } = await import("node:crypto");
   const sha = value => createHash("sha256").update(value).digest("hex");
   const currentLF = readFileSync(fileURLToPath(import.meta.url), "utf8").replace(/\r\n/g, "\n");
-  const historyLF = readFileSync(resolve(root, "Tests/test_history_graph_read_states.mjs"), "utf8").replace(/\r\n/g, "\n");
+  const historyLF = restoreGitGraphOracleAdapters("test_history_graph_read_states.mjs", restoreChangesWorkbenchOracleAdapters("test_history_graph_read_states.mjs", readFileSync(resolve(root, "Tests/test_history_graph_read_states.mjs"), "utf8"))).replace(/\r\n/g, "\n");
   for (const newline of ["\n", "\r\n"]) {
     // Checkout newline conversion cannot excuse any changed token or old test.
     const current = Buffer.from(currentLF.replace(/\n/g, newline).replace(/\r\n/g, "\n"));

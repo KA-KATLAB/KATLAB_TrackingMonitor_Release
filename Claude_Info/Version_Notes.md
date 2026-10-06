@@ -1,5 +1,47 @@
 # Version Notes
 
+## v0.4.1.0 - Mission Control Workbench (2026-10-07)
+
+- A larger complete KATLAB identity, decorative monogram and bordered build
+  badge lead the shell. The actual version button still shares System's health
+  callback; quieter utilities, a context line and active navigation border
+  retain all six routes and existing readiness/focus/disabled behavior.
+- Changes adds three definition-list quantities from the complete loaded
+  capture model: unresolved attribution, captured edits and filtered task
+  groups. These are not Git dirty-file totals or completeness/clean claims.
+  Folder mode explicitly describes the retained task-filter quantity.
+- At 768px the summary has three columns; below it stacks. At 1440px with an
+  unresolved queue, attribution and grouped work share a two-column workbench.
+  Attribution remains first in DOM. Narrow/no-pick layouts, main scrolling,
+  task/session filters, 50-item paging, assignments and recovery stay intact.
+- This combined delivery includes the previously unpublished graph and
+  identity-gate fixes below; there was no separate v0.4.0.36 publication.
+- The frontend identity gate rejects active marked declarations before the
+  tolerant stdlib comment fallback. Ordinary comments, doctype and script/style
+  literals remain; original regressions and a matching-version isolated CLI
+  verify the local dispatch fix, not full HTML validity or native acceptance.
+- A merge at the oldest visible edge now seeds its own commit before later
+  merge decoration, avoiding Mermaid's empty-main merge failure. No fake
+  ancestor is added. Exact parents, counts, twenty-commit cap and HEAD remain.
+- Later-tip counters count only decorated merges. Ordinary-oldest definitions,
+  branch configuration, History ownership/error/recovery and exact rows stay.
+- Tooltip/caption describe a bounded sequence, not reconstructed ancestry;
+  full parent data remains in rows while the table still abbreviates hashes.
+- Actual installed semantic owners and public grammar regressions reproduce
+  the old guard failure with explicit finite dependency fixtures. Strict source
+  and old-oracle adapters preserve original hashes/assertions/negative checks.
+- No API/schema/backend runtime/config/dependency/stored-data change or
+  live-incidence claim. Existing later branch/short-hash collisions remain.
+- Recorded large Connection: close responses can stall before their advertised
+  body completes. Keep-alive HTTP diagnostics are not a repair; the isolated
+  bare-Proactor comparison also failed. This transport limitation stays open.
+- Native v0.4 H.1 remains pending. Source/SSR/hooks/HTTP/assets do not certify
+  paint, geometry, focus, keyboard or assistive technology. The user explicitly
+  accepts limited publication; actual verification/delivery evidence belongs
+  in the v0.4.1.0 plan, not invented passed checks here.
+- The previously recorded high build-only braces advisory and build chunk
+  notice are not addressed; no forced dependency or browser workaround.
+
 ## v0.4.0.35 - Precision-Safe Warning Chronology (2026-10-06)
 
 - Warning details retain ascending order across bare UTC seconds and six-digit

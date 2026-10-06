@@ -216,7 +216,8 @@ export function buildGitGraph (entries: HistoryEntry[], branchName: string): Git
   walk.forEach((c, i) => {
     const tag = i === walk.length - 1 ? ' tag: "HEAD"' : ""; // RV5: newest's OWN form
     const parents = (c.parents ?? "").trim() ? c.parents!.trim().split(/\s+/) : [];
-    if (parents.length >= 2) {
+    // Seed the oldest visible commit before decorating later merges.
+    if (parents.length >= 2 && i > 0) {
       // RV4/RV5/RV6: a merge renders SOLELY via this decoration — one side
       // node (parent #2 tip, "*"-suffixed: the tip usually also sits on the
       // main line as its own page row), branch keyed by M's OWN short7, and

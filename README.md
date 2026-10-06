@@ -5,14 +5,18 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.35 - Precision-Safe Warning Chronology**
+Current source version: **v0.4.1.0 - Mission Control Workbench**
 
-Warning details preserve chronological order across exact-second and six-digit
-UTC timestamps without losing microseconds. Raw keys, dismissal, collapsed
-summary, counts, bounded paging and focus lifecycle stay intact. This fixes
-loaded display order, not backend normalization; native acceptance remains pending.
+A larger KATLAB identity and visible build badge lead a quieter operational
+shell. Changes adds exact loaded-capture summaries and a responsive workbench:
+unresolved attribution stays first, beside grouped work on wide screens.
+Filters, assignment, paging, navigation and System ownership remain unchanged.
+This delivery also includes the previously unpublished bounded-graph seed and
+marked-declaration identity-gate fixes. No separate v0.4.0.36 release is implied.
+Large Connection: close responses and native UI acceptance remain unresolved;
+the previously recorded high build-only braces advisory and chunk notice are not addressed.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.35_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.1.0_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -185,7 +189,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.35_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.1.0_Release_Notes.md)
 
 ## Guarantees
 

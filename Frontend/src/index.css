@@ -20,7 +20,7 @@
   --ui-danger: 225 29 72;
   --ui-font-body: 1rem;
   --ui-font-metadata: 0.75rem;
-  --ui-font-page: clamp(1.5rem, 1.15rem + 0.55vw, 1.75rem);
+  --ui-font-page: clamp(1.75rem, 1.4rem + 0.7vw, 2rem);
   --ui-safe-top: env(safe-area-inset-top, 0px);
   --ui-safe-right: env(safe-area-inset-right, 0px);
   --ui-safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -67,13 +67,156 @@ body {
   flex-wrap: wrap;
 }
 
-.app-header-primary { gap: 0.75rem; padding: 0.5rem 0; }
+.app-header-primary { gap: 1rem; padding: 0.75rem 0; }
 .app-brand { display: flex; min-width: 0; flex: 1 1 20rem; flex-wrap: wrap; align-items: center; gap: 0.5rem; overflow-wrap: anywhere; }
-.app-version-badge { max-width: 100%; overflow-wrap: anywhere; color: #7dd3fc; background: #082f49; }
+.app-brand-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: clamp(1.375rem, 1.15rem + 0.4vw, 1.625rem);
+  line-height: 1.3;
+  letter-spacing: -0.035em;
+}
+.app-brand-title > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.app-brand-mark {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(var(--ui-focus));
+  border-radius: 0.5rem;
+  background: rgb(var(--ui-primary));
+  color: rgb(var(--ui-text));
+  font-size: 1.25rem;
+  letter-spacing: -0.05em;
+}
+.app-version-badge {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  border-color: rgb(var(--ui-focus));
+  color: #7dd3fc;
+  background: #082f49;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
 .app-header-actions { flex: 1 1 auto; justify-content: flex-end; gap: 0.375rem; }
-.app-workspace-context { gap: 0.375rem 0.875rem; }
+.app-header-actions > .ui-control,
+.app-header-actions > .relative > .ui-control {
+  background-color: rgb(var(--ui-canvas));
+}
+.app-header-actions > .ui-control:hover:not(:disabled),
+.app-header-actions > .relative > .ui-control:hover:not(:disabled) {
+  background-color: rgb(var(--ui-surface-raised));
+}
+.app-workspace-context {
+  gap: 0.375rem 0.875rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid rgb(var(--ui-border));
+}
+.app-workspace-context > span:first-child {
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.375rem;
+  background: rgb(var(--ui-surface-raised));
+}
 .app-connection { display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.375rem; }
 .app-shell-navigation { display: none; }
+.app-navigation-label {
+  color: rgb(var(--ui-text-muted));
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.app-shell-navigation nav[aria-label="Primary views"] button {
+  justify-content: flex-start;
+  border-left: 3px solid transparent;
+  background-color: transparent;
+  color: rgb(var(--ui-text-muted));
+}
+.app-shell-navigation nav[aria-label="Primary views"] button:hover:not(:disabled) {
+  background-color: rgb(var(--ui-surface));
+  color: rgb(var(--ui-text));
+}
+.app-shell-navigation nav[aria-label="Primary views"] button[aria-current="page"] {
+  border-left-color: rgb(var(--ui-focus));
+  background-color: rgb(var(--ui-surface-raised));
+  color: rgb(var(--ui-text));
+  font-weight: 600;
+}
+
+.changes-workbench > * { min-width: 0; }
+.changes-command-deck {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+.changes-command-metric {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 0.5rem;
+  background: rgb(var(--ui-surface));
+}
+.changes-command-metric dt {
+  color: rgb(var(--ui-text-muted));
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.changes-command-metric dd {
+  @apply font-mono;
+  margin: 0.5rem 0 0;
+  color: rgb(var(--ui-text));
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.changes-command-description {
+  @apply font-sans;
+  display: block;
+  margin-top: 0.5rem;
+  color: rgb(var(--ui-text-muted));
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.changes-workbench[data-has-picks="true"] .changes-command-metric-action {
+  border-left: 3px solid rgb(var(--ui-warning));
+}
+.changes-workbench[data-has-picks="true"] .changes-command-metric-action dt {
+  color: rgb(var(--ui-warning));
+}
+.changes-workbench .ui-work-list {
+  background-color: rgb(var(--ui-surface-raised) / 0.35);
+}
+.changes-workbench .ui-work-list h4 { color: rgb(var(--ui-text)); }
+
+@media (min-width: 768px) {
+  .changes-command-deck { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1440px) {
+  .changes-workbench[data-has-picks="true"] {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .changes-workbench[data-has-picks="true"] > :not([hidden]) {
+    grid-column: 1 / -1;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+  .changes-workbench[data-has-picks="true"] > #sec-pick { grid-column: 1; }
+  .changes-workbench[data-has-picks="true"] > section[aria-label="Grouped uncommitted changes"] {
+    grid-column: 2;
+  }
+}
 
 @media (min-width: 1280px) {
   .app-shell-navigation {

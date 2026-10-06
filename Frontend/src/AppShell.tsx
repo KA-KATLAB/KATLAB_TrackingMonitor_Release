@@ -27,7 +27,12 @@ export function AppShell ({ actions, context, children, onSystem }: {
 }
 
 export function AppShellNavigation ({ children }: { children: ReactNode }): JSX.Element {
-  return <aside className="app-shell-navigation" aria-label="Workspace navigation">{children}</aside>;
+  return (
+    <aside className="app-shell-navigation" aria-label="Workspace navigation">
+      <p className="app-navigation-label">Workspace</p>
+      {children}
+    </aside>
+  );
 }
 
 export function ConnectionStatus ({ state }: { state: WsConnectionState }): JSX.Element {

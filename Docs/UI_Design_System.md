@@ -75,7 +75,7 @@ foreground for every category. Outline badges retain readable neutral text.
 - Small SVG/canvas ticks may be smaller only when non-interactive and fully duplicated by an accessible alternative.
 - Use tabular figures for changing numeric values.
 - Natural wrapping must remain correct without `text-wrap: balance`.
-- Page titles use 24–28px, section titles 18px, and panel titles 16px. Their
+- Page titles use 28–32px, section titles 18px, and panel titles 16px. Their
   semantic heading level remains independent of visual size. Page descriptions
   use 16px; supporting descriptions use 14px; metadata keeps the 12px floor.
 - Numeric emphasis uses tabular mono figures around 32px. Wrap long values and
@@ -126,8 +126,16 @@ At very short viewport heights, an explicitly opened warning detail panel may sh
 - Preserve the `#main-content` skip target and make the landmark programmatically focusable.
 - The header separates brand/build version, Repository, Commands, transport
   status, Attention, System and Tools. Allow identity and controls to wrap.
+- The complete product identity uses 22–26px text with an aria-hidden decorative
+  K monogram. Keep one actual h1 and a visibly bordered/accented mono build
+  badge beside it. Wrap the full name and badge without truncation; keep
+  `min-width: 0`, safe areas and every labelled utility reachable. Quieter controls
+  and a tonally distinct context line do not change their owner callbacks.
 - Desktop view navigation occupies a 14rem left rail at 1280px and above.
   Below that, a labelled Navigation control opens the shared modal drawer.
+- Label the rail Workspace. Inactive primary navigation rests transparent;
+  the active item has a current border marker plus aria-current and text, not
+  color alone. Preserve all six labels and existing focus/disabled feedback.
 - Repository selection and detailed repository status each use a named drawer.
   The compact context line remains visible; do not rebuild a permanent status rail.
 - Installed-PWA header, drawers, dialogs, and bottom/right notices respect safe-area insets.
@@ -424,6 +432,26 @@ These rules extend the global shell; they do not replace it.
 ### 6.1 Changes
 
 - Tasks is available through the shared drawer at every width.
+- Immediately after the unchanged Changes heading, a labelled definition list
+  presents Needs attribution, Captured edits and Task groups. Use exact current
+  loaded counts before paging: the unresolved queue ignores task/session
+  filters, captured edits are the loaded uncommitted window, and task groups
+  retain their task/session filters even in folder mode. Explicit captions
+  describe these boundaries; never imply Git dirty-file totals, complete
+  workspace coverage, readiness or clean status. Bootstrap/failure stays in
+  the existing workspace gate, not a false zero-valued summary.
+- Summary panels stack below 768px and use three equal `minmax(0,1fr)` columns
+  from 768px, with 8px radius, 16px padding, 32px tabular numbers and wrapped copy.
+  Only a positive unfiltered queue receives amber action emphasis.
+- At 1440px with a positive queue, use two columns `minmax(0,0.9fr)` and
+  `minmax(0,1.6fr)`, 24px gap and start alignment. All root children span both
+  except the existing attribution root in column 1 and grouped section in
+  column 2; reset space-y margins only inside this grid. Attribution remains
+  first in DOM. Narrow/no-pick views stack; preserve section IDs, anchors,
+  main scroll ownership, complete loaded models and 50-item presentation.
+  Add no sticky/fixed/inner-overflow workbench, height clipping, reordered
+  content or new request/state owner. Task work lists use scoped tonal
+  separation rather than competing card emphasis.
 - Keep unresolved attribution ahead of the grouped work list, with task/session
   filters and clear actions visible in both task and folder modes.
 - Task, session, grouping, section-navigation, manual-pick, event, file-tree, and diff-line collections use bounded presentation when their source can exceed 50.
@@ -506,6 +534,12 @@ locally; controlled callback/SSR checks do not certify native acceptance.
 - Changing repo clears stale rows, graph, loading, exhausted, and error state before the new load.
 - The Mermaid graph retains a structured alternative and an honest Reload path for cached module-load failure.
 - Git graph init configuration must decode to the exact sanitized main name used by merge checkouts, including apostrophes. Serialize the directive as JSON and unicode-escape apostrophes before Mermaid's quote normalization; keep existing label normalization and strict rendering unchanged.
+- The Git graph is a bounded sequence of the newest twenty fetched commits,
+  not reconstructed ancestry. Seed its oldest visible entry as its own commit,
+  including a merge, before decorating later merges. Do not invent an ancestor
+  or advance side-tip counters for that first entry. Keep full parent data in
+  structured rows; the existing table abbreviates hashes. Explain sequence and
+  later-tip summarization in the caption and keep render-error recovery honest.
 
 ### 6.4 City
 
