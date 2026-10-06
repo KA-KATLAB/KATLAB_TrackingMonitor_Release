@@ -1,5 +1,23 @@
 # Version Notes
 
+## v0.4.0.20 - Honest History Graph States (2026-10-06)
+
+- Commit graph distinguishes loading, unavailable, preparation and accepted
+  empty data. Zero exact-data rows and No commits claims require a matching
+  loaded repository and accepted empty History, not pending/error state.
+- Retain accepted same-repo rows/SVG through later History failures. Suppress
+  old-repo graph/failure/caption during automatic fallback; keep the same host
+  hidden when its SVG is empty until the existing adoption effect clears it.
+  The initial main-list empty copy also waits for hydration/loaded ownership.
+- Actual-owner/API/JSX/DisclosureTable and controlled adoption-effect regressions
+  preserve request owners, deadlines, paging, metadata and module Reload/Retry.
+  No native paint/keyboard/assistive acceptance is inferred. Native acceptance,
+  unused synthetic-row cleanup and earlier launcher limits remain separate.
+- Safe restart excludes only provably older stale-parent-PID subtrees; preserve
+  cycle/unknown identity refusal, equal-bucket native chronology, retained handles,
+  listener recheck and deadline. Mocked regression and portable full-module
+  preservation evidence remain separate from actual owned restart verification.
+
 ## v0.4.0.19 - Trustworthy Local Badges (2026-10-06)
 
 - Optional local SVG cards expose UNAVAILABLE for missing/invalid Git status,

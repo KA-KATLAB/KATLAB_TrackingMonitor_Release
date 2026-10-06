@@ -5,13 +5,15 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.19 - Trustworthy Local Badges**
+Current source version: **v0.4.0.20 - Honest History Graph States**
 
-Optional local SVG badges distinguish unavailable Git status from CLEAN/counts,
-preserve OFFLINE precedence, and improve CLEAN text contrast. UTC capture counts
-remain independent; the five-minute cache does not guarantee refresh or freshness.
+History's graph distinguishes loading, unavailable, preparation and accepted
+empty data. Same-repository accepted rows remain usable on later failures;
+automatic repository fallback cannot label the previous graph as new data.
+Safe restart also distinguishes provably older stale-parent-PID subtrees from
+the actual owned tracker, retaining its native identity and refusal safeguards.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.19_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.20_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -184,7 +186,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.19_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.20_Release_Notes.md)
 
 ## Guarantees
 

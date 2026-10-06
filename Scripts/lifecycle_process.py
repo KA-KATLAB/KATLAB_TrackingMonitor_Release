@@ -359,8 +359,11 @@ def _select_processes (rows: dict[int, _Process], pids: set[int],
         visiting.add(row.pid)
         for child in sorted(children.get(row.pid, []), key=lambda item: item.pid):
             _record_identity(child)
-            if child.created < row.created:
-                raise ProcessOwnershipError("Owned descendant parent was replaced")
+            if child.pid in visiting:
+                raise ProcessOwnershipError("Owned process tree is cyclic or too deep")
+            # ParentProcessId can point at a reused PID belonging to a newer process.
+            if child.created // 10 < row.created // 10:
+                continue
             visit(child, depth + 1)
         visiting.remove(row.pid)
 

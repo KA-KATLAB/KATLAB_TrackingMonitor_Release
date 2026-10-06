@@ -37,9 +37,9 @@ The build-only `braces` issue remains open with no direct patched version in the
 No Tailwind major migration, security remediation or chunk-notice suppression is
 bundled. Existing earlier unconfirmed launcher-fixture limits remain explicit.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Evidence and publication details are recorded in
 `temp/Plan/PLAN_v0.4.0.19_Trustworthy_Local_Badges.txt`.
 
-Previous [v0.4.0.18 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.18_Release_Notes.md)
+Previous [v0.4.0.18 notes](TrackingMonitor_v0.4.0.18_Release_Notes.md)
 retain their historical scope, with only move-affected links rebased.

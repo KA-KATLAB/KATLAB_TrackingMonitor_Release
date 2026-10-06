@@ -4893,7 +4893,7 @@ function HistoryView ({ repos, scopeKeyValue, state, onStateChange, onStatus }: 
         </>} />
       {showGraph && (
         <div className="ui-work-list mb-6 p-4">
-          {graphFailure && (
+          {graphFailure && !!repoId && loadedRepoRef.current === repoId && (
             <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-amber-300">
               <span>{graphFailure.message}</span>
               <button type="button" className="ui-control" disabled={graphBusy}
@@ -4904,33 +4904,54 @@ function HistoryView ({ repos, scopeKeyValue, state, onStateChange, onStatus }: 
               </button>
             </div>
           )}
-          <DisclosureTable
-            label="Commit graph"
-            summary={graphRows.length === 0
-              ? "No commits are available for this graph."
-              : `Latest ${graphRows.length} commit${graphRows.length === 1 ? "" : "s"}; `
-                + `${graphRows.filter((row) => row.parents.length > 1).length} merge commit${graphRows.filter((row) => row.parents.length > 1).length === 1 ? "" : "s"}.`}
-            rows={graphRows}
-            rowKey={(row) => row.hash}
-            identity={["history-graph-alternative", scopeKeyValue, repoId, semanticGraphKey]}
-            columns={[
-              { key: "hash", label: "Commit", render: (row) => row.hash.slice(0, 10) },
-              { key: "message", label: "Message", render: (row) => row.message },
-              { key: "time", label: "Timestamp", render: (row) => fmtTs(row.timestamp) },
-              { key: "parents", label: "Parents", render: (row) => row.parents.length > 0
-                ? row.parents.map((hash) => hash.slice(0, 10)).join(", ") : "root" },
-              { key: "events", label: "Tracked events", render: (row) => row.eventCount,
-                sortValue: (row) => row.eventCount },
-            ]}
-            className="mb-2"
-          />
-          <div ref={graphRef} className="ui-local-scroller" role="img" aria-label="commit graph" />
-          {graphSvg && (
+          {!!repoId && loadedRepoRef.current === repoId && (graphRows.length > 0
+              || !loading && !historyHydrating && !loadError && !graphBusy
+                && !graphFailure && shownEntries.length === 0) ? (
+            <DisclosureTable
+              label="Commit graph"
+              summary={graphRows.length === 0
+                ? "No commits are available for this graph."
+                : `Latest ${graphRows.length} commit${graphRows.length === 1 ? "" : "s"}; `
+                  + `${graphRows.filter((row) => row.parents.length > 1).length} merge commit${graphRows.filter((row) => row.parents.length > 1).length === 1 ? "" : "s"}.`}
+              rows={graphRows}
+              rowKey={(row) => row.hash}
+              identity={["history-graph-alternative", scopeKeyValue, repoId, semanticGraphKey]}
+              columns={[
+                { key: "hash", label: "Commit", render: (row) => row.hash.slice(0, 10) },
+                { key: "message", label: "Message", render: (row) => row.message },
+                { key: "time", label: "Timestamp", render: (row) => fmtTs(row.timestamp) },
+                { key: "parents", label: "Parents", render: (row) => row.parents.length > 0
+                  ? row.parents.map((hash) => hash.slice(0, 10)).join(", ") : "root" },
+                { key: "events", label: "Tracked events", render: (row) => row.eventCount,
+                  sortValue: (row) => row.eventCount },
+              ]}
+              className="mb-2"
+            />
+          ) : (
+            <p className="mb-2 text-xs leading-5 text-ui-muted">
+              {!repoId
+                ? "Commit graph unavailable: no online repository."
+                : loadedRepoRef.current !== repoId
+                  ? "Loading History for the commit graph..."
+                  : loadError
+                    ? "Commit graph unavailable until History recovers."
+                    : graphFailure
+                      ? "Exact graph data is unavailable."
+                      : loading || historyHydrating
+                        ? "Loading History for the commit graph..."
+                        : "Preparing commit graph..."}
+            </p>
+          )}
+          <div ref={graphRef} hidden={!repoId || loadedRepoRef.current !== repoId || !graphSvg}
+            className="ui-local-scroller" role="img" aria-label="commit graph" />
+          {graphSvg && !!repoId && loadedRepoRef.current === repoId && (
             <p className="mt-1 text-xs text-slate-400">
               latest {graphShown} of {shownEntries.length} fetched commits · merge side branches summarized to their tip (*)
             </p>
           )}
-          {!graphBusy && !graphSvg && !graphFailure && (
+          {!!repoId && loadedRepoRef.current === repoId && !loading && !historyHydrating
+              && !loadError && shownEntries.length === 0 && graphRows.length === 0
+              && !graphBusy && !graphSvg && !graphFailure && (
             <p className="text-xs text-slate-400">No commits to graph.</p>
           )}
         </div>
@@ -4967,7 +4988,8 @@ function HistoryView ({ repos, scopeKeyValue, state, onStateChange, onStatus }: 
         <CollectionPager collectionLabel="History commits" page={pager}
           onPageChange={pager.setPage} />
       )}
-      {!loading && !loadError && shownEntries.length === 0 && (
+      {!historyHydrating && (!repoId || loadedRepoRef.current === repoId)
+          && !loading && !loadError && shownEntries.length === 0 && (
         <p className="text-sm text-slate-400">
           {repoId ? "No commits captured yet." : "No online repositories are available."}
         </p>

@@ -417,6 +417,15 @@ locally; controlled callback/SSR checks do not certify native acceptance.
   unchanged identity and event paging retain native state. Do not fetch, write
   the clipboard, autofocus or auto-select. The hover title is supplemental only.
 - Keep API fetch depth separate from the visible 50-row page.
+- Commit graph loading, unavailable and preparation differ from accepted empty
+  History. Show zero-row exact data and No commits only for the matching loaded
+  repository after an accepted empty read. Cold hydration and automatic online
+  fallback cannot reuse a previous repository's exhausted/empty state.
+- Retain accepted same-repo graph rows/SVG on later History failure. Suppress
+  previous-repo graph data, failure and caption before fallback completes;
+  keep its existing host mounted but hidden for absent/mismatched repo or empty
+  SVG, preserving the passive clear/adoption owner. Main-list empty copy also
+  waits for hydration and loaded ownership; no-repo guidance stays explicit.
 - Bound commit rows and per-commit event rows without changing endpoint limits.
 - The repo chooser uses the shared bounded choice dialog.
 - Changing repo clears stale rows, graph, loading, exhausted, and error state before the new load.
