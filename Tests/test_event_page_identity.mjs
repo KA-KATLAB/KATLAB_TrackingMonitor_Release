@@ -7,6 +7,7 @@ import { after, before, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { canonicalPrintedText } from "./helpers/printed_source.mjs";
 import { restoreSessionIdentity } from "./helpers/sessionIdentity.mjs";
+import { restoreDialogChronology } from "./helpers/dialogChronology.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const frontend = resolve(root, "Frontend");
@@ -394,6 +395,7 @@ const fingerprints = [
     })`, "a7d378a6173e0b018adb65ec8145d6f07f621a9f0ffa3eff2d32844bf5958c64"],
 ];
 function originalFingerprint (file, name, target, incoming, text) {
+  if (name === "FileStory" || name === "SessionTimeline") text = restoreDialogChronology(text, name);
   if (name === "SessionTimeline") text = restoreSessionIdentity(text);
   const ast = parse(file, text), fn = declaration(ast, name), calls = [], identifiers = [];
   const visit = (node) => {

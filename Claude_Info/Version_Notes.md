@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.4.0.29 - Dialog Event Chronology (2026-10-06)
+
+- File Story and Session Timeline sort their accepted captured rows by finite
+  epoch milliseconds, then ascending event ID. Valid mixed UTC precision no
+  longer reverses their display or invents an effort gap.
+- Malformed timestamps stay present, last by ID. Same-ms and sub-ms values use
+  ID ties; no microsecond accuracy, admission normalization or backend-window
+  change. Existing malformed-time nonfinite effort remains separate.
+- Two local comparator blocks only. Deduplication, cap/query/deadline/retry,
+  paging, raw timestamps, full session identity, focus and styles stay intact.
+- Strict comparator reversal preserves original complete-source and existing
+  collector/identity hashes. Native H.1 and prior operational limits remain.
+
 ## v0.4.0.28 - Disclosure Focus Return (2026-10-06)
 
 - Escape returns focus when a mounted disclosure closes. Closed setup no longer

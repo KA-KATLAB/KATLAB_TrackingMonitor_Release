@@ -349,6 +349,13 @@ event-timestamp ordering from an ingestion-ID-based window. Use the shared
 dialog status primitive; do not change focus or fetch
 lifecycle merely to announce a result. Keep visible error/retry feedback too.
 
+File Story and Session Timeline order only their accepted captured rows by
+finite parsed epoch milliseconds, then ascending global event ID. Unparseable
+times remain last by ID; keep their raw text and row references. Same-ms and
+sub-ms values tie by ID, not microsecond chronology. Do not silently discard
+invalid rows or claim their effort estimate is repaired. Backend ingestion-ID
+window selection and text timestamp filters remain unchanged.
+
 Tools, Attention, Legend, and goal settings are disclosures, not ARIA menus. Use
 `aria-expanded` and `aria-controls` with ordinary buttons/links. Escape closes and
 restores the connected opener; outside activation must not steal the destination's

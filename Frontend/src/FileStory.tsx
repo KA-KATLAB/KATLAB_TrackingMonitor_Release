@@ -66,7 +66,11 @@ export function FileStory ({
           }
           if (pageIndex === MAX_PAGES - 1 && alive) setLimitReached(true);
         }
-        all.sort((a, b) => a.ts.localeCompare(b.ts));
+        all.sort((a, b) => {
+          const left = new Date(a.ts).getTime(), right = new Date(b.ts).getTime();
+          return (Number.isFinite(left) ? left : Infinity)
+            - (Number.isFinite(right) ? right : Infinity) || a.id - b.id;
+        });
         if (alive && !action.signal.aborted) {
           setRows(all);
           if (retryNonce > 0) onStatus("File story recovered.");

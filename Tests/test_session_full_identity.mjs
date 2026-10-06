@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 import { after, before, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { canonicalPrintedText } from "./helpers/printed_source.mjs";
+import { restoreDialogChronology } from "./helpers/dialogChronology.mjs";
 import { restoreSessionIdentity, sessionIdentityInsertion, SESSION_DISCLOSURE,
   SESSION_DISCLOSURE_SHA } from "./helpers/sessionIdentity.mjs";
 
@@ -383,6 +384,7 @@ test("actual trap regression detects loss of summary tabindex without native bro
 });
 
 function preRenderSha (text) {
+  text = restoreDialogChronology(text, "SessionTimeline");
   const source = parse("SessionTimeline.tsx", text), fn = declaration(source, "SessionTimeline");
   assert.ok(ts.isReturnStatement(fn.body.statements.at(-1)));
   const printer = ts.createPrinter({ removeComments: true, newLine: ts.NewLineKind.LineFeed });
@@ -393,7 +395,7 @@ function preRenderSha (text) {
 test("strict one-subtree restoration preserves original full file and every pre-render statement", () => {
   const text = read("SessionTimeline.tsx");
   for (const variant of [text.replace(/\r\n/g, "\n"), text.replace(/\r?\n/g, "\r\n")]) {
-    const restored = restoreSessionIdentity(variant);
+    const restored = restoreSessionIdentity(restoreDialogChronology(variant, "SessionTimeline"));
     assert.equal(sha(canonicalPrintedText(restored)), ORIGINAL_FILE_SHA);
     assert.equal(preRenderSha(variant), PRE_RENDER_SHA);
     const { source, detail } = sessionIdentityInsertion(variant);
@@ -437,7 +439,7 @@ test("original owner, import and return changes remain visible to full-file pres
     'import "./unexpected";\n' + text,
     text.replace("Cross-repository captured activity", "Changed original description")];
   for (const changed of changes) {
-    assert.notEqual(sha(canonicalPrintedText(restoreSessionIdentity(changed))), ORIGINAL_FILE_SHA);
+    assert.notEqual(sha(canonicalPrintedText(restoreSessionIdentity(restoreDialogChronology(changed, "SessionTimeline")))), ORIGINAL_FILE_SHA);
   }
   assert.notEqual(preRenderSha(changes[0]), PRE_RENDER_SHA);
 });
