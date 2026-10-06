@@ -24,8 +24,9 @@ export function buildCommitDraft (repoId: string, events: TrackedEvent[],
   if (mine.length === 0) return ""; // a draft of nothing is nothing
   // RV7: the compound (repoId, task_ref) lookup — a same-named ref in
   // ANOTHER repo must never match (the generate.py group_reasons law).
-  const byRef = new Map<string, Task>();
-  for (const t of tasks) if (t.repo === repoId) byRef.set(t.task_ref, t);
+  // A duplicate display reference stays bare; never choose a task title.
+  const byRef = new Map<string, Task | null>();
+  for (const t of tasks) if (t.repo === repoId) byRef.set(t.task_ref, byRef.has(t.task_ref) ? null : t);
   const seen = new Set<string>();
   const parts: string[] = [];
   let unattributed = 0;

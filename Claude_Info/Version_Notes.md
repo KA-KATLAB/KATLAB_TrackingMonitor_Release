@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.4.0.34 - Unambiguous Commit Draft Reasons (2026-10-06)
+
+- Duplicate current task display references in one repository keep the existing
+  bare-reference draft fallback, instead of arbitrarily selecting a task title.
+- Sticky ambiguity survives reversed order, third matches and identical titles.
+  Unique/raw/stale/null cases, captured ordering/deduplication, unattributed
+  counts, placeholders, single-line composition and copy lifecycle stay intact.
+- Actual pure parser/resolver/in-memory database/tasks projection demonstrates
+  the admitted collision; controlled module/copy/source-preservation tests
+  protect it. Existing tests/helpers are unchanged. No live incidence claimed.
+- This is display metadata resolution, not canonical joining or attribution;
+  no backend production, data, API/schema/configuration/dependency changes.
+- Native v0.4 H.1 and known build-only advisory limits remain pending.
+
 ## v0.4.0.33 - Repository-Aware Session Groups (2026-10-06)
 
 - Session Timeline starts a new display run on repository changes, even with

@@ -751,6 +751,10 @@ Do not:
 - Validate after blur or submit, preserve entered values, and state cause plus recovery.
 - Disable every mutable control during a batch action and expose `aria-busy` where appropriate.
 - Prevent silent duplicate submission for assignments, reads, graphs, exports, clipboard, permission, sound, and notification actions.
+- Resolve a commit-draft display reference to a current title only when exactly
+  one same-repository task has that label. Duplicate labels retain the bare
+  reference; never choose the first/last title or parse normalized task keys.
+  This conservative display fallback changes no stored attribution or identity.
 - Commit-draft copy keeps the existing global captured-event window and starts
   with a compact single-line subject: collapse JavaScript whitespace runs to
   ASCII spaces and trim only the final composed text, including quoted text.

@@ -5,14 +5,14 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.33 - Repository-Aware Session Groups**
+Current source version: **v0.4.0.34 - Unambiguous Commit Draft Reasons**
 
-Session Timeline separates display runs when the repository changes, even if
-task labels match, preventing false cross-repository page continuations.
-Raw rows, same-repository runs, paging, effort and requests stay intact.
-This is display grouping, not task attribution; native acceptance is pending.
+Commit drafts keep bare references when a task label is ambiguous within one
+repository, rather than select another task's title. Unique reasons, captured
+data, ordering and the complete copy lifecycle stay intact. This is conservative
+display resolution, not attribution; native acceptance remains pending.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.33_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.34_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -185,7 +185,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.33_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.34_Release_Notes.md)
 
 ## Guarantees
 
