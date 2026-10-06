@@ -175,8 +175,8 @@ export function modeDistributionSummary (stats: StatsData): string {
   const rows = MODE_ORDER.map((mode) => ({ mode, count: stats.mode_counts[mode] ?? 0 }));
   const total = rows.reduce((sum, row) => sum + row.count, 0);
   const top = rows.reduce((best, row) => row.count > best.count ? row : best, rows[0]);
-  if (total === 0) return "No attributed events are available.";
-  return `${total.toLocaleString("en-US")} attributed events; ${MODE_CHART_LABEL[top.mode]} is largest at `
+  if (total === 0) return "No captured events are available.";
+  return `${total.toLocaleString("en-US")} captured events; ${MODE_CHART_LABEL[top.mode]} is largest at `
     + `${top.count.toLocaleString("en-US")} (${Math.round((top.count / total) * 100)}%).`;
 }
 

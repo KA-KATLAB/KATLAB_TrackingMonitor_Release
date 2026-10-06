@@ -5,14 +5,14 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.25 - Inline Diff Disclosure State**
+Current source version: **v0.4.0.26 - Honest Mode Distribution Denominator**
 
-The inline Diff button exposes its accepted-content open/closed state in Changes
-and History, including empty responses and offline retention. Existing labels,
-loading feedback, requests, focus and paging remain intact. This single semantic
-attribute does not establish native keyboard or assistive acceptance.
+Overview Attribution health describes all six modes as captured events,
+including activity with no task reference. Only two summary terms change;
+counts, charts, exact-data rows and the separate task-attributed summary stay
+intact. Controlled source/SSR checks do not establish native UI acceptance.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.25_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.26_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -185,7 +185,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.25_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.26_Release_Notes.md)
 
 ## Guarantees
 

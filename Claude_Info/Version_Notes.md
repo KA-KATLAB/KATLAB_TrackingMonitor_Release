@@ -1,5 +1,17 @@
 # Version Notes
 
+## v0.4.0.26 - Honest Mode Distribution Denominator (2026-10-06)
+
+- Overview Attribution health calls its six-mode total captured events, not
+  attributed events. UNKNOWN and AMBIGUOUS can have no task reference; the
+  separate Events per task subset remains task-attributed.
+- Two string terms only. Preserve counts/order/labels, first ties, formatting,
+  rounding, positive-total mount policy, chart/table and disclosure owners.
+- New actual-source helper/disclosure tests protect whole-module/function/
+  outside fingerprints through strict two-window reversal; all old tests stay
+  unchanged. SSR/live assets do not certify native chart paint or AT behavior.
+  Native H.1, held-row cleanup, launcher limits and build-only advisory remain.
+
 ## v0.4.0.25 - Inline Diff Disclosure State (2026-10-06)
 
 - Existing Changes/History Diff button reports aria-expanded from the exact

@@ -408,6 +408,12 @@ Preserve every shipped module and group them in this order:
 
 Use one SectionHeading and one Surface vocabulary. Chart canvases and informative graphics need concise summaries and exact-data alternatives. Overview and its graph reserve stable loading/error footprints.
 
+Attribution health summarizes the existing six-mode denominator as captured
+events, including UNKNOWN and AMBIGUOUS with no task reference. Preserve mode
+counts/order/labels, first-tie behavior, locale/rounding and chart/table data.
+The zero-total helper is defensive; the Overview card still requires a positive
+total. Events per task remains a separate task-attributed subset.
+
 Relationships commit-link counts and cells require a matching accepted History
 response, not task-only placeholders, row count or diagram settlement. Keep task
 details independently available; unknown links are unavailable, not zero. Label
