@@ -316,3 +316,8 @@ to be captured. A partial termination failure is reported and cannot be undone.
 ```
 
 This works in local previews only; GitHub cannot reach the loopback server.
+OFFLINE takes precedence; missing or invalid Git status shows UNAVAILABLE,
+never a retained CLEAN/count claim. Valid observed status shows CLEAN or an
+uncommitted count; UTC capture counts remain an independent fact.
+The response permits caching for five minutes. That is not scheduled refresh,
+transactional consistency or a guarantee that the snapshot matches current Git.

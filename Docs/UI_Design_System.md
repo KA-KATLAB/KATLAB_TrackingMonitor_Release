@@ -254,6 +254,11 @@ Do not:
   Git status, with explicit known coverage. Retained invalid/offline values are
   unavailable, not zero or clean. WebSocket Connected describes transport only,
   not fresh data or verification readiness.
+- Optional local SVG badges use explicit UNAVAILABLE for missing/invalid Git
+  observations, with OFFLINE taking precedence. Independent UTC capture counts
+  remain separate. White CLEAN-chip text uses emerald-700 (#047857) for normal
+  text contrast; the global success token is unchanged. Their five-minute cache
+  permits retained snapshots, not automatic refresh or proof of current Git state.
 - Workspace favicon/installed-PWA badges cannot disclose partial coverage beside
   a number. Require an accepted, error-free snapshot, nonempty repository list,
   every repository online with strictly valid Git status, nonnegative safe-integer

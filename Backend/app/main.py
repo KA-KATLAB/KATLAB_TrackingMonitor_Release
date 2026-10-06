@@ -179,9 +179,10 @@ def create_app (snapshot: ConfigSnapshot | None = None) -> FastAPI:
         svg = build_badge(repo_id, clean=bool(status.get("clean")),
                           offline=bool(status.get("offline")),
                           count=int(status.get("count", 0)),
-                          events_7d=events_last_7d(repo_id))
-        # max-age=300: a live badge that local previews refresh within
-        # minutes (never no-store - VS Code re-fetches politely).
+                          events_7d=events_last_7d(repo_id),
+                          status_valid=status.get("status_valid") is True)
+        # Local previews may cache this snapshot for five minutes; max-age
+        # does not schedule refresh or certify current Git status.
         return Response(content=svg, media_type="image/svg+xml",
                         headers={"Cache-Control": "max-age=300"})
 

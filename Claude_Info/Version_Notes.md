@@ -1,5 +1,20 @@
 # Version Notes
 
+## v0.4.0.19 - Trustworthy Local Badges (2026-10-06)
+
+- Optional local SVG cards expose UNAVAILABLE for missing/invalid Git status,
+  including retained CLEAN/counts after a failed read. OFFLINE still wins;
+  only strictly valid observations enable CLEAN or uncommitted totals.
+- The independent UTC capture count and existing card geometry/escaping remain.
+  CLEAN's white text uses emerald-700, calculating 5.48:1 contrast; unknown/offline
+  states retain neutral zinc. The five-minute cache is not automatic refresh or
+  proof of freshness. GitHub cannot reach the loopback badge.
+- Guarded actual-route and memory-only COUNT regressions preserve lifecycle,
+  schema, requests and dependencies. Live HTTP/XML smoke is separate from
+  controlled status parity and native preview/assistive acceptance, still pending.
+  One unused synthetic runtime row from an earlier agent probe remains held
+  separately for explicit cleanup permission; no runtime data is altered here.
+
 ## v0.4.0.18 - Unique Event Windows (2026-10-06)
 
 - Four bounded event collectors share first-observation identity handling: File

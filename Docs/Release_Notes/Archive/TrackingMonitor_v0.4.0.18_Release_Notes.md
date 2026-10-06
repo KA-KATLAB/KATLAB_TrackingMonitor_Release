@@ -33,9 +33,9 @@ in the [primary advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm).
 No Tailwind major migration, security remediation or chunk-notice suppression is
 bundled. Existing build and earlier unconfirmed launcher-fixture limits remain.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 CDD/CFT, automated verification, activation and publication evidence is recorded
 in `temp/Plan/PLAN_v0.4.0.18_Unique_Event_Windows.txt`.
 
-Previous [v0.4.0.17 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.17_Release_Notes.md)
+Previous [v0.4.0.17 notes](TrackingMonitor_v0.4.0.17_Release_Notes.md)
 retain their historical scope, with only move-affected links rebased.

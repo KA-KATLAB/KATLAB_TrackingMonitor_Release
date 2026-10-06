@@ -33,15 +33,17 @@ def events_last_7d (repo_id: str) -> int:
 
 
 def build_badge (repo_id: str, clean: bool, offline: bool, count: int,
-                 events_7d: int) -> str:
+                 events_7d: int, *, status_valid: bool = False) -> str:
     """The 380x80 card: slate-950 rounded rect, the teal ring mark (the
     PWA icon motif), repo id, the 7d count, and the StatusBar-palette
-    status chip (CLEAN emerald / N uncommitted amber / OFFLINE zinc)."""
+    status chip: valid CLEAN/count or neutral OFFLINE/UNAVAILABLE."""
     rid = escape(repo_id)
     if offline:
         chip_fill, chip_text, chip_fg, chip_w = "#52525b", "OFFLINE", "#ffffff", 64
+    elif status_valid is not True:
+        chip_fill, chip_text, chip_fg, chip_w = "#52525b", "UNAVAILABLE", "#ffffff", 101
     elif clean:
-        chip_fill, chip_text, chip_fg, chip_w = "#059669", "CLEAN ✓", "#ffffff", 64
+        chip_fill, chip_text, chip_fg, chip_w = "#047857", "CLEAN ✓", "#ffffff", 64
     else:
         chip_text = f"{count:,} uncommitted"
         chip_fill, chip_fg = "#f59e0b", "#020617"

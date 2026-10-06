@@ -5,13 +5,13 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.18 - Unique Event Windows**
+Current source version: **v0.4.0.19 - Trustworthy Local Badges**
 
-File Story, Session Timeline, Day Lanes and Digest count each captured-event ID
-once when offset pages overlap during capture. Their bounded fetches, filters and
-sorts remain; duplicate removal is not snapshot isolation or complete history.
+Optional local SVG badges distinguish unavailable Git status from CLEAN/counts,
+preserve OFFLINE precedence, and improve CLEAN text contrast. UTC capture counts
+remain independent; the five-minute cache does not guarantee refresh or freshness.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.18_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.19_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -184,7 +184,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.18_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.19_Release_Notes.md)
 
 ## Guarantees
 
