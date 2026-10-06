@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 import { after, before, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { CHRONOLOGY_WINDOW, restoreDialogChronology } from "./helpers/dialogChronology.mjs";
+import { restoreSessionTaskGroups } from "./helpers/sessionTaskGroups.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const frontend = resolve(root, "Frontend"), require = createRequire(resolve(frontend, "package.json"));
@@ -232,6 +233,7 @@ const originals = [
 ];
 function checkOriginal (text, pins) {
   const [name, rawPin, lfPin, fnPin, outsidePin] = pins;
+  if (name === "SessionTimeline") text = restoreSessionTaskGroups(text);
   const restored = restoreDialogChronology(text, name), canonical = lf(restored);
   const ast = parse(`${name}.tsx`, canonical), owner = declaration(ast, name);
   assert.equal(sha(canonical), lfPin); assert.equal(sha(owner.getText(ast)), fnPin);

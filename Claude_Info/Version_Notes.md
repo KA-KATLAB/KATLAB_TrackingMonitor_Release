@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.4.0.33 - Repository-Aware Session Groups (2026-10-06)
+
+- Session Timeline starts a new display run on repository changes, even with
+  matching task labels. Page boundaries no longer falsely continue another
+  repository's run; same-repository and unresolved behavior stays intact.
+- One initializer only. Raw events, ordering, effort/gaps, paging, disclosure,
+  requests, deadline/retry/cleanup, row keys and all styling are unchanged.
+- A strict shared test-only inverse precedes three ancestral source oracles;
+  no baseline rebasing, pre-render or behavioral test changes.
+- Compatibility task labels are not relational keys. This adds no attribution,
+  normalized identity join, API/schema/config/dependency or migration change.
+- Controlled complete-component SSR and HTTP/assets are not native acceptance.
+  Native H.1 and prior operational/build-only advisory limits remain pending.
+
 ## v0.4.0.32 - City Trailing Refresh Retirement (2026-10-06)
 
 - City automatic and foreground trailing callbacks check current mounted state

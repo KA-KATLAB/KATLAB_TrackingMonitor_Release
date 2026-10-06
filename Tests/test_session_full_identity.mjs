@@ -7,6 +7,7 @@ import { after, before, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { canonicalPrintedText } from "./helpers/printed_source.mjs";
 import { restoreDialogChronology } from "./helpers/dialogChronology.mjs";
+import { restoreSessionTaskGroups } from "./helpers/sessionTaskGroups.mjs";
 import { restoreSessionIdentity, sessionIdentityInsertion, SESSION_DISCLOSURE,
   SESSION_DISCLOSURE_SHA } from "./helpers/sessionIdentity.mjs";
 
@@ -395,7 +396,7 @@ function preRenderSha (text) {
 test("strict one-subtree restoration preserves original full file and every pre-render statement", () => {
   const text = read("SessionTimeline.tsx");
   for (const variant of [text.replace(/\r\n/g, "\n"), text.replace(/\r?\n/g, "\r\n")]) {
-    const restored = restoreSessionIdentity(restoreDialogChronology(variant, "SessionTimeline"));
+    const restored = restoreSessionIdentity(restoreDialogChronology(restoreSessionTaskGroups(variant), "SessionTimeline"));
     assert.equal(sha(canonicalPrintedText(restored)), ORIGINAL_FILE_SHA);
     assert.equal(preRenderSha(variant), PRE_RENDER_SHA);
     const { source, detail } = sessionIdentityInsertion(variant);
@@ -439,7 +440,7 @@ test("original owner, import and return changes remain visible to full-file pres
     'import "./unexpected";\n' + text,
     text.replace("Cross-repository captured activity", "Changed original description")];
   for (const changed of changes) {
-    assert.notEqual(sha(canonicalPrintedText(restoreSessionIdentity(restoreDialogChronology(changed, "SessionTimeline")))), ORIGINAL_FILE_SHA);
+    assert.notEqual(sha(canonicalPrintedText(restoreSessionIdentity(restoreDialogChronology(restoreSessionTaskGroups(changed), "SessionTimeline")))), ORIGINAL_FILE_SHA);
   }
   assert.notEqual(preRenderSha(changes[0]), PRE_RENDER_SHA);
 });

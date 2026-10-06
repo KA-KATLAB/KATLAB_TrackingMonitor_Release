@@ -356,6 +356,12 @@ sub-ms values tie by ID, not microsecond chronology. Do not silently discard
 invalid rows or claim their effort estimate is repaired. Backend ingestion-ID
 window selection and text timestamp filters remain unchanged.
 
+Session Timeline qualifies adjacent display runs by repository and raw task
+reference. Changing repository starts a new heading even when labels match;
+a page boundary continues only the same repository/reference run. Preserve
+existing unresolved text, rows, ordering, effort and paging. This is display
+grouping, not canonical task identity, a relational join or attribution.
+
 The shared duration formatter shows "Unavailable" for NaN and either infinity;
 do not present nonfinite values as approximate durations or replace them with
 zero. Finite formatting remains unchanged, including negative and fractional

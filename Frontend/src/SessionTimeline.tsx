@@ -181,7 +181,7 @@ export function SessionTimeline ({
           const gap = previous
             ? new Date(event.ts).getTime() - new Date(previous.ts).getTime()
             : 0;
-          const taskChanged = !previous || previous.task_ref !== event.task_ref;
+          const taskChanged = !previous || previous.repo_id !== event.repo_id || previous.task_ref !== event.task_ref;
           const continuation = localIndex === 0 && absoluteIndex > 0 && !taskChanged;
           return (
             <div key={event.id}>
