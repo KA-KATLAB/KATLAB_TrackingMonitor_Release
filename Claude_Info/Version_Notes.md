@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.4.0.25 - Inline Diff Disclosure State (2026-10-06)
+
+- Existing Changes/History Diff button reports aria-expanded from the exact
+  accepted-content mount predicate, including empty responses and offline
+  retention. Closed and not-yet-accepted content remains collapsed.
+- One JSX attribute; preserve all load/hide/cleanup/generation/deadline/focus,
+  labels/disabled/busy, availability, status, local paging and modal owners.
+  No new imports, requests, IDs, wrappers, shared layout or CSS changes.
+- Append actual-source regressions after the complete original six-test suite.
+  Strict anchored restoration keeps original EventRow/whole-App fingerprints;
+  the coupled History oracle retains every original hash and negative guard.
+  Controlled props/live assets do not certify native keyboard, focus or AT.
+  Native H.1, held-row cleanup, launcher limits and build-only advisory remain.
+
 ## v0.4.0.24 - Local Palette Keyboard Visibility (2026-10-06)
 
 - Arrow navigation reveals the selected option inside the Palette's existing

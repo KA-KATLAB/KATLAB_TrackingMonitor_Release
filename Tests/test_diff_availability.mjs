@@ -309,3 +309,236 @@ test("retained offline DiffView keeps actual fifty-line paging and hunk classifi
   assert.equal(h.requests.length, 1, "local diff paging never fetches");
   assert.ok(control(h.render(offline), "Hide diff"));
 });
+
+// v0.4.0.25: appended diff disclosure regressions.
+// The complete original 311-line test prefix above remains byte-identical.
+async function withDisclosure (body) {
+  const h = harness();
+  try { await body(h); }
+  finally {
+    try { h.unmount(); }
+    finally {
+      // This existing fixture fetch does not subscribe to AbortSignal. Retire
+      // every pending mock response explicitly so actual finally clears timers.
+      for (const request of h.requests) request.reject(new DOMException("Fixture cleanup", "AbortError"));
+      await settle();
+      assert.equal(h.timers.size, 0, "new disclosure fixture leaves no deadline");
+    }
+  }
+}
+
+for (const [name, value] of [
+  ["hunk", "@@ -1 +1 @@\n-old\n+new"],
+  ["empty string", ""],
+  ["explanatory response", "(no changes vs HEAD)"],
+]) {
+  test(`accepted ${name} declares expanded only after actual DiffView mounts`, () => withDisclosure(async (h) => {
+    h.render(); h.click("Show diff"); await h.accept(value);
+    const tree = h.render(), button = control(tree, "Hide diff");
+    assert.ok(h.diffElement(), "accepted content mounts the actual DiffView");
+    assert.equal(h.diffElement().props.text, value);
+    assert.equal(button.props["aria-expanded"], true, "mounted accepted content must be exposed as expanded");
+  }));
+}
+
+test("closed and pending native controls are collapsed without changing busy labels or duplicate guard", () => withDisclosure(async (h) => {
+  const closed = control(h.render(), "Show diff");
+  assert.equal(closed.type, "button"); assert.equal(closed.props["aria-expanded"], false);
+  assert.equal(closed.props.disabled, false); assert.equal(closed.props["aria-busy"], false);
+  assert.equal(closed.props.onKeyDown, undefined); assert.equal(closed.props["aria-controls"], undefined);
+  h.click("Show diff"); closed.props.onClick({ currentTarget: h.button });
+  const pending = control(h.render(), "Loading diff");
+  assert.equal(pending.props["aria-expanded"], false); assert.equal(pending.props.disabled, true);
+  assert.equal(pending.props["aria-busy"], true); assert.equal(h.diffElement(), undefined);
+  assert.equal(h.requests.length, 1); assert.equal(h.timers.size, 1);
+  const { renderToStaticMarkup } = require("react-dom/server");
+  assert.match(renderToStaticMarkup(pending), /aria-expanded="false"/);
+  assert.match(renderToStaticMarkup(pending), /aria-busy="true"/);
+  assert.equal(control(h.render(offline), "Loading diff"), undefined);
+  assert.equal(h.requests[0].init.signal.aborted, false);
+  await h.accept("(no changes vs HEAD)");
+  const accepted = control(h.render(offline), "Hide diff");
+  assert.equal(accepted.props["aria-expanded"], true);
+  assert.match(renderToStaticMarkup(accepted), /aria-expanded="true"/);
+}));
+
+for (const kind of ["transport", "http", "timeout"]) {
+  test(`${kind} failure stays collapsed; Retry acceptance and offline Hide preserve honest state`, () => withDisclosure(async (h) => {
+    h.render(); h.click("Show diff");
+    if (kind === "http") h.requests[0].resolve({ ok: false, status: 503,
+      json: async () => ({ success: false, message: "Disclosure fixture unavailable" }) });
+    else {
+      if (kind === "timeout") {
+        const timer = [...h.timers.values()][0]; assert.equal(timer.delay, 10_000); timer.callback();
+        assert.equal(h.requests[0].init.signal.aborted, true);
+      }
+      h.requests[0].reject(kind === "timeout" ? new DOMException("Deadline", "AbortError") : new Error("Disclosure fixture transport"));
+    }
+    await settle();
+    const failed = h.render(), retry = control(failed, "Retry diff");
+    assert.equal(retry.props["aria-expanded"], false); assert.equal(retry.props.disabled, false);
+    assert.equal(retry.props["aria-busy"], false); assert.equal(h.diffElement(), undefined);
+    assert.match(text(failed), kind === "timeout" ? /timed out after 10 seconds/ : /Disclosure fixture/);
+    assert.equal(h.timers.size, 0); assert.equal(h.statuses.length, 1);
+    h.click("Retry diff"); assert.equal(control(h.render(), "Loading diff").props["aria-expanded"], false);
+    assert.equal(h.requests.length, 2); await h.accept("");
+    assert.equal(control(h.render(offline), "Hide diff").props["aria-expanded"], true);
+    assert.equal(h.diffElement().props.text, "");
+    h.document.activeElement = h.button; h.click("Hide diff");
+    const hidden = h.render(offline); assert.equal(h.diffElement(), undefined);
+    assert.equal(control(hidden, "Show diff"), undefined); assert.equal(control(hidden, "Hide diff"), undefined);
+    assert.deepEqual(h.focused, [{ preventScroll: true }]); assert.equal(h.requests.length, 2);
+    assert.equal(control(h.render(), "Show diff").props["aria-expanded"], false);
+  }));
+}
+
+test("accepted diff paging keeps expanded true and Hide resets false without a request", () => withDisclosure(async (h) => {
+  h.render(); h.click("Show diff");
+  await h.accept(["@@ -1 +1 @@", ...Array.from({ length: 100 }, (_, index) => `+row${index}`)].join("\n"));
+  for (const count of [50, 50, 1]) {
+    assert.equal(control(h.render(offline), "Hide diff").props["aria-expanded"], true);
+    const diff = h.renderDiff(), region = walk(diff).find((node) => node.type === "pre");
+    assert.equal(React.Children.count(region.props.children), count); assert.equal(region.props["aria-label"], "File diff");
+    if (count === 50) walk(h.pager(diff)).find((node) => node.props["aria-label"] === "Diff lines: next page").props.onClick();
+  }
+  assert.equal(h.requests.length, 1); h.render(); h.click("Hide diff");
+  assert.equal(control(h.render(), "Show diff").props["aria-expanded"], false); assert.equal(h.diffElement(), undefined);
+  assert.equal(h.requests.length, 1);
+}));
+
+test("cleanup prevents late disclosure acceptance, failure and busy writes", async () => {
+  for (const outcome of ["accept", "reject", "abort"]) await withDisclosure(async (h) => {
+    assert.equal(control(h.render(), "Show diff").props["aria-expanded"], false);
+    h.click("Show diff"); assert.equal(control(h.render(), "Loading diff").props["aria-expanded"], false);
+    h.unmount(); const writes = h.hooks.writes; assert.equal(h.requests[0].init.signal.aborted, true);
+    if (outcome === "accept") await h.accept("+late");
+    else {
+      h.requests[0].reject(outcome === "abort" ? new DOMException("Late abort", "AbortError") : new Error("Late error"));
+      await settle();
+    }
+    assert.equal(h.hooks.writes, writes); assert.deepEqual(h.statuses, []); assert.equal(h.timers.size, 0);
+  });
+});
+
+test("new disclosure fixtures clean pending deadlines even when an assertion fails", async () => {
+  let captured;
+  await assert.rejects(withDisclosure(async (h) => {
+    captured = h; h.render(); h.click("Show diff"); assert.fail("disclosure assertion sentinel");
+  }), /disclosure assertion sentinel/);
+  assert.equal(captured.requests[0].init.signal.aborted, true);
+  assert.equal(captured.timers.size, 0); assert.deepEqual(captured.statuses, []);
+});
+
+test("new disclosure fixtures settle pending responses even when unmount cleanup throws", async () => {
+  let captured;
+  await assert.rejects(withDisclosure(async (h) => {
+    captured = h; h.render(); h.click("Show diff");
+    const unmount = h.unmount;
+    h.unmount = () => { unmount(); throw new Error("disclosure cleanup sentinel"); };
+  }), /disclosure cleanup sentinel/);
+  assert.equal(captured.requests[0].init.signal.aborted, true);
+  assert.equal(captured.timers.size, 0); assert.deepEqual(captured.statuses, []);
+});
+
+const disclosureAst = value => ts.createSourceFile("App.tsx", value, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const disclosureOwner = ast => {
+  assert.equal(ast.parseDiagnostics.length, 0);
+  const owners = ast.statements.filter(node => ts.isFunctionDeclaration(node) && node.name?.text === "EventRow");
+  assert.equal(owners.length, 1);
+  return owners[0];
+};
+const disclosureReplaceOnce = (value, before, after) => {
+  assert.equal(value.split(before).length, 2, "mutation reaches exactly one intended site");
+  return value.replace(before, after);
+};
+
+test("strict disclosure restoration preserves original whole App, complete owner and outside bytes in LF and CRLF", async () => {
+  const { createHash } = await import("node:crypto");
+  const { canonicalPrintedText } = await import("./helpers/printed_source.mjs");
+  const { restoreDiffDisclosureState, DIFF_DISCLOSURE_WINDOW, DIFF_DISCLOSURE_WINDOW_SHA } =
+    await import("./helpers/diffDisclosureState.mjs");
+  const sha = value => createHash("sha256").update(value).digest("hex");
+  const printer = ts.createPrinter({ removeComments: true });
+  assert.equal(sha(DIFF_DISCLOSURE_WINDOW), DIFF_DISCLOSURE_WINDOW_SHA);
+  const lf = read("App.tsx").replace(/\r\n/g, "\n");
+  for (const newline of ["\n", "\r\n"]) {
+    const source = lf.replace(/\n/g, newline), restored = restoreDiffDisclosureState(source);
+    const ast = disclosureAst(restored), owner = disclosureOwner(ast);
+    const rawOwner = restored.slice(owner.getStart(ast), owner.end);
+    assert.equal(sha(restored), newline === "\n"
+      ? "6039a62e9897efa7b90e0e6acf8d8375df002976de01da17d7907a909669e226"
+      : "dcdbf20d203a7fec413baa38ecd0c0a3971205049499125577467a5da9f7770c");
+    assert.equal(sha(rawOwner), newline === "\n"
+      ? "8fa1fe0abab91da81d1be8b48990f04075fc1589af81a77aed10c748eac87a44"
+      : "4fb97797c610f7c52171c873716fbe5ba44fe8bea24cc07819018c0680476670");
+    const statements = [...owner.body.statements];
+    assert.ok(ts.isReturnStatement(statements.pop()));
+    assert.equal(sha(statements.map(node => canonicalPrintedText(
+      printer.printNode(ts.EmitHint.Unspecified, node, ast))).join("\n")),
+    "82a0fcbdc83c2559febd75d234c3a859bf330fb897e1f370e457785fb4a6543a");
+    if (newline === "\r\n") assert.equal(sha(restored.slice(0, owner.getStart(ast)) + restored.slice(owner.end)),
+      "16635b0db9a8172aec55a5c85298145349d5c0195ab5736bd98b1ddc2d07e78d");
+    const currentAst = disclosureAst(source), currentOwner = disclosureOwner(currentAst);
+    assert.equal(restored.slice(0, owner.getStart(ast)), source.slice(0, currentOwner.getStart(currentAst)));
+    assert.equal(restored.slice(owner.end), source.slice(currentOwner.end), "all non-owner bytes pass through unchanged");
+  }
+});
+
+test("strict disclosure restoration rejects absent, repeated, partial, wrong-site and unrelated owner changes", async () => {
+  const { restoreDiffDisclosureState, DIFF_DISCLOSURE_LINE, DIFF_DISCLOSURE_WINDOW } =
+    await import("./helpers/diffDisclosureState.mjs");
+  const source = read("App.tsx").replace(/\r\n/g, "\n");
+  const ast = disclosureAst(source), owner = disclosureOwner(ast), originalOwner = owner.getText(ast);
+  const changedOwner = body => source.slice(0, owner.getStart(ast)) + body + source.slice(owner.end);
+  const cases = [
+    disclosureReplaceOnce(originalOwner, DIFF_DISCLOSURE_LINE, ""),
+    disclosureReplaceOnce(originalOwner, DIFF_DISCLOSURE_LINE, DIFF_DISCLOSURE_LINE.repeat(2)),
+    disclosureReplaceOnce(originalOwner, DIFF_DISCLOSURE_LINE, "            aria-expanded={Boolean(diff)}\n"),
+    disclosureReplaceOnce(originalOwner, DIFF_DISCLOSURE_LINE, "            aria-expanded={diff !== \"\"}\n"),
+    disclosureReplaceOnce(originalOwner, DIFF_DISCLOSURE_LINE, "            aria-expanded={diff}\n"),
+    disclosureReplaceOnce(originalOwner, DIFF_DISCLOSURE_WINDOW,
+      DIFF_DISCLOSURE_LINE + "            disabled={diffBusy} aria-busy={diffBusy}\n            aria-label={diffBusy\n"),
+    disclosureReplaceOnce(originalOwner, DIFF_DISCLOSURE_LINE,
+      "            aria-expanded={false}\n" + DIFF_DISCLOSURE_LINE),
+    disclosureReplaceOnce(originalOwner, "const generation = ++diffGenerationRef.current;", "const generation = diffGenerationRef.current;"),
+    disclosureReplaceOnce(originalOwner, "if (diffBusyRef.current) return;", "if (!diffBusyRef.current) return;"),
+    disclosureReplaceOnce(originalOwner, "{diff !== null && <DiffView", "{diff && <DiffView"),
+  ];
+  for (const modified of cases) assert.throws(() => restoreDiffDisclosureState(changedOwner(modified)),
+    /EventRow|disclosure|expanded/, "every negative retains valid TSX but violates the reviewed owner");
+  const without = disclosureReplaceOnce(originalOwner, DIFF_DISCLOSURE_LINE, "");
+  assert.throws(() => restoreDiffDisclosureState(changedOwner(without)
+    + "\nfunction WrongOwner() { return <button aria-expanded={diff !== null} />; }\n"), /EventRow expanded/);
+  assert.throws(() => restoreDiffDisclosureState(source + "\n" + originalOwner), /one complete EventRow owner/);
+  assert.throws(() => restoreDiffDisclosureState(source + "\nconst broken = <;"), /valid actual App syntax/);
+});
+
+test("disclosure restoration leaves unrelated History changes for its original negative oracles", async () => {
+  const { restoreDiffDisclosureState } = await import("./helpers/diffDisclosureState.mjs");
+  const source = read("App.tsx");
+  const before = "Explore commit history and its linked captured events.", after = "Independent History sentinel.";
+  assert.equal(restoreDiffDisclosureState(disclosureReplaceOnce(source, before, after)),
+    disclosureReplaceOnce(restoreDiffDisclosureState(source), before, after));
+});
+
+test("all six old diff tests and every old History oracle survive exact append-only and two-site adaptations", async () => {
+  const { createHash } = await import("node:crypto");
+  const sha = value => createHash("sha256").update(value).digest("hex");
+  const currentLF = readFileSync(fileURLToPath(import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  const historyLF = readFileSync(resolve(root, "Tests/test_history_graph_read_states.mjs"), "utf8").replace(/\r\n/g, "\n");
+  for (const newline of ["\n", "\r\n"]) {
+    // Checkout newline conversion cannot excuse any changed token or old test.
+    const current = Buffer.from(currentLF.replace(/\n/g, newline).replace(/\r\n/g, "\n"));
+    const prefix = current.subarray(0, 15449), prefixText = prefix.toString("utf8");
+    assert.equal(sha(prefix), "83d4e95e949a912fdf73b708526f514ed5a73e7afcdd91b79fc4da6639a28bd5");
+    assert.equal(prefixText.split("\n").length - 1, 311);
+    assert.equal((prefixText.match(/^test\(/gm) ?? []).length, 6);
+    assert.ok(current.subarray(15449).toString("utf8").startsWith(
+      "\n// v0.4.0.25: appended diff disclosure regressions.\n"));
+    let history = historyLF.replace(/\n/g, newline).replace(/\r\n/g, "\n");
+    history = disclosureReplaceOnce(history,
+      'import { restoreDiffDisclosureState } from "./helpers/diffDisclosureState.mjs";\n', "");
+    history = disclosureReplaceOnce(history, "const ast = parse(restoreDiffDisclosureState(text));", "const ast = parse(text);");
+    assert.equal(sha(history), "98c3d7cb2e3b104f3aca63a6169a425ce682275267edf99c8f6c9bcb761bc2bb");
+  }
+});

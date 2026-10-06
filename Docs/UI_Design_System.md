@@ -384,6 +384,12 @@ These rules extend the global shell; they do not replace it.
 - Task, session, grouping, section-navigation, manual-pick, event, file-tree, and diff-line collections use bounded presentation when their source can exceed 50.
 - Filtering, select-all, assignment, counts, and exports always use the complete loaded model.
 - Classify a complete diff before paging lines, so hunk/header color and order remain correct across pages.
+- The shared Changes/History inline Diff button reports `aria-expanded` from
+  the existing accepted-content mount predicate. Accepted empty strings and
+  offline retained content are expanded; closed/not-yet-accepted content is
+  collapsed. Error/status paragraphs do not themselves expand DiffView. Keep
+  existing names, disabled/busy feedback, requests, focus and local paging.
+  This local semantic rule does not certify native keyboard or AT behavior.
 - Long paths and diffs scroll only inside labelled local containers.
 - Offline repositories cannot load/retry a diff, but an accepted diff keeps local
   Hide and explicit retained-data context. Pending/error copy must not promise an

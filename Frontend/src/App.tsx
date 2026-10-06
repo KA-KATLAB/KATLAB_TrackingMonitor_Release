@@ -4456,6 +4456,7 @@ function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onS
         {(online || diff !== null) && (
           <button className="ml-auto min-h-[24px] text-xs text-sky-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-40"
             disabled={diffBusy} aria-busy={diffBusy}
+            aria-expanded={diff !== null}
             aria-label={diffBusy
               ? `Loading diff for ${event.file}`
               : diff === null
