@@ -1,5 +1,18 @@
 # Version Notes
 
+## v0.4.0.28 - Disclosure Focus Return (2026-10-06)
+
+- Escape returns focus when a mounted disclosure closes. Closed setup no longer
+  invalidates outgoing cleanup; active generation/global suppression stay.
+- Passive closure retains connected external focus, including final-warning
+  removal and CLEAN shrink after keyboard navigation. Capture original root;
+  inspect focus in the queued callback. Explicit Escape keeps opener/fallback.
+- Four local hook windows only; all six callers, warnings layout, listeners,
+  dialog handoffs, requests, routes and styles stay unchanged. Actual-source
+  controlled regressions strictly restore original complete module/hook/outside.
+- All original tests remain intact. Native H.1, held-row cleanup, launcher limits
+  and build-only advisory remain separate; focus calls do not prove native focus.
+
 ## v0.4.0.27 - Replay Speed Selection State (2026-10-06)
 
 - Existing Day Replay 1x/2x/4x buttons expose aria-pressed from the current

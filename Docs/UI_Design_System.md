@@ -356,6 +356,16 @@ focus. During disclosure/dialog handoff, suppress outgoing focus restoration unt
 the destination owns focus. Never leave two header disclosures open. Palette-to-
 Tools/Legend handoff waits for overlay teardown and checks the current owner.
 
+Disclosure closed setup does not invalidate outgoing focus restoration; each
+active setup still advances its lifecycle. After lifecycle and handoff-suppression
+guards, non-Escape cleanup preserves connected focus outside its captured original
+root, checked in the queued callback. This includes keyboard navigation before
+warnings disappear or CLEAN records collapse. Explicit Escape still restores;
+body, disconnected or internal focus follows the existing opener/main fallback.
+Preserve warning-owned layout recovery, initial focus, latest close callback,
+listeners, effect dependencies, reopen/StrictMode protection and dialog ownership.
+Controlled focus-call tests do not establish native keyboard or focus acceptance.
+
 Palette ArrowUp/ArrowDown reveal the selected command inside its existing local
 list viewport without moving input focus or scrolling an outer container.
 Opening, raw query edits, paging and result replacement reveal the first current

@@ -70,14 +70,17 @@ export function useDisclosureBehavior ({
   const lifecycleRef = useRef(0);
   onCloseRef.current = onClose;
   useEffect(() => {
-    const lifecycle = ++lifecycleRef.current;
     if (!open) return;
+    const lifecycle = ++lifecycleRef.current;
     const mountedEpoch = disclosureRestoreEpoch;
+    const root = rootRef.current;
+    let escapeRequested = false;
     initialFocusRef?.current?.focus({ preventScroll: true });
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
       event.stopPropagation();
+      escapeRequested = true;
       onCloseRef.current("escape");
     };
     const onPointer = (event: PointerEvent) => {
@@ -94,6 +97,9 @@ export function useDisclosureBehavior ({
       queueMicrotask(() => {
         if (lifecycleRef.current !== lifecycle) return;
         if (mountedEpoch !== disclosureRestoreEpoch) return;
+        const active = document.activeElement;
+        if (!escapeRequested && active?.isConnected && active !== document.body
+            && active !== document.documentElement && !root?.contains(active)) return;
         const target = returnFocusRef?.current ?? triggerRef.current;
         if (target?.isConnected && target.getClientRects().length > 0) {
           target.focus({ preventScroll: true });
