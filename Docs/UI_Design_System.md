@@ -887,6 +887,12 @@ Do not:
   busy, never override another active target, inert ancestor or modal, and clear
   stale focus ownership. Wrap long unbroken error tokens inside the panel.
   This does not establish native assistive behavior.
+- City automatic-round and foreground-retry trailing microtasks check current
+  mounted ownership at dispatch. True view exit retires these continuations
+  without starting new stats work after cleanup. Mounted trailing refresh,
+  scope replacement, throttle, retry deadlines and accepted snapshots stay.
+  Do not guard scheduler entry or imply universal request cancellation;
+  controlled cleanup/setup replay is not native React acceptance.
 - During a live frontend/backend rollout skew, keep accepted established fields
   visible, label unavailable additive fields, and give the operator a working
   restart path. Never coerce missing extensions into zero/empty success data or

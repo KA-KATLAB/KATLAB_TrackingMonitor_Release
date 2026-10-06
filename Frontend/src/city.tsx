@@ -549,7 +549,9 @@ export function CityView ({ repos, tasks, events, workspaceReady, mood, wardrobe
         }
         if (origin === "automatic" && trailingRoundRef.current) {
           trailingRoundRef.current = false;
-          queueMicrotask(() => scheduleAutomaticRef.current());
+          queueMicrotask(() => {
+            if (mountedRef.current) scheduleAutomaticRef.current();
+          });
         }
       }
     })();
@@ -649,7 +651,9 @@ export function CityView ({ repos, tasks, events, workspaceReady, mood, wardrobe
         if (mountedRef.current) setRetryBusy(false);
         if (trailingRoundRef.current) {
           trailingRoundRef.current = false;
-          queueMicrotask(() => scheduleAutomaticRef.current());
+          queueMicrotask(() => {
+            if (mountedRef.current) scheduleAutomaticRef.current();
+          });
         }
       }
     })();

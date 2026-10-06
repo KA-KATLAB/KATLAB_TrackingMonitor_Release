@@ -1,5 +1,19 @@
 # Version Notes
 
+## v0.4.0.32 - City Trailing Refresh Retirement (2026-10-06)
+
+- City automatic and foreground trailing callbacks check current mounted state
+  inside their queued microtasks. True view exit no longer dispatches new stats
+  work or loading state through these retired continuations.
+- Keep current-ref scheduling, throttle, retries/deadlines, six-worker pool,
+  accepted snapshots, generation/key/abort gates and cleanup/setup recovery.
+  Do not guard scheduler entry or claim universal request/server cancellation.
+- Two callback windows only. Controlled actual-owner/API regressions and strict
+  reversal protect original source; all existing tests remain untouched.
+- No API, backend data, configuration, dependency, presentation or style change.
+  Controlled hooks/replay and HTTP/assets are not native acceptance. H.1 and
+  prior operational/build-only advisory limits remain pending.
+
 ## v0.4.0.31 - Chronological Effort Aggregation (2026-10-06)
 
 - Copy-sort each backend parsed epoch group before the existing effort gap rule.

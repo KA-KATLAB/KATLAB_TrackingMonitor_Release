@@ -5,14 +5,14 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.31 - Chronological Effort Aggregation**
+Current source version: **v0.4.0.32 - City Trailing Refresh Retirement**
 
-Backend effort groups are copy-sorted by parsed epoch before the existing gap
-rule, correcting mixed-precision duration totals and Wrapped task ranking.
-Raw data, grouping, scope and approximate formulas stay intact. Text-based
-window cutoffs and date buckets remain unchanged; native acceptance is pending.
+City's two trailing refresh callbacks check current mount ownership when their
+queued work executes, preventing new refresh work after the view exits.
+Mounted refresh, retries, accepted snapshots and presentation stay intact.
+This is bounded callback retirement; native acceptance remains pending.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.31_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.32_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -185,7 +185,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.31_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.32_Release_Notes.md)
 
 ## Guarantees
 
