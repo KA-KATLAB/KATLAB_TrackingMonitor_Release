@@ -5,14 +5,14 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.26 - Honest Mode Distribution Denominator**
+Current source version: **v0.4.0.27 - Replay Speed Selection State**
 
-Overview Attribution health describes all six modes as captured events,
-including activity with no task reference. Only two summary terms change;
-counts, charts, exact-data rows and the separate task-attributed summary stay
-intact. Controlled source/SSR checks do not establish native UI acceptance.
+Day Replay speed buttons expose the selected 1x/2x/4x state while preserving
+their labels, callbacks and playback. One semantic attribute changes; requests,
+focus, styles and replay ownership stay intact. Controlled source/SSR checks
+do not establish native UI or assistive acceptance.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.26_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.27_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -185,7 +185,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.26_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.27_Release_Notes.md)
 
 ## Guarantees
 

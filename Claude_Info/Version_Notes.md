@@ -1,5 +1,16 @@
 # Version Notes
 
+## v0.4.0.27 - Replay Speed Selection State (2026-10-06)
+
+- Existing Day Replay 1x/2x/4x buttons expose aria-pressed from the current
+  selected speed. Preserve stable labels, numeric callbacks and replay state.
+- One JSX attribute; no requests, effects, group/role, wrappers, keyboard,
+  focus or styles. App normalization, Overview routing and rAF cleanup stay.
+- New actual-map/SSR tests protect complete original source/function/pre-render/
+  outside fingerprints through strict single-insertion reversal; all old tests
+  remain unchanged. Native H.1, held-row cleanup, launcher limits and build-only
+  advisory remain separate; controlled checks do not certify AT behavior.
+
 ## v0.4.0.26 - Honest Mode Distribution Denominator (2026-10-06)
 
 - Overview Attribution health calls its six-mode total captured events, not

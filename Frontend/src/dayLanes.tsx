@@ -589,6 +589,7 @@ export function DayLanes ({ scope, stats, day, speed, onDayChange, onSpeedChange
             </button>
             {[1, 2, 4].map((s) => (
               <button key={s} onClick={() => onSpeedChange(s as 1 | 2 | 4)}
+                aria-pressed={speed === s}
                 className={`rounded px-1.5 py-0.5 text-xs ${speed === s
                   ? "bg-teal-700 font-bold text-white" : "text-slate-300 hover:bg-slate-700"}`}>
                 {s}x

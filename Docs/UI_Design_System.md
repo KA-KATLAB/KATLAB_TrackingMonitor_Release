@@ -626,6 +626,12 @@ Day arrows shift date labels with UTC calendar arithmetic, while event bounds
 stay local. A skipped local date shows the existing load error and remains
 navigable in both directions; unsupported calendar-boundary arrows are disabled.
 
+Day Replay speed buttons expose aria-pressed from the existing speed selection.
+Exactly one of 1x/2x/4x is pressed for each valid current speed. Keep stable
+labels, numeric callbacks, replay mount, requests, rAF cleanup, reduced-motion,
+routing and native buttons unchanged. This local state attribute does not
+certify native keyboard, focus or assistive behavior.
+
 ## 8. Bounded rendering and performance
 
 Any semantic row/item collection whose source can exceed 50 must use the shared dependency-free pager. Scrolling, collapsing, `content-visibility`, or being offscreen does not bound mounted DOM.
