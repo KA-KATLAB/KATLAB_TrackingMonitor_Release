@@ -37,10 +37,10 @@ The build-only `braces` issue remains open in the
 [primary advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm).
 No dependency migration or chunk-notice suppression.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Rebuild after version changes; restarting Python alone leaves old UI assets.
 Evidence and publication details are recorded separately in
 `temp/Plan/PLAN_v0.4.0.29_Dialog_Event_Chronology.txt`.
 
-Previous [v0.4.0.28 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.28_Release_Notes.md)
+Previous [v0.4.0.28 notes](TrackingMonitor_v0.4.0.28_Release_Notes.md)
 retain their historical content with only two move-affected links rebased.

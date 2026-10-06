@@ -24,6 +24,7 @@ export function fmtRel (iso: string): string {
 // (sidebar, group headers, KPI, calendar tooltip, timeline, digest) renders
 // through this; the "≈" lives HERE on the value, never in labels (RV19).
 export function fmtMinutes (minutes: number): string {
+  if (!Number.isFinite(minutes)) return "Unavailable";
   if (minutes < 60) return `≈ ${minutes}m`;
   return `≈ ${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }

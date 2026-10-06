@@ -1,5 +1,20 @@
 # Version Notes
 
+## v0.4.0.30 - Nonfinite Duration Display (2026-10-06)
+
+- The shared duration formatter returns "Unavailable" for NaN and either
+  infinity instead of bogus approximate minutes. All finite output stays.
+- File Story and Session Timeline retain admitted malformed timestamp rows,
+  but no longer render their nonfinite effort as NaNh NaNm. No data admission,
+  timestamp, ordering, effort, API, lifecycle, focus, style or download changes.
+- One leading guard only. Strict original module/function/outside hashes,
+  actual-original finite comparisons and complete-dialog regressions protect
+  the bounded change; all original tests remain unchanged.
+- Valid System/report output is preserved. Invalid direct health/report test
+  inputs are controlled boundary probes, not admitted API defects. Caller gates,
+  malformed date labels and unrelated calculations remain separate.
+- Native H.1 and prior operational/build-only advisory limits remain pending.
+
 ## v0.4.0.29 - Dialog Event Chronology (2026-10-06)
 
 - File Story and Session Timeline sort their accepted captured rows by finite

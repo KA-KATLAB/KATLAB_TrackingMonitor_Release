@@ -5,14 +5,14 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.0.29 - Dialog Event Chronology**
+Current source version: **v0.4.0.30 - Nonfinite Duration Display**
 
-File Story and Session Timeline order their captured rows by parsed milliseconds,
-with deterministic ID ties and malformed timestamps retained last. Requests,
-paging, raw data, formulas and dialog focus stay intact. Malformed-time effort
-remains nonfinite; controlled source/SSR checks do not prove native acceptance.
+The shared duration formatter shows "Unavailable" for nonfinite values instead
+of bogus approximate minutes. All finite output, raw data, caller gates,
+formulas, requests, paging and focus stay intact. This is display honesty, not
+a timestamp or effort repair; controlled checks do not prove native acceptance.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.0.29_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.0.30_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -185,7 +185,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.0.29_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.0.30_Release_Notes.md)
 
 ## Guarantees
 

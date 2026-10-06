@@ -356,6 +356,14 @@ sub-ms values tie by ID, not microsecond chronology. Do not silently discard
 invalid rows or claim their effort estimate is repaired. Backend ingestion-ID
 window selection and text timestamp filters remain unchanged.
 
+The shared duration formatter shows "Unavailable" for NaN and either infinity;
+do not present nonfinite values as approximate durations or replace them with
+zero. Finite formatting remains unchanged, including negative and fractional
+values. This is a display fallback, not a timestamp, effort-estimator or stats
+repair. Keep raw invalid date labels and admitted event rows. Existing caller
+mount predicates remain authoritative; this does not promise every malformed
+surface displays the fallback. The generic label also fits uptime and gaps.
+
 Tools, Attention, Legend, and goal settings are disclosures, not ARIA menus. Use
 `aria-expanded` and `aria-controls` with ordinary buttons/links. Escape closes and
 restores the connected opener; outside activation must not steal the destination's
