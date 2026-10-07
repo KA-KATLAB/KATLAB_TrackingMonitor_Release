@@ -5,20 +5,21 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.1.11 - Achievement Gallery**
+Current source version: **v0.4.1.12 - Provenance Evidence Desk**
 
-Overview's nine existing achievement tiles gain shared cards, 32px tabular
-Azeret Mono values, readable supporting copy and wrapping titles/rank badges.
-Only C/B badge foregrounds change to correct their source color-pair contrast;
-thresholds, progress, task scope, secrets and all other rank colors stay.
-Achievement CSS is lazy Overview-owned beside Gallery/Momentum; verify the
-complete old lazy CSS inverse before accepting its new identity. Eager Records
-and all old global CSS remain. Activation must verify both the exact retained
-Chronicle stylesheet and newly mirrored current release notes.
+Overview separates its existing captured-evidence measurement from a full-path
+file ledger, with 32px tabular values and readable, wrapping File Story controls.
+The metric counts linked captures over observed committed file changes, not
+authorship or lines of code; unlinked changes do not prove human-only work.
+Scope, ranking, ratios and request owners stay. Only card-local obsolete
+Claude-only copy changes; the existing App Legend is outside this release.
+Desk CSS is lazy Overview-owned. Validate every new rule and restore the complete
+old lazy bytes before accepting its new identity; eager Records/global CSS stay.
+Activation requires both exact Chronicle CSS and newly mirrored current notes.
 Large Connection: close responses and native UI acceptance remain unresolved;
 the previously recorded high build-only braces advisory and chunk notice are not addressed.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.1.11_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.1.12_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -191,7 +192,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.1.11_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.1.12_Release_Notes.md)
 
 ## Guarantees
 

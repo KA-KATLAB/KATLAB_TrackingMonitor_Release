@@ -1,21 +1,14 @@
-// v0.2.11.0 D6 (A.3): the provenance ledger — what share of committed
-// file changes carries captured Claude events. The industry estimates this
-// number from commit metadata; the tracker COMPOSES it from ground truth,
-// so the card's job is to stay honest about what it is measuring: file
-// changes per commit, never lines of code (D7).
-// PURE presentational — no state, no timers, derives at render. The
-// percentage rule lives in the exported pctOf so it stays testable without
-// a DOM, and because 100/0 must be reserved for the exact cases (D6b).
+// Linked capture evidence over observed committed file changes, never authorship
+// or lines of code. Pure presentation; stats are already server-scoped.
 
 import type { StatsData } from "./charts";
 import { SectionHeading, Surface } from "./ui";
+import "./provenanceEvidenceDesk.css";
 
 const TEAL = "#14b8a6"; // the DIAGRAM palette — never MODE_COLOR
 const fmt = (n: number) => n.toLocaleString("en-US");
 
-// NEVER A FALSE ABSOLUTE: 396/397 must not print "100%" while a
-// human-touched file exists, and 1/400 must not print "0%" while Claude
-// did touch something — the shipped flowState "never 0m" shape.
+// Keep 0/100 for exact captured-slot cases; intermediate ratios round within 1..99.
 export function pctOf (ai: number, total: number): number {
   if (total <= 0) return 0;   // callers gate on the hide law; defensive
   if (ai >= total) return 100;
@@ -33,55 +26,70 @@ export function ProvenanceCard ({ provenance, scope, onOpenFileStory }: {
   // commits, all files plan-excluded, all-merge) AND the divide-by-zero.
   if (slots_total === 0) return null;
   return (
-    <Surface data-reveal tone="quiet">
+    <Surface data-reveal tone="quiet" data-provenance-evidence="true">
       <SectionHeading level={4} title="Provenance"
         description={scope ?? "All repos"} />
-      <div className="flex min-w-0 flex-wrap items-baseline gap-2"
-        title="share of committed file changes (per commit, per file) that carry captured Claude events — since tracking began; not a lines-of-code measure">
-        <span className="ui-metric-value">
-          {pctOf(slots_ai, slots_total)}%
-        </span>
-        <span className="text-xs font-semibold text-ui-muted">
-          AI-touched file changes
-        </span>
-      </div>
-      {/* the bar keeps the UNCLAMPED ratio — geometry is not a claim —
-          but rounded to one decimal so the DOM never carries float noise */}
-      <div className="mt-1.5 h-1 rounded bg-slate-700" aria-hidden="true">
-        <div className="h-1 rounded"
-          style={{ width: `${((slots_ai / slots_total) * 100).toFixed(1)}%`,
-            backgroundColor: TEAL }} />
-      </div>
-      <p className="mt-2 text-xs text-ui-muted">
-        {`${fmt(slots_ai)}/${fmt(slots_total)} file changes` +
-         ` · ${fmt(commits_observed)} commit` +
-         `${commits_observed === 1 ? "" : "s"} since tracking began` +
-         (commits_pre > 0 ? ` · ${fmt(commits_pre)} earlier excluded` : "")}
-      </p>
-      <div className="mt-2 space-y-1 text-xs">
-        {top_files.map((row) => (
-          <div key={JSON.stringify([row.repo, row.file])} className="flex min-w-0 flex-wrap items-center gap-2 py-1">
-            {/* ALL scope shows the repo: both monitored repos hold files
-                with identical basenames (Version_Notes.md) */}
-            {scope === undefined && (
-              <span className="min-w-0 break-all text-xs text-ui-muted">{row.repo}</span>
-            )}
-            <button type="button" onClick={() => onOpenFileStory?.(row.repo, row.file)}
-              aria-label={`${row.file} — open file story`}
-              title={`${row.file} — open file story`}
-              className="min-w-0 break-all font-mono text-left hover:text-sky-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
-              {row.file.split("/").pop()}
-            </button>
-            <span className="ml-auto h-1 w-16 shrink-0 rounded bg-slate-700" aria-hidden="true">
-              <span className="block h-1 rounded"
-                style={{ width: `${((row.ai_commits / row.commits) * 100).toFixed(1)}%`,
-                  backgroundColor: TEAL }} />
-            </span>
-            <span className="shrink-0 text-xs text-ui-muted">
-              {row.ai_commits}/{row.commits}
-            </span>
+      <div className="provenance-evidence-layout">
+        <div>
+          <p className="provenance-evidence-label">AI-touched file changes</p>
+          <div className="provenance-evidence-value"
+            title="share of committed file changes (per commit, per file) with linked captured AI edit events; since tracking began, not a lines-of-code measure">
+            {pctOf(slots_ai, slots_total)}%
           </div>
-        ))}
+          {/* The bar retains the exact ratio, rounded to one decimal. */}
+          <div className="mt-3 h-1 rounded bg-slate-700" aria-hidden="true">
+            <div className="h-1 rounded"
+              style={{ width: `${((slots_ai / slots_total) * 100).toFixed(1)}%`,
+                backgroundColor: TEAL }} />
+          </div>
+          <p className="provenance-evidence-copy">
+            {`${fmt(slots_ai)}/${fmt(slots_total)} file changes` +
+             ` · ${fmt(commits_observed)} commit` +
+             `${commits_observed === 1 ? "" : "s"} since tracking began` +
+             (commits_pre > 0 ? ` · ${fmt(commits_pre)} earlier excluded` : "")}
+          </p>
+          <p className="provenance-evidence-copy">
+            Linked captured edit evidence, not AI authorship or lines of code.
+            Unlinked changes do not prove human-only work.
+          </p>
+        </div>
+        <div>
+          <p className="provenance-evidence-label">Most frequently committed files</p>
+          <p className="provenance-evidence-copy">
+            Observed commits per file; linked captures shown separately.
+            {onOpenFileStory ? " Open a path to inspect its File Story." : ""}
+          </p>
+          {top_files.length === 0 ? (
+            <p className="provenance-evidence-copy">No ranked file rows in this snapshot.</p>
+          ) : (
+            <ol className="provenance-evidence-files"
+              aria-label="Most frequently committed files since tracking began">
+              {top_files.map((row) => (
+                <li key={JSON.stringify([row.repo, row.file])}>
+                  {onOpenFileStory ? (
+                    <button type="button" onClick={() => onOpenFileStory(row.repo, row.file)}
+                      aria-label={`${row.repo}: ${row.file} — open file story`}
+                      title={`${row.repo}: ${row.file} — open file story`}
+                      className="ui-control provenance-evidence-file">
+                      {row.file}
+                    </button>
+                  ) : (
+                    <span className="provenance-evidence-file">{row.file}</span>
+                  )}
+                  <div className="provenance-evidence-row-meta">
+                    {scope === undefined && <span>{row.repo}</span>}
+                    <span className="h-1 w-16 shrink-0 rounded bg-slate-700" aria-hidden="true">
+                      <span className="block h-1 rounded"
+                        style={{ width: `${((row.ai_commits / row.commits) * 100).toFixed(1)}%`,
+                          backgroundColor: TEAL }} />
+                    </span>
+                    <span>{row.ai_commits}/{row.commits} linked commits</span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
       </div>
     </Surface>
   );

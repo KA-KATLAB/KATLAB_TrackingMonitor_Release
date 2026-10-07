@@ -80,7 +80,7 @@ Historical GitHub push notices are not a fresh detailed advisory audit.
 The user accepts limited publication with these constraints; new blocking
 regressions stop delivery. No browser, transport or security workaround occurs.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Stop Tracker and demo before rebuilding canonical 0.4.1.11 matching assets,
 use the standard hidden restart and reload existing tabs. Restarting Python
 alone does not update frontend assets. Let normal Chronicle generation/build/
@@ -95,5 +95,5 @@ External resources, constructed runtime URLs and native interaction remain
 outside that proof. Complete body draining, elapsed acceptance deadlines,
 remaining-time parity checks and final connection closure stay required.
 
-Previous [v0.4.1.10 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.1.10_Release_Notes.md)
+Previous [v0.4.1.10 notes](TrackingMonitor_v0.4.1.10_Release_Notes.md)
 retain every historical byte except their two move-affected Markdown URLs.

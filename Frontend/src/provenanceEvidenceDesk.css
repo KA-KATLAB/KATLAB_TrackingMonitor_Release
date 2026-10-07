@@ -1,0 +1,81 @@
+/* Captured evidence presentation; attribution, scope and file-story owners stay. */
+.ui-surface[data-provenance-evidence="true"] > .provenance-evidence-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.ui-surface[data-provenance-evidence="true"] > .provenance-evidence-layout > div {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 8px;
+  background-color: rgb(var(--ui-surface));
+}
+.ui-surface[data-provenance-evidence="true"] .provenance-evidence-label {
+  margin: 0 0 8px;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-provenance-evidence="true"] .provenance-evidence-value {
+  min-width: 0;
+  font-family: "Azeret Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 32px;
+  line-height: 40px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-provenance-evidence="true"] .provenance-evidence-copy {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 21px;
+  color: rgb(var(--ui-text-muted));
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-provenance-evidence="true"] .provenance-evidence-files {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ui-surface[data-provenance-evidence="true"] .provenance-evidence-files > li {
+  min-width: 0;
+  padding: 12px 0;
+  border-top: 1px solid rgb(var(--ui-border));
+}
+.ui-surface[data-provenance-evidence="true"] .provenance-evidence-file {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  justify-content: flex-start;
+  padding: 8px 12px;
+  font-family: "Azeret Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 16px;
+  line-height: 24px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.ui-surface[data-provenance-evidence="true"] .provenance-evidence-row-meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: rgb(var(--ui-text-muted));
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-provenance-evidence="true"] .provenance-evidence-row-meta > span:last-child {
+  margin-left: auto;
+}
+@media (min-width: 1024px) {
+  .ui-surface[data-provenance-evidence="true"] > .provenance-evidence-layout {
+    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+    align-items: start;
+  }
+}

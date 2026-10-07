@@ -1,5 +1,53 @@
 # Version Notes
 
+## v0.4.1.12 - Provenance Evidence Desk (2026-10-07)
+
+- Overview's existing full-width Provenance card separates its measurement
+  panel from a complete-path ledger. Stack below 1024px; from that viewport
+  boundary use zero-minimum 0.7fr/1.3fr columns with 16px gaps, 16px panel
+  padding, shared 1px borders, 8px corners and surface tone.
+- Use 32px/40px tabular Azeret Mono measurements, 16px/24px labels and full-path
+  actions, 14px/21px explanatory copy and 12px/18px row metadata. Paths/values
+  wrap anywhere without clipping or a new scroll owner. Normal action minimum
+  height is 44px; existing coarse 44px-important minima and shared focus/hover/
+  press/reduced-motion behavior remain. Native targets are not certified.
+- The unchanged backend measures linked captures per observed committed file
+  change from each repo's first capture, excludes plan-file slots and ranks
+  at most eight rows by commits descending, repo and file. It does not measure
+  authorship, lines of code, unique files or complete historical commits.
+  Clean sweeps can link retained/reverted edits. Unlinked is not human-only.
+  Correct only card-local Claude/human wording; App Legend stays outside scope.
+- Preserve pctOf's exact/defensive/clamped policy, both raw one-decimal bars,
+  captions, plural/excluded-history rules, server scope/order and composite
+  keys. Zero slots still hide the card; positive slots with no ranked rows
+  explain that snapshot absence. All-repo labels retain the undefined-scope
+  predicate, including existing empty-string scope behavior.
+- Full paths open the exact repo/file through the existing callback, with
+  repo-qualified accessible names. Without a callback the path is static and
+  no opening action is promised. Quiet Surface, real h4, reveal, Overview
+  gates and independent retained-data/request owners remain unchanged.
+- The owned stylesheet is lazy Overview-loaded: one comment, ten direct root
+  rules and one 1024px media with one direct child rule. New tests require
+  independent CSS/AST adversaries, original/result RAW/LF preservation and
+  actual current SSR with frozen data, scope, callback, zero and ratio cases.
+  Restored historical source is preservation data, never alternate execution.
+- Validate all eleven compiled Desk rules before restoring every old1.11 lazy
+  byte from a clone. Achievement's historical inverse then removes its seven
+  validated rules from that proven clone to recover old1.10; keep every old
+  assertion and all actual new-source/bundle checks. The complete eager CSS
+  and Records' historical eager inverse stay independent and unchanged.
+- Canonical source version is 0.4.1.12. Build matching assets with both ports
+  clear, use the standard hidden restart and reload tabs. Chronicle readiness
+  requires exact retained CSS plus mirrored Provenance Evidence Desk notes;
+  reachable local JS/CSS evidence includes Mermaid, not native interaction.
+- Native v0.4 H.1, large Connection: close failure, prior high build-only
+  braces advisory (recorded alert #15) and chunk notice remain open under
+  accepted limited publication. Keep-alive checks are not a repair; historical
+  GitHub push notices are not a fresh detailed advisory audit.
+- Published v0.4.1.11 notes move to Archive with only two affected URLs changed.
+  Actual review/CFT/test/build/live/commit/ref outcomes belong in the 1.12 plan,
+  not unrun results or historical counts asserted in these notes.
+
 ## v0.4.1.11 - Achievement Gallery (2026-10-07)
 
 - Overview's nine existing tiles retain seven ranked achievements and two

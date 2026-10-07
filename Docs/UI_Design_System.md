@@ -696,6 +696,40 @@ after subtracting only validated rules; retain the entire eager stylesheet.
 Current-only SSR/source/contrast/compiled assets do not certify native paint,
 geometry, focus, keyboard, AT, zoom, state/motion or subjective acceptance.
 
+The Provenance Evidence Desk styles only the existing quiet Provenance Surface
+marked `data-provenance-evidence="true"` and its owned measurement/file ledger.
+Keep its full-width Explore placement below Trophy/Records, real level-4
+heading, scope description, reveal and positive-event/statistics gates.
+Stack below 1024px viewport width; from that boundary use zero-minimum
+0.7fr/1.3fr columns with 16px gaps. Both panels use 16px padding, shared 1px
+borders, 8px corners and surface tone. Account for the navigation rail and
+actual containing block rather than claiming viewport-wide panel space.
+Use 32px/40px tabular configured Azeret Mono measurements, 16px/24px labels
+and file actions, 14px/21px copy and 12px/18px row metadata. Full raw paths,
+values and labels wrap anywhere. Rows have 12px vertical padding; ratio-only
+auto margin does not move the meter or repo. Add no truncation, clipping,
+fixed height, position, reordering, font resource, motion or scroll owner.
+File actions retain shared controls, normal 44px minimum height and the
+higher-priority coarse 44px-important minima, focus, hover and press owners.
+Show repo-qualified accessible action names and pass exact repo/file to the
+existing File Story callback. Without that callback render a static full path
+with no focusable no-op or promise to open. Preserve server row order and
+composite keys, ALL labels only for undefined scope, and empty-string scope.
+Linked captured edit evidence is not authorship or lines of code; unlinked
+changes do not prove human-only work. Preserve observed per-commit/per-file
+counts, plan exclusions, earlier excluded copy, zero-slot hiding, exact
+percentage policy and both raw one-decimal decorative bars. Positive slots
+with no ranked rows explicitly describe snapshot absence. Correct only
+card-local obsolete provider wording; existing App Legend is outside scope.
+No data, hook, request, state, API/storage, clock or attribution owner changes.
+The import is lazy Overview-owned. Validate all eleven new compiled Desk rules
+before recovering every old1.11 lazy byte from a clone; Achievement's seven
+validated rules then recover old1.10 from that proven clone. Retain actual
+new-source/bundle checks, every old assertion and the independent unchanged
+eager stylesheet/Records inverse. Source, SSR, CSS declarations and served
+assets do not certify native paint, geometry, targets, focus, keyboard, AT,
+zoom, motion or subjective acceptance.
+
 ### 6.3 History
 
 - Style only the existing data-history-ready owner's direct Captured commits
