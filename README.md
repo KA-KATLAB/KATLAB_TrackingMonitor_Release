@@ -5,22 +5,22 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.2.1 - Changes Review Desk**
+Current source version: **v0.4.2.2 - Attribution Station**
 
-Changes now has one captured-work summary panel and a clearer grouped ledger.
-Keep exact counts and their scope descriptions; highlight attribution only when
-it needs a task choice. Task/folder cards use aligned normal rows and readable
-Why copy, retaining all assignment, filter, diff, paging and session behavior.
-Workbench 2.0's quiet shared header, rail, work canvas and Now hierarchy stay;
-the full product name and loaded build version remain visible with System.
-Two bounded HTML styles explicitly own presentation. Preserve original
-TSX/JS/stylesheets, the old Workbench suite through exactly two adapters, and
-complete prior guards. Verify both actual built styles and twelve compiled
-contracts, retaining full eager/lazy CSS bytes. Activation requires exact
-Chronicle CSS and current notes. Native UI acceptance and the known large
-Connection:close fault remain open; prior advisory/chunk notices are not fixed.
+The manual attribution queue is now one clear station: a bulk toolbar,
+separate assignment cards and complete file paths on their own line.
+Direct labels/buttons use 44px minimum height; task choices and feedback wrap.
+Keep the full unfiltered queue, selection, validation, locks, partial/retry
+behavior, dialogs and paging. Workbench 2.0 and Changes Review Desk stay.
+The full product name, loaded build version and System action remain visible.
+Three bounded styles own presentation; all App/API/TSX/JS/stylesheets and
+dependencies stay unchanged. Preserve both old suites through exact adapters,
+all prior oracles, thirteen compiled gates and complete eager/lazy CSS bytes.
+Activation requires current notes AND exact Chronicle CSS. Native/operator
+beauty, Connection:close and prior advisory/chunk notices remain open.
+Pre-existing zero-choice wording and async boundaries are not fixed here.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.2.1_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.2.2_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -193,7 +193,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.2.1_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.2.2_Release_Notes.md)
 
 ## Guarantees
 

@@ -322,6 +322,44 @@ Workbench contexts, its compiled style body and full eager/lazy CSS identities.
 Native reflow, focus, keyboard, targets, zoom, AT and operator beauty remain
 open; source/SSR/compiled assets and HTTP shells are not native acceptance.
 
+### 3.3 Attribution Station presentation overrides
+
+The identified `katlab-attribution-station` inline style follows unchanged
+Changes Review Desk. It supersedes ONLY the actual Manual attribution queue
+presentation below; retain 3.1/3.2 and every remaining contract. Keep all App,
+API, TSX/JS/stylesheets, semantic tokens and assignment owners unchanged.
+
+The exact direct #sec-pick > named section uses 20px padding,8px corners and
+surface background with a decorative half-alpha warning border. Its direct
+heading uses a 12px-bottom divider/20px bottom margin. The direct bulk fieldset
+uses 16px canvas padding,12px gap and 8px corners. Direct assignment rows use
+separate 16px canvas cards/12px top gap/8px corners/decorative border.
+Preserve flex/source order/wrap; direct labels min-height 44/gap 8 and direct
+buttons min-height 44/padding 8px16px. Direct task-choice triggers flex 1 1 14rem,
+retaining current min-width 0/max-width 100 and wrapping. Existing coarse 44
+important/focus/disabled owners remain; minimum height is not native target proof.
+
+Only the direct file span.font-mono takes full flex basis, retaining exact
+path/mono/typography/break-all. Bulk visible feedback excludes sr-only; row
+feedback requires its existing basis-full/text-xs/text-slate-400 context.
+Only the existing italic zero-choice span becomes a readable padded panel.
+The three exact overflow-wrap:anywhere declarations are allowed; never change
+overflow/overflow-x/overflow-y clipping or scroll ownership. Existing caption,
+choices, unfiltered queue, selection, partial/retry/deadline logic stays.
+
+Exclude Mode/session/repo-time metadata from feedback styling, nested/portaled
+chooser interiors, legend/sr help, queue pager, all grouped/History rows and
+other surfaces. Preserve 1440 queue split/768 metrics/1280 rail and every focus,
+paging/dialog/disclosure owner. No resource, media, motion, important, token,
+font, cap, clipping, positioning/order, control, state, data or automation is added.
+
+Require complete third-window HTML inverse, exact two-window adapters for each
+old suite, actual-current SSR/AST, strict three ordered built styles and
+independent 14 contexts. Validate the third style before old-style projection;
+preserve old 19+9 contexts/bodies and full external CSS, with thirteen compiled
+gates. Bytes prove preservation, not computed appearance. Native acceptance
+and known transport/zero-choice wording/async limitations remain open.
+
 ## 4. Shared component contract
 
 Shared primitives are small implementation helpers, not a component framework. They forward native props and refs, preserve native disabled/focus behavior, and accept `className` only for local layout.

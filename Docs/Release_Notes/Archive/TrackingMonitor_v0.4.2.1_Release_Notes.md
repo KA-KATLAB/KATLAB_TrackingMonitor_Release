@@ -65,7 +65,7 @@ are not fixed, and no fresh detailed advisory audit or dependency update is
 claimed. Limited publication with these boundaries is accepted. New blocking
 regressions stop delivery.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../../Docs/Installation_Guideline.md#safe-stop-and-restart).
 Prove literal OLD2.0 tracker ownership and demo clear, stop the owned instance,
 then prove BOTH8100+8101 clear before matching production2.1 build/gates.
 Use the standard hidden restart parent, not a child-tree wait or visible window.
@@ -81,5 +81,5 @@ resources, constructed URLs and native interactions remain outside that proof.
 Remain main; one scoped commit and normalFF pushes to three existing targets.
 No branch creation/switch/deletion/default change, force, merge, tag or hosted Release.
 
-Previous [v0.4.2.0 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.2.0_Release_Notes.md)
+Previous [v0.4.2.0 notes](../../../Docs/Release_Notes/Archive/TrackingMonitor_v0.4.2.0_Release_Notes.md)
 retain every historical byte except their two move-affected Markdown URLs.

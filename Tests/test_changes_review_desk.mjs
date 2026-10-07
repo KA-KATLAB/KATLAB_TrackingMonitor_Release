@@ -6,12 +6,18 @@ import { dirname, resolve } from "node:path";
 import { after, before, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { restoreChangesReviewDeskHtml } from "./helpers/changesReviewDesk.mjs";
+import { restoreAttributionStationHtml, restoreAttributionWorkbenchSuite } from "./helpers/attributionStation.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), ".."), frontend = resolve(root, "Frontend");
 const require = createRequire(resolve(frontend, "package.json"));
 const ts = require("typescript"), postcss = require("postcss"), React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
-const read = name => new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(readFileSync(resolve(root, name)));
+const read = name => {
+  const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(readFileSync(resolve(root, name)));
+  if (name === "Frontend/index.html") return restoreAttributionStationHtml(text);
+  if (name === "Tests/test_workbench_2_0.mjs") return restoreAttributionWorkbenchSuite(text);
+  return text;
+};
 const sha = value => createHash("sha256").update(value).digest("hex"), lf = value => value.replace(/\r\n/g, "\n");
 const OLD_HTML = "f222d0bd4dd81f03905ee4a5288e0afe059e69ccf1de7dffc18bd1052542c2e6";
 const NEW_HTML = "f8381b7e989a4cc38987c847182713517de6f524aa49efa5794a34b298b11ad3";

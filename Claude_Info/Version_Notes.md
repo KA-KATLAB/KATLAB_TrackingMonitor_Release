@@ -1,5 +1,33 @@
 # Version Notes
 
+## v0.4.2.2 - Attribution Station (2026-10-07)
+
+- Refine the existing manual attribution queue as one station: bulk canvas
+  toolbar, separate assignment cards and a full-path line. Keep source order,
+  actual choices, unfiltered queue, selection, locks, partial/retry and paging.
+- Add exactly one identified third inline style after unchanged Changes block.
+  Complete 9897bytes/219LF inverts through 3574bytes to all 6323 prior bytes.
+  Independently verify all fourteen ordered contexts and actual direct owners.
+- Use 20px station padding/8px corners,16px toolbar/cards and 12px separation.
+  Direct labels/buttons min-height 44, direct trigger flex 1 1 14rem; existing
+  coarse 44-important, focus/disabled/min-width/wrap owners remain unchanged.
+- Feedback contexts explicitly exclude metadata/sr help; portal, pager, grouped
+  rows and all other surfaces stay out. Zero-choice copy/logic remains unchanged.
+- Preserve all original App/API/TSX/JS/stylesheets and dependencies. Both old
+  suites use exactly two bounded adapters each; all historic assertions remain.
+  Behavioral AST/SSR uses current TSX. Keep changesReviewDesk.mjs unchanged.
+- Thirteen actual compiled gates require strict three-style inventory, validated
+  Station subtraction before old assertions, old 19+9 bodies and full CSS bytes.
+  JSON-native full parity never assumes structuredClone exists in orchestration.
+- Canonical build/source 0.4.2.2. Prove literal OLD 2.1 ownership, both ports clear,
+  matching production gates and hidden parent restart, current 2.2 notes plus
+  exact 8784-byte Chronicle CSS/full 4772af readiness and bounded fullasset parity.
+- Native/operator beauty, large Connection:close fault, prior alert 15/chunk notice
+  and pre-existing zero-choice copy/async limitations remain explicit/open.
+  No inferred repair, new dependency/advisory audit or native acceptance claim.
+- Archive 2.1 notes preserving all bytes except two moved URLs. Actual CDD/CFT/
+  tests/live/ONEcommit/three FF/fourref outcomes belong in the ignored 2.2 plan.
+
 ## v0.4.2.1 - Changes Review Desk (2026-10-07)
 
 - Continue Workbench 2.0 with one coherent Changes composition: captured-work
