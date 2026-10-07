@@ -1,5 +1,41 @@
 # Version Notes
 
+## v0.4.2.0 - Workbench 2.0 (2026-10-07)
+
+- Redesign the shared command header, navigation rail and work canvas together,
+  with coordinated Overview and selected Mission Now hierarchy. This is a
+  presentation change, not new data, automation, inferred readiness or controls.
+- Insert only one identified, bounded inline style in Frontend/index.html.
+  Preserve every existing TSX/JS/theme/Tailwind/private CSS file and old guard.
+  Require exact 4242-byte/101LF source, whole inverse to the original 1182bytes,
+  nineteen independently checked CSS contexts and real owner bindings.
+- Stack header identity/actions below 1024px; use two equal zero-minimum tracks
+  from 1024px. Flatten only outer action/context boxes and retain labelled actions,
+  visible loaded version, safe areas, wrapping and meaningful source order.
+- Keep header surface/theme-color; use quiet graphite rail #0b1220 and workspace
+  #060b16 without changing global semantic/MODE tokens or fonts. Desktop current
+  primary fill/hover changes only presentation; drawer retains raised selection.
+  Keep current marker/text/aria, control focus/press/disabled/coarse ownership.
+- Existing main gutters are 16px, 24px from 768 and 32px from 1280. Remove only the
+  unique Mission root's redundant padding; preserve width cap/centering/order.
+  Keep main scroll/focus/route recovery and Chronicle's existing flex height.
+- Overview Now uses solid surface/8px corners and16->24px padding, existing
+  first-primary emphasis and canvas for other primary metrics. Captured activity
+  loses its nested outer box but keeps its divider and all facts. Selected
+  Mission Now uses surface/20->24px padding, retaining the mark/backend readiness.
+- Require complete original eager/lazy stylesheet identities, all ten retained
+  compiled-owner gates plus new actual built inline-style gate. Unchanged old
+  bytes do not mean unchanged computed paint after deliberate ID overrides.
+- Canonical source/UI build version 0.4.2.0. Stop only the identified tracker,
+  prove both ports clear before production build, use standard hidden restart
+  and reload tabs. Chronicle readiness requires exact CSS and current 2.0 notes.
+- Native H.1/operator beauty, large Connection:close fault, prior high build-
+  only braces alert 15 and chunk notice remain open under limited publication.
+  Source/SSR/contrast/build/assets/shells are not native accessibility acceptance.
+  No dependency change, detailed advisory audit or transport repair is claimed.
+- Archive 13 notes preserving all history except two move-affected URLs.
+  Actual review/CFT/test/live/commit/ref outcomes belong in the 2.0 plan.
+
 ## v0.4.1.13 - Repository Profile Readability (2026-10-07)
 
 - Refine only six className windows in the existing Overview Repo identity.

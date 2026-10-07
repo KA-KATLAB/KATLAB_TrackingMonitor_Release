@@ -5,21 +5,24 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.1.13 - Repository Profile Readability**
+Current source version: **v0.4.2.0 - Workbench 2.0**
 
-Overview's existing Repo identity frames its distribution and facts with shared
-panels and readable, wrapping caption/facts text, nominally 16px/24px. Six
-class-only changes preserve the heading, named scroller and parent columns.
-Extension counts are captured file-edit events, not distinct files; plan files
-stay excluded. Server scope, ranked colors, donut/bar choice, session identity,
-local first-capture date, all-time commits and estimated UTC effort stay.
-Use existing utilities only. Build verification must retain every eager and
-lazy stylesheet byte, plus all prior compiled owners and historical inverses.
+A coordinated UI redesign gives the command header two clear bands, a quiet
+graphite navigation rail and a roomier work canvas. Desktop current navigation
+uses primary fill; the mobile drawer retains its existing selection and controls.
+Overview's Now section separates primary metrics from quieter captured activity;
+selected Mission Now stands out without changing readiness or data.
+Main gutters are 16px, 24px from 768px and 32px from 1280px. Mission's redundant
+inner padding is removed, not added twice. Preserve all views, actions, visible
+build version, scope/status truth, focus, reduced motion and scrolling owners.
+A bounded HTML inline style overrides presentation explicitly; old TSX, source
+stylesheets and all prior tests stay. Verify the actual built inline style and
+all ten retained compiled owners, with complete external CSS byte identity.
 Activation requires both exact Chronicle CSS and newly mirrored current notes.
 Large Connection: close responses and native UI acceptance remain unresolved;
 the previously recorded high build-only braces advisory and chunk notice are not addressed.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.1.13_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.2.0_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -192,7 +195,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.1.13_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.2.0_Release_Notes.md)
 
 ## Guarantees
 

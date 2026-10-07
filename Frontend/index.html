@@ -17,6 +17,81 @@
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Azeret+Mono:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <style id="katlab-workbench-v2">
+      /* Workbench 2.0: scoped presentation; existing data and interaction owners stay. */
+      #root header.app-shell-header > .app-header-primary {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1rem;
+      }
+      #root header.app-shell-header > .app-header-primary > .app-header-actions {
+        min-width: 0;
+        justify-content: flex-start;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+      }
+      #root header.app-shell-header > .app-workspace-context {
+        padding: 0.75rem 0;
+        border: 0;
+        border-top: 1px solid rgb(var(--ui-border));
+        border-radius: 0;
+        background: transparent;
+      }
+      #root .app-shell-navigation {
+        padding: 1.25rem 0.75rem;
+        background: #0b1220;
+      }
+      #root .app-shell-navigation nav[aria-label="Primary views"] > div > button.ui-control[aria-current="page"] {
+        background-color: rgb(var(--ui-primary));
+      }
+      #root .app-shell-navigation nav[aria-label="Primary views"] > div > button.ui-control[aria-current="page"]:hover:not(:disabled) {
+        background-color: rgb(var(--ui-primary-hover));
+      }
+      #root #main-content {
+        padding: 1rem;
+        background: #060b16;
+      }
+      #root #main-content .ui-page-heading {
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgb(var(--ui-border));
+      }
+      #root #main-content > div > .max-w-\[100rem\] {
+        padding: 0;
+      }
+      #root #main-content section[aria-labelledby="overview-now-heading"] {
+        padding: 1rem;
+        border-radius: 8px;
+        background: rgb(var(--ui-surface));
+      }
+      #root #main-content section[aria-labelledby="overview-now-heading"] [role="group"][aria-label="Current operational metrics"] > .ui-metric:not(:first-child) {
+        background: rgb(var(--ui-canvas));
+      }
+      #root #main-content section[aria-labelledby="overview-now-heading"] [role="group"][aria-label="Captured activity summary"] {
+        padding: 1rem 0 0;
+        border: 0;
+        border-top: 1px solid rgb(var(--ui-border));
+        border-radius: 0;
+        background: transparent;
+      }
+      #root #main-content > div > .max-w-\[100rem\] > .ui-surface.border-l-4 {
+        padding: 1.25rem;
+        background: rgb(var(--ui-surface));
+      }
+      @media (min-width: 768px) {
+        #root #main-content { padding: 1.5rem; }
+        #root #main-content section[aria-labelledby="overview-now-heading"] { padding: 1.5rem; }
+        #root #main-content > div > .max-w-\[100rem\] > .ui-surface.border-l-4 { padding: 1.5rem; }
+      }
+      @media (min-width: 1024px) {
+        #root header.app-shell-header > .app-header-primary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        #root header.app-shell-header > .app-header-primary > .app-header-actions { justify-content: flex-end; }
+      }
+      @media (min-width: 1280px) {
+        #root #main-content { padding: 2rem; }
+      }
+    </style>
     <title>KATLAB Tracking Monitor</title>
   </head>
   <body class="bg-slate-950 text-slate-100">

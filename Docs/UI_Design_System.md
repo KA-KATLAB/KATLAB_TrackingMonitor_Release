@@ -237,6 +237,53 @@ Do not:
 
 > Hide document overflow, keep the desktop sidebar on a phone, or remove the only visible route to a utility.
 
+### 3.1 Workbench 2.0 presentation overrides
+
+The identified `katlab-workbench-v2` inline style in the source HTML entry is
+the current, bounded shell/dashboard presentation owner. It deliberately
+overrides only the historical command-frame outer boxes, desktop current
+navigation backgrounds, main gutters, page divider and named Now regions.
+Keep their original stylesheets and guards as retained declarations, not proof
+of unchanged computed appearance. Verify the actual built inline style too.
+
+The command header uses one zero-minimum grid column below 1024px and two
+equal zero-minimum columns from 1024px. Preserve full identity, visible loaded
+build badge, natural control wrapping, safe areas, source/focus order and
+existing actions. Flatten only outer action/context framing; individual
+controls and scope/status chips retain their boundaries and states.
+
+Keep the header's surface tone and matching theme-color. The existing 14rem
+desktop rail uses quiet graphite #0b1220; main uses #060b16. All semantic ui
+and attribution tokens, fonts and meaning stay. Only the desktop current
+navigation background changes to primary, with enabled primary-hover;
+the existing current focus border, left marker, text, aria-current, disabled
+opacity, target minima and event/press/focus owners remain. The mobile drawer
+retains its original raised selection and behavior.
+
+The existing #main-content scroll/focus owner has 1rem gutters, 1.5rem from
+768px and 2rem from 1280px. Page headings get a decorative bottom divider.
+Reconcile only the unique direct Mission max-w-[100rem] root's padding to
+zero, preserving centering, width cap and section spacing. No new wrapper,
+scroll owner, clipping, fixed height, order, positioning or motion is added.
+Gutter geometry changes intentionally; old pixel positions are not promised.
+
+Overview's actual Now region uses solid surface, 8px corners and 1rem padding,
+1.5rem from 768px. Preserve every metric group, four primary metric positions
+and first metric focus/primary-alpha emphasis. Other primary metrics use
+canvas; captured activity becomes a quieter strip with only its top divider
+and 1rem top padding. Plans/Momentum and Now/Trends/Explore/Relationships order
+remain. The real selected Mission Now Surface uses surface and 1.25rem padding,
+1.5rem from 768px; its 4px sky marker and verbatim backend readiness stay.
+Empty/ambiguous/waiting/error/retained states and independent data owners stay.
+
+Existing text/muted/control-border/focus arithmetic against rail is
+17.89/7.30/3.93/8.74:1 and against main 18.81/7.67/4.13/9.19:1.
+The structural border remains decorative, never a sole control/state cue.
+Preserved sources and complete external CSS byte identity are not evidence
+of unchanged appearance after these explicit ID-scoped overrides. Actual
+source/SSR/compiled delivery is separate from still-open native reflow,
+focus, keyboard, coarse input, zoom, AT and operator aesthetic acceptance.
+
 ## 4. Shared component contract
 
 Shared primitives are small implementation helpers, not a component framework. They forward native props and refs, preserve native disabled/focus behavior, and accept `className` only for local layout.
