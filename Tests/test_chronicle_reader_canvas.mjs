@@ -1,3 +1,4 @@
+import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -245,7 +246,7 @@ test("unchanged real writer, CSS link, host states and named generated-output gu
 test("all twenty-two relevant real owners, original suites and six dependencies retain distinct RAW/LF pins", () => {
   assert.equal(PINS.length, 22);
   for (const [path, raw, normalized] of PINS) {
-    const value = deskPreservation(path, read(path)); assert.equal(sha(value), raw, path); assert.equal(sha(lf(value)), normalized, path);
+    const value = deskPreservation(path, mastheadPreservation(path, read(path))); assert.equal(sha(value), raw, path); assert.equal(sha(lf(value)), normalized, path);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(value).replace(/\n/g, eol))), normalized, path);
   }
   assert.equal(ending(read("Tests/test_chronicle_reader_canvas.mjs")), "\n");

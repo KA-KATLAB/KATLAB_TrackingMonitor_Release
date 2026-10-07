@@ -1,3 +1,4 @@
+import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -356,7 +357,7 @@ function independentSuiteInverse (text, spec) {
 test("independent twelve-root plus media CSS and complete fourth-window HTML inverses", () => {
   assert.equal(Buffer.byteLength(CSS), 3152); assert.equal(count(CSS, "\n"), 74); assert.equal(sha(CSS), CSS_SHA);
   assert.equal(Buffer.byteLength(WINDOW), 3651); assert.equal(sha(WINDOW), WINDOW_SHA); checkCss(CSS);
-  const source = deskPreservation("Frontend/index.html", read("Frontend/index.html")); assert.equal(ending(source), "\n");
+  const source = deskPreservation("Frontend/index.html", mastheadPreservation("Frontend/index.html", read("Frontend/index.html"))); assert.equal(ending(source), "\n");
   assert.equal(Buffer.byteLength(source), 13548); assert.equal(count(source, "\n"), 295);
   for (const eol of ["\n", "\r\n"]) {
     const current = physical(lf(source), eol), original = independentHtmlInverse(current);
@@ -369,7 +370,7 @@ test("independent twelve-root plus media CSS and complete fourth-window HTML inv
   }
 });
 test("fourth-owner HTML rejects structural, identity, byte and outside-window mutations", () => {
-  const source = deskPreservation("Frontend/index.html", read("Frontend/index.html")), original = independentHtmlInverse(source);
+  const source = deskPreservation("Frontend/index.html", mastheadPreservation("Frontend/index.html", read("Frontend/index.html"))), original = independentHtmlInverse(source);
   const values = [original, source.replace(WINDOW, WINDOW + WINDOW), source.replace(WINDOW, "<!--" + WINDOW + "-->\n"),
     source.replace(WINDOW, "").replace("  </head>\n", WINDOW + "  </head>\n"),
     source.replace(WINDOW, "").replace("  </body>\n", WINDOW + "  </body>\n"),
@@ -410,7 +411,7 @@ test("all ordered selector lists/direct declarations reject escapes and incomple
 });
 test("three exact two-window suite adapters preserve all original RAW/LF bytes and outside assertions", () => {
   for (const spec of SUITES) {
-    const source = deskPreservation(spec[1], read(spec[1])), [, , restore, bytes, lines, pin, , imported, current] = spec;
+    const source = deskPreservation(spec[1], mastheadPreservation(spec[1], read(spec[1]))), [, , restore, bytes, lines, pin, , imported, current] = spec;
     for (const eol of ["\n", "\r\n"]) {
       const fixture = physical(lf(source), eol), original = independentSuiteInverse(fixture, spec);
       assert.equal(restore(fixture), original); assert.equal(sha(lf(original)), pin);
@@ -434,7 +435,7 @@ test("three exact two-window suite adapters preserve all original RAW/LF bytes a
 });
 test("whole current diagnostic, capture, shared helper and six dependency pins remain distinct RAW/LF", () => {
   for (const [name, rawPin, lfPin] of PINS) {
-    const raw = deskPreservation(name, readFileSync(resolve(root, name))), text = deskPreservation(name, read(name));
+    const raw = deskPreservation(name, mastheadPreservation(name, readFileSync(resolve(root, name)))), text = deskPreservation(name, mastheadPreservation(name, read(name)));
     assert.equal(sha(raw), rawPin, "whole actual RAW " + name); assert.equal(sha(lf(text)), lfPin, "whole LF " + name);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(physical(lf(text), eol))), lfPin);
   }

@@ -1,3 +1,4 @@
+import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -200,7 +201,7 @@ test("unrelated valid edits survive inverse and cannot disappear behind immutabl
     assert.equal(restored, replaceOnce(original, old, next)); assert.notEqual(sha(lf(restored)), ORIGINAL_LF);
   }
   for (const [name, rawPin, lfPin] of PINS) {
-    const text = deskPreservation(name, read(name)); ending(text); assert.equal(sha(text), rawPin, name); assert.equal(sha(lf(text)), lfPin, name);
+    const text = deskPreservation(name, mastheadPreservation(name, read(name))); ending(text); assert.equal(sha(text), rawPin, name); assert.equal(sha(lf(text)), lfPin, name);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(text).replace(/\n/g, eol))), lfPin, name);
   }
 });

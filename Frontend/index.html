@@ -347,6 +347,77 @@
       }
     </style>
     <title>KATLAB Tracking Monitor</title>
+    <style id="katlab-workspace-command-masthead">
+      /* Workspace Command Masthead: exact current snapshot, clear scope and qualifications. */
+      #root header.app-shell-header > .app-header-primary {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+      }
+      #root header.app-shell-header > .app-header-primary > .app-header-actions {
+        min-width: 0;
+        align-content: start;
+        justify-content: flex-start;
+      }
+      #root header.app-shell-header > .app-workspace-context {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+        gap: 1rem;
+        padding: 1.25rem 0;
+      }
+      #root header.app-shell-header > .app-workspace-context > .workspace-command-brief {
+        display: grid;
+        min-width: 0;
+        gap: 0.5rem;
+      }
+      #root header.app-shell-header > .app-workspace-context > .workspace-command-brief > [data-workspace-command-scope] {
+        color: rgb(var(--ui-text));
+        font-size: 1.25rem;
+        font-weight: 600;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+      }
+      #root header.app-shell-header > .app-workspace-context > .workspace-command-brief > [data-workspace-command-summary] {
+        min-width: 0;
+        color: rgb(var(--ui-text));
+        font-size: 1rem;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+      }
+      #root header.app-shell-header > .app-workspace-context > .workspace-command-brief > .workspace-command-details {
+        display: flex;
+        min-width: 0;
+        flex-wrap: wrap;
+        gap: 0.5rem 1rem;
+        font-size: 0.8125rem;
+        line-height: 1.5;
+      }
+      #root header.app-shell-header > .app-workspace-context > .workspace-command-brief > .workspace-command-details:empty {
+        display: none;
+      }
+      #root header.app-shell-header > .app-workspace-context > .workspace-command-brief > .workspace-command-details > span {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      #root header.app-shell-header > .app-workspace-context > .ui-control {
+        justify-self: start;
+        margin-left: 0;
+        min-height: 2.75rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+      }
+      @media (min-width: 768px) {
+        #root header.app-shell-header > .app-workspace-context {
+          grid-template-columns: minmax(0, 1fr) max-content;
+        }
+      }
+      @media (min-width: 1280px) {
+        #root header.app-shell-header > .app-header-primary {
+          grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+        }
+      }
+    </style>
   </head>
   <body class="bg-slate-950 text-slate-100">
     <div id="root"></div>

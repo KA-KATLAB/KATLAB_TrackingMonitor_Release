@@ -1,3 +1,4 @@
+import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -222,7 +223,7 @@ test("unrelated valid edits remain visible through inverse; historical owners an
     assert.equal(restored, replaceOnce(original, old, next)); assert.notEqual(sha(lf(restored)), ORIGINAL_LF);
   }
   for (const [path, rawPin, lfPin] of PINS) {
-    const current = deskPreservation(path, read(path)); ending(current); assert.equal(sha(current), rawPin, path); assert.equal(sha(lf(current)), lfPin, path);
+    const current = deskPreservation(path, mastheadPreservation(path, read(path))); ending(current); assert.equal(sha(current), rawPin, path); assert.equal(sha(lf(current)), lfPin, path);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(current).replace(/\n/g, eol))), lfPin, path);
   }
   const ast = parse(source), board = one(ast.statements, n => ts.isFunctionDeclaration(n) && n.name?.text === "PlanBoard");

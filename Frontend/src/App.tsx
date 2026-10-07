@@ -4340,10 +4340,10 @@ function PickRow ({ event, tasks, onPicked, onStatus, choice, onChoiceChange,
         {event.repo_id} · {fmtRel(event.ts)}
       </span>
       {candidates.length === 0 ? (
-        /* F49: zero-task guidance instead of an empty dropdown */
+        /* F49: zero-choice guidance without claiming repository tasks are absent. */
         <span className="text-xs italic text-slate-400">
-          No tasks defined — author a plan in temp/Plan/ of this repo; the event stays here and
-          becomes pickable once tasks exist.
+          No task choices are available for this event. Check the repository plan tasks
+          and attribution candidates. The event remains unresolved until a choice is available.
         </span>
       ) : (
         <>

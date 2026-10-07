@@ -73,14 +73,18 @@ export function WorkspaceContext ({ scope, repos, ready, error, violationOf, onD
     : `${known.filter((repo) => repo.clean).length}/${known.length} known statuses clean · ${known.reduce((sum, repo) => sum + repo.count, 0)} known uncommitted changes`;
   return (
     <div className="app-workspace-context text-xs text-ui-muted">
-      <span className="min-w-0 break-words [overflow-wrap:anywhere] font-medium text-ui-text">{scopeLabel(scope)}</span>
-      <span>{summary}</span>
-      {ready && error && <span className="text-amber-300">Refresh failed; showing the last workspace snapshot</span>}
-      {ready && unavailable > 0 && <span className="text-amber-300">{unavailable} unavailable</span>}
-      {ready && unknown > 0 && <span className="text-amber-300">{unknown} Git status unknown</span>}
-      {ready && selected?.branch && <span className="min-w-0 break-words [overflow-wrap:anywhere]">{!selected.offline && selected.status_valid === true ? "Branch" : "Last-known branch"}: {selected.branch}</span>}
-      {ready && selected && <span>{selected.last_event_ts ? `Last capture ${fmtRel(selected.last_event_ts)}` : "No captures yet"}</span>}
-      {ready && violations.length > 0 && <span className="text-amber-300">{violations.length} discipline warning{violations.length === 1 ? "" : "s"}</span>}
+      <div className="workspace-command-brief">
+        <span data-workspace-command-scope className="min-w-0 break-words [overflow-wrap:anywhere] font-medium text-ui-text">{scopeLabel(scope)}</span>
+        <span data-workspace-command-summary>{summary}</span>
+        <div className="workspace-command-details">
+          {ready && error && <span className="text-amber-300">Refresh failed; showing the last workspace snapshot</span>}
+          {ready && unavailable > 0 && <span className="text-amber-300">{unavailable} unavailable</span>}
+          {ready && unknown > 0 && <span className="text-amber-300">{unknown} Git status unknown</span>}
+          {ready && selected?.branch && <span className="min-w-0 break-words [overflow-wrap:anywhere]">{!selected.offline && selected.status_valid === true ? "Branch" : "Last-known branch"}: {selected.branch}</span>}
+          {ready && selected && <span>{selected.last_event_ts ? `Last capture ${fmtRel(selected.last_event_ts)}` : "No captures yet"}</span>}
+          {ready && violations.length > 0 && <span className="text-amber-300">{violations.length} discipline warning{violations.length === 1 ? "" : "s"}</span>}
+        </div>
+      </div>
       <ControlButton onClick={onDetails} className="ml-auto text-xs">Repository status</ControlButton>
     </div>
   );

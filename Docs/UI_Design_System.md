@@ -550,6 +550,49 @@ raw. Require all five entry styles and eager/Overview/Mission CSS unchanged,
 plus the current File Story compiled marker/utility contract. Source/SSR/HTTP
 checks do not replace native operator, reflow, focus or accessibility acceptance.
 
+### 3.8 Workspace Command Masthead
+
+The shared masthead is an Operate surface, not a new readiness model or view.
+Keep AppShell, ApplicationBrand and its loaded-version/System action unchanged.
+Recompose only WorkspaceContext's return: one brief containing scope, the exact
+existing summary and its qualified facts, followed by the same native shared
+Repository status control. Preserve all derivations, literal values, conditional
+guards and callbacks. Never turn unavailable or last-known Git data into clean.
+
+Scope uses 1.25rem/1.4/600, the summary 1rem/1.5 and details 0.8125rem/1.5.
+At the default 16px root these are 20px/28px, 16px/24px and 13px/19.5px. Keep full
+repository/branch names, warning colors, Branch versus Last-known branch,
+capture age/no captures, discipline counts and retained-refresh explanations.
+The details flex-wrap in original order; only an empty details container hides.
+No new role, status announcement, tab, action, scroll owner, clipping or motion.
+
+The sixth inline style `katlab-workspace-command-masthead` follows the unchanged
+title immediately before the head closes. Its root scopes are the current
+header's direct primary/actions/context owners and the named brief descendants.
+Context uses one zero-minimum grid track below 768px, then minmax(0,1fr) beside
+a max-content status control. Use 1rem gap, 1.25rem vertical padding and 0.5rem
+brief gap. The status control uses 2.75rem minimum height, 0.875rem/1.5 text
+and 0.5rem/0.75rem padding, equivalent to 44px, 14px/21px and 8px/12px at the
+default 16px root. Retain every shared focus, disabled, semantic and coarse-pointer
+owner.
+
+The primary header remains one column below 1280px. From 1280px use
+minmax(0,max-content) minmax(0,1fr), preserving natural action wrapping and source
+order. These later declarations intentionally supersede the old 1024px equal
+tracks and right alignment, not the Brand's content or control behavior.
+The former direct scope-chip selector no longer matches the nested scope;
+the new scope treatment is intentional, not unchanged computed appearance.
+
+No-choice attribution guidance describes missing task choices for this
+event, not an empty repository task catalog. Keep all candidate parsing,
+selection, paging, busy/retry, resolver and mutation owners unchanged.
+Keep five previous inline styles and complete eager/Overview/Mission CSS.
+Exact bounded whole-source/suite projections are historical assertion inputs
+only; current rendering and behavior read raw current source. Require the new
+masthead contract plus 17 retained compiled gates and full build parity.
+Source/SSR/compiled/HTTP checks do not certify native first-viewport fit, visual
+quality, reflow, focus, keyboard, coarse input, zoom or assistive technology.
+
 ## 4. Shared component contract
 
 Shared primitives are small implementation helpers, not a component framework. They forward native props and refs, preserve native disabled/focus behavior, and accept `className` only for local layout.

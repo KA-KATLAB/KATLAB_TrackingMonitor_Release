@@ -35,7 +35,7 @@ all sixteen retained compiled contracts and a new File Story gate. Compare
 complete isolated/production results. Actual outcomes and commit identity
 belong in the detailed plan after execution.
 
-Follow the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Follow the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Reprove the deployed v0.4.3.1 instance and ownership before the standard stop.
 Tracker and demo ports must both be clear before production build. Use the
 standard Hidden restart, then verify current assets, API, watcher readiness,
@@ -50,5 +50,5 @@ The known large Connection:close response-body fault is unresolved. Existing
 high advisory15 and chunk/Tailwind warnings are not fixed by this UI change.
 Accepted limitations do not waive new regressions.
 
-Previous [v0.4.3.1 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.3.1_Release_Notes.md)
+Previous [v0.4.3.1 notes](TrackingMonitor_v0.4.3.1_Release_Notes.md)
 remain archived with only moved relative documentation URLs corrected.

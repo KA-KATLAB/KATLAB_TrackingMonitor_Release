@@ -1,3 +1,4 @@
+import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -252,7 +253,7 @@ test("valid unrelated source changes survive the inverse but fail complete histo
 test("all unchanged caller, data, shared UI, previous suites, Chronicle, lifecycle and six dependency pins retain RAW/LF", () => {
   assert.equal(PINS.length, 49); assert.equal(new Set(PINS.map(([name]) => name)).size, 49);
   for (const [name, raw, normalized] of PINS) {
-    const bytes = deskPreservation(name, readFileSync(resolve(root, name))); assert.equal(sha(bytes), raw, name + " RAW");
+    const bytes = deskPreservation(name, mastheadPreservation(name, readFileSync(resolve(root, name)))); assert.equal(sha(bytes), raw, name + " RAW");
     assert.equal(sha(lf(bytes.toString("utf8"))), normalized, name + " LF");
   }
 });

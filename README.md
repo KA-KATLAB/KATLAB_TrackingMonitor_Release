@@ -5,19 +5,21 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.3.2 - File Story Evidence Timeline**
+Current source version: **v0.4.4.0 - Workspace Command Masthead**
 
-File Story presents each captured event with a readable timestamp rail and
-separate attribution evidence. Repository and captured-window facts are easier
-to scan. Full file identity, editor access, day grouping and paging stay intact;
-narrow layouts stack in reading order using the same installed UI styles.
+The shared masthead separates repository scope, the exact workspace summary,
+and qualified secondary facts. Readable typography and naturally wrapping
+header tracks keep the existing Repository status action beside the brief on
+wider screens and after it on narrow screens. The loaded UI build stays visible.
 
-All current data, request limits, calculations, retry and modal focus/closing
-behavior remain unchanged. Changes Review Lanes, Mission Command Desk and the
-five prior entry styles remain complete. No new API or dependency is added.
+Manual attribution now states that no task choices are available for this event,
+without claiming that no tasks exist. Candidate eligibility, assignment,
+selection and retries remain unchanged. All five prior entry styles, view content
+composition, data calculations, eager/lazy CSS and dependencies are preserved;
+one scoped sixth style is added.
 Native/operator acceptance, the known large HTTP Connection:close fault and
 prior advisory/build warnings remain OPEN. Reload existing tabs after upgrade.
-See the [current release notes](TrackingMonitor_v0.4.3.2_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.4.0_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -190,7 +192,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.3.2_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.4.0_Release_Notes.md)
 
 ## Guarantees
 

@@ -1,3 +1,4 @@
+import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -14,7 +15,7 @@ const { renderToStaticMarkup } = require("react-dom/server");
 const read = name => readFileSync(resolve(root, name), "utf8");
 const lf = text => text.replace(/\r\n/g, "\n");
 const sha = text => createHash("sha256").update(text).digest("hex");
-const shellSource = read("Frontend/src/AppShell.tsx"), appSource = read("Frontend/src/App.tsx");
+const shellSource = mastheadPreservation("Frontend/src/AppShell.tsx", read("Frontend/src/AppShell.tsx")), appSource = read("Frontend/src/App.tsx");
 const ORIGINAL_RAW = "c38bc6ccaffc12398f29ee28cd481415a250ee5f3657b819b2e7e252662b67ec";
 const ORIGINAL_LF = "06f05ef94591bbf4ec7ca0e42501f747acc85acb07fd0788bc63286d9c8f6462";
 const REVIEWED_RAW = "8d36a4a928da4e6d7774cc112ab3cecfe8b5e654afe05de0480facc40f21eeee";
@@ -234,7 +235,7 @@ test("valid outside mutations pass through the inverse and fail full original pi
     }
   }
   for (const [name, rawPin, lfPin] of PINS) {
-    const text = deskPreservation(name, read(name)); ending(text); assert.equal(sha(text), rawPin, name); assert.equal(sha(lf(text)), lfPin, name);
+    const text = deskPreservation(name, mastheadPreservation(name, read(name))); ending(text); assert.equal(sha(text), rawPin, name); assert.equal(sha(lf(text)), lfPin, name);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(text).replace(/\n/g, eol))), lfPin);
   }
 });

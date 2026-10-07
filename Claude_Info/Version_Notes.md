@@ -1,5 +1,25 @@
 # Version Notes
 
+## v0.4.4.0 - Workspace Command Masthead (2026-10-08)
+
+- Give the shared WorkspaceContext separate scope, exact-summary and qualified
+  detail lines. Keep every current calculation, conditional fact and native
+  Repository status callback, including unavailable and retained snapshots.
+- Add one scoped sixth entry style. Stack the brief and action below 768px;
+  place the action beside the zero-minimum brief from 768px. Header tracks stay
+  one column below 1280px, then use a content-sized brand and flexible actions.
+- Use 1.25rem scope, 1rem summary and 0.8125rem details; keep warning colors,
+  full long values, shared focus/coarse behavior and the loaded UI version.
+  The status control's 2.75rem minimum is 44px at the default 16px root.
+- Correct the no-choice attribution guidance without changing candidates,
+  eligibility, resolver outcomes, selection, mutation safety or assignment.
+- Preserve all five prior entry styles, complete eager/Overview/Mission CSS,
+  view composition and dependencies. Historical inverses are preservation-only;
+  current AST/SSR and behavioral checks continue to read current source.
+- Require whole CDD/CFT5, focused/full checks, 18 compiled contracts and safely
+  owned activation. Actual outcomes and release identity belong in the plan.
+- Native/operator, Connection:close and prior advisory/build limits stay OPEN.
+
 ## v0.4.3.2 - File Story Evidence Timeline (2026-10-08)
 
 - Separate timestamp and evidence in File Story using a stacked layout below

@@ -1,3 +1,4 @@
+import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -227,7 +228,7 @@ test("whole Overview and all three old suites retain their original complete byt
     ["test_mission_control_workbench.mjs", "d92813b96ba0206202d0b40f77aa7e622be438c8e9a9a68bd26290b2ee0577d3",
       "d92813b96ba0206202d0b40f77aa7e622be438c8e9a9a68bd26290b2ee0577d3"],
   ]) {
-    const original = deskPreservation(`Tests/${name}`, read(`Tests/${name}`)); ending(original);
+    const original = deskPreservation(`Tests/${name}`, mastheadPreservation(`Tests/${name}`, read(`Tests/${name}`))); ending(original);
     assert.equal(sha(original), expectedRaw, "complete unchanged physical suite bytes");
     for (const eol of ["\n", "\r\n"]) {
       assert.equal(sha(lf(lf(original).replace(/\n/g, eol))), expectedLf);
