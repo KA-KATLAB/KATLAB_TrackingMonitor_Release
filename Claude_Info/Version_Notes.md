@@ -1,5 +1,42 @@
 # Version Notes
 
+## v0.4.1.4 - History Commit Ledger (2026-10-07)
+
+- Existing captured commits become separate quiet panels, not a new data,
+  timeline or ancestry source. The direct region is borderless/transparent with
+  16px gaps; cards use one zero-minimum column, 16px inner gaps, 20px padding,
+  a 1px shared border, 8px corners and the existing surface.
+- Hash/title/time retain source order. Below 640px they stack with 8px gaps;
+  at 640-1439px hash/title use two columns and 12px gaps, with time spanning the
+  next row. From 1440px three columns include a zero-minimum timestamp track
+  capped at 12rem. Long titles/timestamps wrap. Title remains 16px/24px, and
+  hash/metadata type, colors and monospace stay, with tabular hash/time.
+- Native full-ID disclosure gains a quiet divider and 12px top padding. Its
+  exact read-only value, default-closed state and scope/repo/full-hash identity
+  remain unchanged, as do linked events, 50-item pagers and graph/table owners.
+- One side-effect stylesheet import follows ApplicationBrand in AppShell.
+  Every other shell byte stays; App/main/index/gallery/health and old suites
+  remain untouched. Selectors use History attribute presence and direct card
+  ownership, so accepted/retained rows look alike without a freshness claim.
+  Error/skeleton/empty/graph siblings and nested EventRows are not style targets.
+- Request generations, abort/deadline/recovery, online fallback, fetch depth,
+  navigation, focus/safe-area foundations and all data/control owners stay.
+  No new DOM wrapper, fixed height, clipping, scroll owner, positioning, motion,
+  metric, filter, fetch, API, storage or global design-token change is introduced.
+- The new verification contract checks exact stylesheet/AST allowlists, strict
+  one-import inverse and RAW/LF pins, untouched owners/old regressions, actual
+  private History JSX and current shell SSR/state/callback behavior. Separate
+  build/live checks inspect compiled responsive rules and matching assets;
+  neither source/SSR nor assets certify native paint, layout, focus or AT.
+- Native v0.4 H.1, recorded large Connection: close failure, previous high
+  build-only braces advisory and chunk notice remain open under the accepted
+  limited-publication constraints. Keep-alive diagnostics are not a repair;
+  historical GitHub push notices are not a fresh advisory-detail audit.
+- Published v0.4.1.3 notes move to Archive with only two affected URLs changed.
+  Actual review/CFT/test/build/live/commit/ref evidence belongs in the 1.4 plan.
+  Rebuild matching frontend source, use the standard hidden restart and reload
+  existing tabs; restarting Python alone does not update frontend assets.
+
 ## v0.4.1.3 - System Snapshot Panels (2026-10-07)
 
 - System's accepted HealthBody uses four named native sections in the original

@@ -6,6 +6,7 @@ import type { Scope } from "./navigation";
 import { ControlButton } from "./ui";
 import type { WsConnectionState } from "./ws";
 import { ApplicationBrand } from "./ApplicationBrand";
+import "./historyCommitLedger.css";
 
 /** Presentation only; App retains navigation, requests and action ownership. */
 export function AppShell ({ actions, context, children, onSystem }: {

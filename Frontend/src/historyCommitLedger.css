@@ -1,0 +1,54 @@
+/* History presentation only; data, controls and source order stay owned by App. */
+[data-history-ready] > [aria-label="Captured commits"] {
+  display: grid;
+  gap: 1rem;
+  border: 0;
+  background: transparent;
+}
+[data-history-ready] > [aria-label="Captured commits"] > article.ui-work-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 8px;
+  background: rgb(var(--ui-surface));
+}
+[data-history-ready] > [aria-label="Captured commits"] > article.ui-work-row > div:first-child {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.5rem;
+}
+[data-history-ready] > [aria-label="Captured commits"] > article.ui-work-row > div:first-child > h3 {
+  line-height: 1.5;
+}
+[data-history-ready] > [aria-label="Captured commits"] > article.ui-work-row > div:first-child > span:first-child {
+  font-variant-numeric: tabular-nums;
+}
+[data-history-ready] > [aria-label="Captured commits"] > article.ui-work-row > div:first-child > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+[data-history-ready] > [aria-label="Captured commits"] > article.ui-work-row > details {
+  border-top: 1px solid rgb(var(--ui-border) / 0.6);
+  padding-top: 0.75rem;
+}
+@media (min-width: 640px) {
+  [data-history-ready] > [aria-label="Captured commits"] > article.ui-work-row > div:first-child {
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+  [data-history-ready] > [aria-label="Captured commits"] > article.ui-work-row > div:first-child > span:last-child {
+    grid-column: 1 / -1;
+  }
+}
+@media (min-width: 1440px) {
+  [data-history-ready] > [aria-label="Captured commits"] > article.ui-work-row > div:first-child {
+    grid-template-columns: max-content minmax(0, 1fr) minmax(0, 12rem);
+  }
+  [data-history-ready] > [aria-label="Captured commits"] > article.ui-work-row > div:first-child > span:last-child {
+    grid-column: auto;
+  }
+}

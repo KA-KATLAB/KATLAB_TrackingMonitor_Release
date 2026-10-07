@@ -5,17 +5,19 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.1.3 - System Snapshot Panels**
+Current source version: **v0.4.1.4 - History Commit Ledger**
 
-System's accepted snapshot gains named panels, 16px/24px body copy and values,
-phone-first rows and a 672px dialog cap. Local receipt time, retained responses,
-manual Refresh/Retry, deadline and close ownership remain unchanged. Only three
-health-render windows change; the Mission gallery, Overview deck, shared dialog
-foundation and visible KATLAB build badge retain their existing owners.
+History's captured commits gain separate, quiet panels with 20px padding, 16px
+gaps and 8px corners. Hash, title and timestamp keep their source order: stacked
+below 640px, hash/title beside each other with time below from 640px, and three
+columns from 1440px with a zero-minimum, wrapping 12rem timestamp track. Exact
+ID disclosure, linked events, graph, paging and request/recovery owners stay.
+One AppShell stylesheet import leaves App, bootstrap, shared CSS, the Mission
+gallery, Overview deck, System panels and visible build badge owners unchanged.
 Large Connection: close responses and native UI acceptance remain unresolved;
 the previously recorded high build-only braces advisory and chunk notice are not addressed.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.1.3_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.1.4_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -188,7 +190,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.1.3_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.1.4_Release_Notes.md)
 
 ## Guarantees
 

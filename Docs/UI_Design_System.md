@@ -552,6 +552,27 @@ locally; controlled callback/SSR checks do not certify native acceptance.
 
 ### 6.3 History
 
+- Style only the existing data-history-ready owner's direct Captured commits
+  region and its direct card/header/disclosure elements. Attribute presence,
+  not a true value, applies the same appearance to accepted and same-repo
+  retained rows without suggesting freshness. Graph, error, skeleton, empty
+  guidance, nested EventRows and shared controls are outside the selector scope.
+- Use a transparent, borderless one-column region with 16px gaps. Each direct
+  commit article uses a zero-minimum grid column, 16px inner gaps, 20px padding,
+  a 1px shared border, 8px corners and the shared surface. No shadow, status
+  tint, timeline connector or ancestry inference. Grid uses existing elements;
+  do not add DOM wrappers, fixed height, clipping, scrolling owners, positioning
+  or CSS containment. Import the scoped stylesheet once from AppShell, without
+  changing App, bootstrap, shared CSS or existing view/state/control owners.
+- Preserve hash, h3 title and timestamp DOM/read order. Below 640px stack them
+  with 8px gaps; at 640-1439px use hash/title columns with 12px gaps and time
+  spanning the next row. From 1440px use three columns with a zero-minimum
+  timestamp track capped at 12rem. Title remains 16px/24px; hash/metadata type,
+  colors and monospace stay, with tabular hash/time. Long titles and timestamps
+  wrap instead of scaling, truncating or forcing nowrap. The native full-ID
+  disclosure gains a quiet divider and 12px top padding without new behavior.
+  Existing fine/coarse target minima and keyboard/focus owners remain intact.
+  Source/SSR/compiled CSS checks do not certify native geometry, paint or AT.
 - Keep the compact commit header and expose its full captured ID through a
   default-closed native disclosure with a labelled, selectable read-only field.
   The exact value is not truncated or transformed; long values scroll inside
