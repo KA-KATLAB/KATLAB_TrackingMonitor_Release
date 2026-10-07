@@ -1041,28 +1041,38 @@ actual compiled IdentityCard ownership while retaining every eager/lazy CSS
 byte and all previous compiled owners/historical inverses. Source/SSR/assets
 are not native paint, geometry, reflow, keyboard, zoom, AT or aesthetic proof.
 
-The Active Plan Gallery styles only the existing PlanBoard Surface marked
-`data-active-plan-board="true"` and its direct list/card/header/spotlight owners.
-Its stylesheet import belongs to PlanBoard, loaded with lazy Overview only;
-do not present it as an eager application stylesheet or Tasks-drawer feature.
-Below 1024px the gallery has one zero-minimum column; from 1024px it has two
-equal zero-minimum columns with 16px gaps, preserving DOM and pager order.
-The direct list is borderless/transparent with no corners. Each original card,
-including the last, uses a shared 1px border, 20px padding, 8px corners and
-surface tone. This local 20px padding does not change the standard panel token.
-Keep the existing wrapping header with 12px gaps/top alignment. Its full
-basename occupies one flex line at 18px/27px with anywhere wrapping; repository
-and done/total remain 12px. Existing active-task spotlights use 16px padding,
-a 3px warning-token left boundary, 8px corners and raised tone. Direct card
-paragraphs and spotlight explanatory paragraphs use 14px/21px/anywhere wrap.
-Preserve grouping/sort/composite identities, every active task/first pending,
-zero/done-only hiding, independent stats/workspace gates and retained warnings.
-No new wrapper, state, metric, request, fixed height, clipping, ordering, motion
-or scroll owner is introduced. Progress segments, declared-file controls and
-patterns, four-file previews/+N, exact-data table and all 50-item pagers retain
-their source and interaction owners. Discover the actual built lazy CSS path;
-entry CSS alone does not prove gallery delivery. Source/SSR/assets do not
-certify native paint, geometry, focus, keyboard, zoom, coarse input or AT.
+The Active Plan Docket replaces the Gallery's always-expanded presentation
+inside the same Overview Now position. Keep the existing
+`data-active-plan-board="true"` Surface and original Gallery stylesheet;
+add one explicit Docket marker and one scoped stylesheet imported by PlanBoard
+after that Gallery import. This stays lazy Overview-owned, not a global shell
+or Tasks drawer style. Preserve all unrelated CSS and all seven entry styles.
+
+Each existing keyed plan row contains an independent default-closed native
+details element. Its first summary contains phrasing content only: full
+repository/plan identity, truthful current-work title/context and exact
+done/total plus marked-in-progress count. No nested controls, manual ARIA
+expanded state, synthetic keyboard handler, exclusive name group or persisted
+disclosure preference. Preserve native disclosure cues, shared-token visible
+focus, a 44px minimum summary target, full wrapping and DOM reading order.
+Do not promise native geometry, first-viewport fit, keyboard or AT approval.
+
+The expanded payload retains every task explanation, concrete-file action,
+noninteractive declared pattern, four-file preview/+N, decorative progress bar
+and first pending task. A per-plan component pages marked-in-progress task cards
+at 50 with the shared pager and kind/repository/plan/current-membership identity.
+Same membership refresh preserves the page; membership change resets and shrink
+clamps through that shared owner. Keep complete model counts and exact-data
+rows. The parent 50-plan pager, task/file exact-data pagers, grouping/sort,
+composite identities, zero/done-only hiding, caller gates and retained warnings
+stay authoritative. Closing details does not bound mounted descendants or
+constitute virtualization; aria-hidden progress segments are decorative.
+
+No new data request, dependency, timer, storage, motion or scroll owner.
+Only the existing shared task pager adds local React state; the disclosure
+remains native. Verify current raw rendering, long/empty/multiple-current-task
+cases and 50/51/103 task boundaries, current compiled owners and lazy stylesheet
+delivery separately from native acceptance.
 
 Active plans file declarations can be paths or custom-glob scope patterns. Show
 '*'/'?' patterns in full with a visible 'pattern' label, without a button, link or

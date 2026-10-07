@@ -1,0 +1,80 @@
+/* Native plan disclosures; complete grouping, paging and actions stay. */
+.ui-surface[data-active-plan-docket="true"] > .ui-work-list {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+.ui-surface[data-active-plan-docket="true"] > .ui-work-list > div {
+  padding: 0;
+}
+.ui-surface[data-active-plan-docket="true"] details[data-plan-docket="true"] {
+  min-width: 0;
+}
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-summary {
+  min-height: 44px;
+  padding: 1rem;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-summary:hover {
+  background: rgb(var(--ui-surface-raised));
+}
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-summary::marker {
+  color: rgb(var(--ui-text-muted));
+}
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-summary-content {
+  display: inline-grid;
+  width: calc(100% - 1.5rem);
+  min-width: 0;
+  gap: 0.75rem;
+  vertical-align: top;
+}
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-identity,
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-work,
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-facts {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-plan-name,
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-work-title {
+  font-size: 1rem;
+  line-height: 1.5;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-repository,
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-plan-path,
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-facts > span {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-work-label,
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-facts > .active-plan-docket-hint {
+  color: rgb(var(--ui-text-muted));
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-body {
+  min-width: 0;
+  padding: 1rem;
+  border-top: 1px solid rgb(var(--ui-border));
+}
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-body > div.rounded-control {
+  padding: 1rem;
+  border-left: 3px solid rgb(var(--ui-warning));
+  border-radius: 8px;
+  background: rgb(var(--ui-surface-raised));
+}
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-body > p,
+.ui-surface[data-active-plan-docket="true"] .active-plan-docket-body > div.rounded-control > p {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 1024px) {
+  .ui-surface[data-active-plan-docket="true"] .active-plan-docket-summary-content {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.6fr) minmax(0, 0.7fr);
+  }
+}

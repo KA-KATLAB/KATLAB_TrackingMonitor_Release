@@ -1,3 +1,4 @@
+import { activePlanDocketPreservation } from "./helpers/activePlanDocket.mjs";
 import { PURPOSE_NAVIGATION_SOURCES, PURPOSE_NAVIGATION_SUITES, purposeNavigationPreservation, restorePurposeNavigationSource, restorePurposeNavigationSuite } from "./helpers/purposeLedNavigation.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -37,7 +38,7 @@ test("two exact source and twenty-eight suite inverses preserve every native/LF 
  assert.deepEqual(PURPOSE_NAVIGATION_SOURCES,EXPECTED.sources);assert.deepEqual(PURPOSE_NAVIGATION_SUITES,EXPECTED.suites);
  assert.equal(EXPECTED.sources.length,2);assert.equal(EXPECTED.suites.length,28);assert.equal(EXPECTED.suites.reduce((sum,spec)=>sum+spec.windows.length,0),100);
  for(const record of [...EXPECTED.sources,...EXPECTED.suites]){
-  const raw=read(record.path);assert.equal(sha(raw),record.after.RAW);assert.equal(raw.length,record.after.bytes);
+  const raw=activePlanDocketPreservation(record.path,read(record.path));assert.equal(sha(raw),record.after.RAW);assert.equal(raw.length,record.after.bytes);
   for(const eol of ["LF","CRLF"])for(const buffer of [false,true]){
    const value=physical(lf(raw.toString("utf8")),eol),input=buffer?Buffer.from(value):value;
    const expected=independentInverse(record,input);
@@ -49,7 +50,7 @@ test("two exact source and twenty-eight suite inverses preserve every native/LF 
 });
 test("full-input preservation cannot erase owner/window/outside/encoding drift or negative mutations",()=>{
  for(const record of [...EXPECTED.sources,...EXPECTED.suites]){
-  const value=lf(text(record.path));
+  const value=lf(activePlanDocketPreservation(record.path,text(record.path)));
   const bad=["/* outside approved windows */\n"+value,value+"\n",value.slice(0,-1),"\uFEFF"+value,value+"\0",value.replace("\n","\r"),value.replace("\n","\r\n"),Buffer.concat([Buffer.from(value),Buffer.from([0xff])])];
   for(const window of record.windows){bad.push(value.replace(window.after,window.before),value.replace(window.after,window.after+window.after),value.replace(window.after,window.after+"/* changed reviewed window */\n"));}
   for(const input of bad){assert.notDeepEqual(input,value);assert.throws(()=>purposeNavigationPreservation(record.path,input));}

@@ -5,24 +5,22 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.4.2 - Purpose-Led Navigation**
+Current source version: **v0.4.5.0 - Active Plan Docket**
 
-The six existing view choices now pair their exact destination labels with
-short, static purpose copy. The same navigation serves the desktop Workspace
-rail and the Navigation drawer. Visible label-first text supplies each native
-button's accessible name; meaningful purpose copy is not hidden.
+Overview's Active plans becomes a compact, work-first docket. Each plan keeps its
+full repository/plan identity, exact done/total and marked-in-progress context
+visible. Independent native disclosures reveal the existing task explanations,
+declared-file actions and next pending task when needed.
 
-Order, current-page markers, membership restrictions and callbacks stay
-unchanged. Purpose copy describes a destination, not fresh data, readiness or
-successful verification. Labels and descriptions wrap within the existing
-scroll owners. The navigation remains one tier, with no new routes or requests.
+All plans and tasks remain in the model. The existing 50-plan pager and complete
+exact-data table remain, and each plan's marked-in-progress task list now uses
+its own 50-item pager. Closing a disclosure is not DOM virtualization.
 
-One bounded seventh entry style is added. All six previous style bodies and
-complete eager, Overview, Mission and City CSS remain unchanged. No new font,
-image/icon asset, package, state, timer or persistence is introduced.
-Native/operator acceptance, the known large HTTP Connection:close fault and
-prior advisory/build limits remain OPEN. Reload existing tabs after upgrade.
-See the [current release notes](TrackingMonitor_v0.4.4.2_Release_Notes.md).
+The change is Overview-lazy. Navigation, other views, data requests, dependencies
+and the seven entry styles remain unchanged. Native/operator acceptance, the
+known large HTTP Connection:close fault and prior advisory/build limits remain
+OPEN. Reload existing tabs after upgrade.
+See the [current release notes](TrackingMonitor_v0.4.5.0_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -195,7 +193,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.4.2_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.5.0_Release_Notes.md)
 
 ## Guarantees
 

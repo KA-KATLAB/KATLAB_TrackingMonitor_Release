@@ -1,3 +1,4 @@
+import { activePlanDocketPreservation } from "./helpers/activePlanDocket.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
@@ -190,16 +191,17 @@ test("stylesheet rejects global, nested, network, motion, media, declaration and
   variants.forEach(variant => assert.throws(() => checkCss(variant)));
 });
 test("two actual AST windows preserve complete original RAW/LF and both physical EOL forms", () => {
-  assert.equal(ending(source), "\r\n"); assert.equal(sha(source), REVIEWED_RAW); assert.equal(sha(lf(source)), REVIEWED_LF);
-  assert.equal(sha(restoreBoard(source)), ORIGINAL_RAW);
+  const preserved = activePlanDocketPreservation("Frontend/src/planBoard.tsx", source);
+  assert.equal(ending(preserved), "\r\n"); assert.equal(sha(preserved), REVIEWED_RAW); assert.equal(sha(lf(preserved)), REVIEWED_LF);
+  assert.equal(sha(restoreBoard(preserved)), ORIGINAL_RAW);
   for (const eol of ["\n", "\r\n"]) {
-    const current = lf(source).replace(/\n/g, eol), original = restoreBoard(current);
+    const current = lf(preserved).replace(/\n/g, eol), original = restoreBoard(current);
     assert.equal(sha(lf(original)), ORIGINAL_LF);
     assert.equal(original, current.replace(IMPORT + eol, "").replace(NEW_TAG, OLD_TAG));
   }
 });
 test("AST sites reject missing, duplicate, commented, nested, moved, partial and wrapped owners", () => {
-  const text = lf(source);
+  const text = lf(activePlanDocketPreservation("Frontend/src/planBoard.tsx", source));
   const variants = [text.replace(IMPORT + "\n", ""), text.replace(IMPORT, IMPORT + "\n" + IMPORT),
     text.replace(IMPORT, "/* " + IMPORT + " */"), text.replace(IMPORT, 'import gallery from "./activePlanGallery.css";'),
     text.replace(IMPORT, "import './activePlanGallery.css';"), text.replace(IMPORT, IMPORT + " // partial"),
@@ -217,14 +219,14 @@ test("AST sites reject missing, duplicate, commented, nested, moved, partial and
   variants.forEach(variant => assert.throws(() => restoreBoard(variant)));
 });
 test("unrelated valid edits remain visible through inverse; historical owners and guards stay whole-pinned", () => {
-  const text = lf(source), original = restoreBoard(text);
+  const text = lf(activePlanDocketPreservation("Frontend/src/planBoard.tsx", source)), original = restoreBoard(text);
   for (const [old, next] of [["export function groupActivePlans (", "// Outside both windows.\nexport function groupActivePlans ("],
     ['title="Active plans"', 'title="Unrelated changed title"']]) {
     const restored = restoreBoard(replaceOnce(text, old, next));
     assert.equal(restored, replaceOnce(original, old, next)); assert.notEqual(sha(lf(restored)), ORIGINAL_LF);
   }
   for (const [path, rawPin, lfPin] of PINS) {
-    const current = deskPreservation(path, mastheadPreservation(path, purposeNavigationPreservation(path, read(path)))); ending(current); assert.equal(sha(current), rawPin, path); assert.equal(sha(lf(current)), lfPin, path);
+    const current = deskPreservation(path, mastheadPreservation(path, purposeNavigationPreservation(path, activePlanDocketPreservation(path, read(path))))); ending(current); assert.equal(sha(current), rawPin, path); assert.equal(sha(lf(current)), lfPin, path);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(current).replace(/\n/g, eol))), lfPin, path);
   }
   const ast = parse(source), board = one(ast.statements, n => ts.isFunctionDeclaration(n) && n.name?.text === "PlanBoard");
@@ -270,7 +272,7 @@ function actualBoard (requestedPage = 1) {
       setPage: page => changes.push(page) };
   };
   const exports = new Function("require", "exports", "Surface", "SectionHeading", "CollectionPager", "DisclosureTable", "useBoundedPage",
-    compiled + "\nreturn { PlanBoard, groupActivePlans, DeclaredFile, DeclaredFiles };")
+    compiled + "\nreturn { PlanBoard, groupActivePlans, DeclaredFile, DeclaredFiles, ActivePlanDetails };")
     (require, {}, ui.Surface, ui.SectionHeading, ui.CollectionPager, data.DisclosureTable, bounded);
   return { ...exports, windows, changes };
 }
@@ -302,7 +304,7 @@ test("raw current Vite SSR hides zero/done-only and forwards the real native mar
   const pending = render(currentBoard.PlanBoard, { tasks: [task("EA", "pending.txt", "P")], onOpenFileStory: callback });
   assert.match(pending, /^<div[^>]*class="[^"]*ui-surface/); assert.match(pending, /data-active-plan-board="true"/);
   assert.match(pending, /<h4[^>]*>Active plans<\/h4>/); assert.match(pending, /No task in progress/);
-  assert.match(pending, /next up:/); assert.match(pending, /0\/1 done/); assert.match(pending, /Show.*exact data/);
+  assert.match(pending, /next up:/); assert.match(pending, /<span class="font-mono tabular-nums">0\/1<\/span> done/); assert.match(pending, /Show.*exact data/);
   assert.match(pending, /1 active plan contain 1 task\./); assert.doesNotMatch(pending, /<table/);
 });
 test("actual current groups retain composites, served status order, multiple actives, escaped names and first pending", () => {
@@ -320,14 +322,14 @@ test("actual current groups retain composites, served status order, multiple act
   const list = one(elements(board), n => n.type === "div" && n.props.className === "ui-work-list");
   const cards = elements(list.props.children).filter(n => n.type === "div" && n.props.className?.includes("last:border-b-0"));
   assert.deepEqual(cards.map(n => n.key), groups.map(p => JSON.stringify([p.repo, p.planFile])));
-  const segments = elements(cards[0]).filter(n => n.type === "span" && n.props.style?.backgroundColor);
+  const segments = elements(controlled.ActivePlanDetails(one(elements(cards[0]), n => n.type === controlled.ActivePlanDetails).props)).filter(n => n.type === "span" && n.props.style?.backgroundColor);
   assert.deepEqual(segments.map(n => n.key), tasks.slice(0, 5).map(t => t.task_ref));
   assert.deepEqual(segments.map(n => n.props.style.backgroundColor), ["#14b8a6", "#f59e0b", "#f59e0b", "#334155", "#334155"]);
   assert.deepEqual(segments.map(n => n.props.title), ["D \u2014 done", "I1 \u2014 in-progress", "I2 \u2014 in-progress", "P1 \u2014 pending", "P2 \u2014 pending"]);
-  const previews = elements(cards[0]).filter(n => n.type === controlled.DeclaredFile);
+  const previews = elements(controlled.ActivePlanDetails(one(elements(cards[0]), n => n.type === controlled.ActivePlanDetails).props)).filter(n => n.type === controlled.DeclaredFile);
   assert.equal(previews.length, 4); assert.deepEqual(previews.map(n => n.key), tasks[1].files.slice(0, 4).map((file, i) => JSON.stringify([file, i])));
   const html = render(currentBoard.PlanBoard, { tasks, onOpenFileStory: () => {} });
-  assert.match(html, /1\/5 done/); assert.match(html, /0\/1 done/); assert.match(html, /\+2/);
+  assert.match(html, /<span class="font-mono tabular-nums">1\/5<\/span> done/); assert.match(html, /<span class="font-mono tabular-nums">0\/1<\/span> done/); assert.match(html, /\+2/);
   assert.ok(html.includes(plan.split("/").at(-1).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")));
   assert.match(html, /Active &lt;script&gt;&amp;&quot;/); assert.match(html, /Why &lt;&amp;&gt;/);
   assert.match(html, /Second active/); assert.doesNotMatch(html, /<script>/); assert.equal(JSON.stringify(tasks), before);

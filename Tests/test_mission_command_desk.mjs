@@ -1,3 +1,4 @@
+import { activePlanDocketPreservation } from "./helpers/activePlanDocket.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { cityBriefPreservation } from "./helpers/cityDistrictBrief.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
@@ -582,7 +583,7 @@ test("new module malformed, duplicated, relocated, partial and outside edits are
 
 test("current App/Mission whole bytes invert to independent original RAW/LF without old execution", () => {
   for (const [path,currentRaw,currentLF,originalRaw,originalLF,currentBytes,originalBytes] of SOURCE_PINS) {
-    const actual = reviewLanesPreservation(path, mastheadPreservation(path, purposeNavigationPreservation(path, read(path))));
+    const actual = reviewLanesPreservation(path, mastheadPreservation(path, purposeNavigationPreservation(path, activePlanDocketPreservation(path, read(path)))));
     assert.equal(actual.length,currentBytes); strictBytes(actual,"CRLF");
     assert.equal(sha(actual),currentRaw); assert.equal(sha(lf(actual)),currentLF);
     const restored = restoreMissionCommandDeskSource(path,actual);
@@ -601,7 +602,7 @@ test("current App/Mission whole bytes invert to independent original RAW/LF with
 test("all 25 adapted suites retain complete published2.3 identities and unrelated pin inputs stay raw", () => {
   assert.equal(ADAPTED_SUITES.length,25);
   for (const [path,originalHash] of ADAPTED_SUITES) {
-    const actual = reviewLanesPreservation(path, mastheadPreservation(path, cityBriefPreservation(path, purposeNavigationPreservation(path, read(path))))); strictBytes(actual);
+    const actual = reviewLanesPreservation(path, mastheadPreservation(path, cityBriefPreservation(path, purposeNavigationPreservation(path, activePlanDocketPreservation(path, read(path)))))); strictBytes(actual);
     const restored = restoreMissionCommandDeskSuite(path,actual);
     assert.ok(Buffer.isBuffer(restored)); assert.equal(sha(restored),originalHash);
     assert.equal(sha(lf(restored)),originalHash);
@@ -615,7 +616,7 @@ test("all 25 adapted suites retain complete published2.3 identities and unrelate
     assert.throws(() => restoreMissionCommandDeskSuite(path,actual.toString("utf8").replace("\n","\r\n")));
   }
   for (const [path,rawHash,lfHash] of IMMUTABLE_PINS) {
-    const value = reviewLanesPreservation(path, mastheadPreservation(path, cityBriefPreservation(path, purposeNavigationPreservation(path, read(path)))));
+    const value = reviewLanesPreservation(path, mastheadPreservation(path, cityBriefPreservation(path, purposeNavigationPreservation(path, activePlanDocketPreservation(path, read(path))))));
     assert.equal(sha(value),rawHash,path); assert.equal(sha(lf(value)),lfHash,path+" LF");
     assert.deepEqual(deskPreservation(path,value),value);
   }
@@ -640,7 +641,7 @@ test("strict source inverse rejects partial, malformed, moved owners, outside ed
   ];
   for (const [path,value] of negatives) assert.throws(() => restoreMissionCommandDeskSource(path,value));
   for (const [path] of SOURCE_PINS) {
-    const actual = reviewLanesPreservation(path, mastheadPreservation(path, purposeNavigationPreservation(path, read(path)))).toString("utf8");
+    const actual = reviewLanesPreservation(path, mastheadPreservation(path, purposeNavigationPreservation(path, activePlanDocketPreservation(path, read(path))))).toString("utf8");
     for (const changed of ["\uFEFF"+actual, actual+"\r\n", actual.replace("\r\n","\n"),
       actual.replace("\r\n","\r"), actual.replace("import","im\0port"), actual+"// outside\r\n"])
       assert.throws(() => restoreMissionCommandDeskSource(path,changed));

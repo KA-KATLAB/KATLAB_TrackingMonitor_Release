@@ -1,3 +1,4 @@
+import { activePlanDocketPreservation } from "./helpers/activePlanDocket.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { cityBriefPreservation } from "./helpers/cityDistrictBrief.mjs";
 import assert from "node:assert/strict";
@@ -1372,7 +1373,7 @@ test("26 old suites preserve complete original RAW/LF oracles and negative input
   assert.deepEqual(MASTHEAD_SUITES.map(record => ({ path: record.path, before: record.before, after: record.after,
     windows: record.windows.map(window => ({ name: window.name, count: window.count })) })), SUITE_EXPECTATIONS);
   for (const pin of SUITE_EXPECTATIONS) {
-    const input = cityBriefPreservation(pin.path, purposeNavigationPreservation(pin.path, read(pin.path))); assert.equal(sha(input), pin.after.RAW);
+    const input = cityBriefPreservation(pin.path, purposeNavigationPreservation(pin.path, activePlanDocketPreservation(pin.path, read(pin.path)))); assert.equal(sha(input), pin.after.RAW);
     for (const crlf of [false, true]) for (const buffer of [false, true]) {
       const value = physical(lf(input.toString("utf8")), crlf), current = buffer ? Buffer.from(value) : value;
       const original = restoreWorkspaceCommandMastheadSuite(pin.path, current);

@@ -1,5 +1,24 @@
 # Version Notes
 
+## v0.4.5.0 - Active Plan Docket (2026-10-08)
+
+- Present Overview's existing Active plans as a compact work-first docket, with
+  full identities and truthful current-task context before additional details.
+- Use independent default-closed native details/summary controls. Do not add
+  custom disclosure state, exclusive groups, fake roles or keyboard handlers.
+- Preserve all complete task models, grouping/sorting, exact-data table,
+  concrete-path File Story actions and noninteractive scope-pattern declarations.
+- Bound each plan's marked-in-progress semantic task list with the existing
+  50-item pager. The parent plan pager remains 50; decorative task segments are
+  separate. Closed details are not a mounted-DOM optimization.
+- Keep the original Gallery stylesheet and add only a scoped PlanBoard-owned
+  lazy Docket stylesheet. Preserve all seven entry styles, eager/Mission/City
+  CSS and unrelated Overview CSS rules.
+- Require whole CDD/CFT5, current-runtime regression/negative cases,
+  focused/full checks, compiled current ownership, complete build parity and
+  owned activation. Actual outcomes and commit identity belong in the plan.
+- Native/operator, Connection:close and prior advisory/build limits remain OPEN.
+
 ## v0.4.4.2 - Purpose-Led Navigation (2026-10-08)
 
 - Pair each existing view label with truthful static purpose copy in both the

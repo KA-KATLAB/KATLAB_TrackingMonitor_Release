@@ -15,6 +15,7 @@ import type { Task } from "./api";
 import { DisclosureTable } from "./accessibleData";
 import { CollectionPager, SectionHeading, Surface, useBoundedPage } from "./ui";
 import "./activePlanGallery.css";
+import "./activePlanDocket.css";
 
 const shortId = (ref: string) => ref.split(" - ").pop() ?? ref;
 const basename = (p: string) => p.replace(/\\/g, "/").split("/").pop() ?? p;
@@ -121,6 +122,76 @@ const SEG: Record<Task["status"], string> = {
   done: "#14b8a6", "in-progress": "#f59e0b", pending: "#334155",
 };
 
+// Bound current task details independently of the parent plan page.
+function ActivePlanDetails ({ p, onOpenFileStory }: {
+  p: PlanGroup;
+  onOpenFileStory: (repo: string, file: string) => void;
+}) {
+  const currentPage = useBoundedPage({
+    identity: ["active-plan-current-tasks", p.repo, p.planFile,
+      ...p.inProgress.map((task) => task.task_ref)],
+    totalItems: p.inProgress.length,
+    pageSize: 50,
+  });
+  return (
+    <div className="active-plan-docket-body">
+      {/* the segmented bar — one segment per task, served order */}
+      <div className="mt-1 flex h-2 gap-0.5 overflow-hidden rounded" aria-hidden="true">
+        {p.tasks.map((t) => (
+          <span key={t.task_ref}
+            className={`h-full flex-1 ${t.status === "in-progress" ? "pulse-dot" : ""}`}
+            style={{ backgroundColor: SEG[t.status] }}
+            title={`${shortId(t.task_ref)} — ${t.status}`} />
+        ))}
+      </div>
+      {/* Current tasks stay available across bounded detail pages. */}
+      {p.inProgress.slice(currentPage.start, currentPage.end).map((t) => (
+        <div key={t.task_ref} className="mt-3 min-w-0 rounded-control bg-ui-raised/60 px-3 py-3 text-base">
+          <div>
+            <span className="font-mono text-xs text-amber-300"
+              title={t.task_ref}>{shortId(t.task_ref)}</span>{" "}
+            <span className="break-words [overflow-wrap:anywhere] font-semibold text-ui-text">{t.title}</span>
+          </div>
+          {t.why && (
+            <p className="mt-0.5 break-words text-xs text-slate-400">
+              {t.why}
+            </p>
+          )}
+          {t.files.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {t.files.slice(0, 4).map((f, fileOrdinal) => (
+                <DeclaredFile key={JSON.stringify([f, fileOrdinal])}
+                  repo={t.repo} file={f} compact onOpenFileStory={onOpenFileStory} />
+              ))}
+              {t.files.length > 4 && (
+                <span className="self-center text-xs text-ui-muted">
+                  +{t.files.length - 4}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+      {p.inProgress.length > 50 && (
+        <CollectionPager
+          collectionLabel={`Tasks marked in progress in ${p.repo}: ${p.planFile}`}
+          page={currentPage} onPageChange={currentPage.setPage} className="mt-3" />
+      )}
+      {p.inProgress.length === 0 && (
+        <p className="mt-2 text-xs text-ui-muted">No task in progress</p>
+      )}
+      {p.nextUp && (
+        <p className="mt-1 text-xs text-slate-400">
+          next up:{" "}
+          <span className="font-mono text-xs"
+            title={p.nextUp.task_ref}>{shortId(p.nextUp.task_ref)}</span>{" "}
+          {p.nextUp.title}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function PlanBoard ({ tasks, onOpenFileStory }: {
   tasks: Task[];
   onOpenFileStory: (repo: string, file: string) => void;
@@ -135,70 +206,40 @@ export function PlanBoard ({ tasks, onOpenFileStory }: {
   if (plans.length === 0) return null; // the hidden-at-0 precedent
   const planTasks = plans.flatMap((plan) => plan.tasks);
   return (
-    <Surface data-reveal tone="quiet" data-active-plan-board="true">
+    <Surface data-reveal tone="quiet" data-active-plan-board="true" data-active-plan-docket="true">
       <SectionHeading level={4} title="Active plans"
         description="The missions currently in motion." />
       <div className="ui-work-list">
         {plans.slice(pager.start, pager.end).map((p) => (
           <div key={JSON.stringify([p.repo, p.planFile])} className="min-w-0 border-b border-ui-border p-4 last:border-b-0">
-            <div className="flex min-w-0 flex-wrap items-baseline gap-2 text-base">
-              <span className="min-w-0 break-all font-semibold text-ui-text">{p.base}</span>
-              <span className="min-w-0 break-all rounded bg-ui-raised px-1.5 py-0.5 text-xs text-ui-muted">
-                {p.repo}
-              </span>
-              <span className="ml-auto text-xs text-ui-muted">
-                {p.done}/{p.tasks.length} done
-              </span>
-            </div>
-            {/* the segmented bar — one segment per task, served order */}
-            <div className="mt-1 flex h-2 gap-0.5 overflow-hidden rounded" aria-hidden="true">
-              {p.tasks.map((t) => (
-                <span key={t.task_ref}
-                  className={`h-full flex-1 ${t.status === "in-progress" ? "pulse-dot" : ""}`}
-                  style={{ backgroundColor: SEG[t.status] }}
-                  title={`${shortId(t.task_ref)} — ${t.status}`} />
-              ))}
-            </div>
-            {/* the spotlight(s): normally ONE per repo (the discipline
-                rule); the board renders whatever exists — the guard nags */}
-            {p.inProgress.map((t) => (
-              <div key={t.task_ref} className="mt-3 min-w-0 rounded-control bg-ui-raised/60 px-3 py-3 text-base">
-                <div>
-                  <span className="font-mono text-xs text-amber-300"
-                    title={t.task_ref}>{shortId(t.task_ref)}</span>{" "}
-                  <span className="break-words [overflow-wrap:anywhere] font-semibold text-ui-text">{t.title}</span>
-                </div>
-                {t.why && (
-                  <p className="mt-0.5 break-words text-xs text-slate-400">
-                    {t.why}
-                  </p>
-                )}
-                {t.files.length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    {t.files.slice(0, 4).map((f, fileOrdinal) => (
-                      <DeclaredFile key={JSON.stringify([f, fileOrdinal])}
-                        repo={t.repo} file={f} compact onOpenFileStory={onOpenFileStory} />
-                    ))}
-                    {t.files.length > 4 && (
-                      <span className="self-center text-xs text-ui-muted">
-                        +{t.files.length - 4}
+            <details data-plan-docket="true">
+              <summary className="ui-focus-ring active-plan-docket-summary">
+                <span className="active-plan-docket-summary-content">
+                  <span className="active-plan-docket-identity">
+                    <span className="active-plan-docket-plan-name">{p.base}</span>
+                    <span className="active-plan-docket-repository">{p.repo}</span>
+                    <span className="active-plan-docket-plan-path font-mono">{p.planFile}</span>
+                  </span>
+                  <span className="active-plan-docket-work">
+                    <span className="active-plan-docket-work-label">
+                      {p.inProgress.length > 0 ? "First task marked in progress"
+                        : p.nextUp ? "Next pending task" : "No task in progress"}
+                    </span>
+                    {(p.inProgress[0] ?? p.nextUp) && (
+                      <span className="active-plan-docket-work-title">
+                        {(p.inProgress[0] ?? p.nextUp)?.title}
                       </span>
                     )}
-                  </div>
-                )}
-              </div>
-            ))}
-            {p.inProgress.length === 0 && (
-              <p className="mt-2 text-xs text-ui-muted">No task in progress</p>
-            )}
-            {p.nextUp && (
-              <p className="mt-1 text-xs text-slate-400">
-                next up:{" "}
-                <span className="font-mono text-xs"
-                  title={p.nextUp.task_ref}>{shortId(p.nextUp.task_ref)}</span>{" "}
-                {p.nextUp.title}
-              </p>
-            )}
+                  </span>
+                  <span className="active-plan-docket-facts">
+                    <span><span className="font-mono tabular-nums">{p.done}/{p.tasks.length}</span>{" "}done</span>
+                    <span><span className="font-mono tabular-nums">{p.inProgress.length}</span>{" "}marked in progress</span>
+                    <span className="active-plan-docket-hint">Task details</span>
+                  </span>
+                </span>
+              </summary>
+              <ActivePlanDetails p={p} onOpenFileStory={onOpenFileStory} />
+            </details>
           </div>
         ))}
       </div>
