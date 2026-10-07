@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { canonicalPrintedText } from "./helpers/printed_source.mjs";
+import { reviewLanesPreservation } from "./helpers/changesReviewLanes.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const frontend = resolve(root, "Frontend");
@@ -183,8 +184,10 @@ test("operational restyling preserves all original computation and async-owner b
     FolderView: "96c29b4b51de1753d67093b94e0396b277411a490a76dd73cb9b66c2c9aabac5",
     FolderRepoCard: "ec305e48ca03d3a63eb854894f83eb1237aaef42c9581e19aa6466d35240b3a4",
   };
+  const preservationApp = ts.createSourceFile("App.tsx",
+    reviewLanesPreservation("Frontend/src/App.tsx", app.text), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   for (const [name, hash] of Object.entries(expected)) {
-    const code = preRenderCode(app, name);
+    const code = preRenderCode(preservationApp, name);
     assert.equal(createHash("sha256").update(code).digest("hex"), hash, name);
   }
   assert.doesNotMatch(read("App.tsx"), /text-\[1[01]px\]/);

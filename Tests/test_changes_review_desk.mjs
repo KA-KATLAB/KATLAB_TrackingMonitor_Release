@@ -1,4 +1,4 @@
-import { deskPreservation } from "./helpers/missionCommandDesk.mjs";
+import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -16,7 +16,7 @@ const ts = require("typescript"), postcss = require("postcss"), React = require(
 const { renderToStaticMarkup } = require("react-dom/server");
 const read = name => {
   const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(readFileSync(resolve(root, name)));
-  if (name === "Frontend/index.html") return restoreAttributionStationHtml(studioHtml(text));
+  if (name === "Frontend/index.html") return restoreAttributionStationHtml(studioHtml(deskPreservation(name, text)));
   if (name === "Tests/test_workbench_2_0.mjs") return restoreAttributionWorkbenchSuite(studioWorkbench(deskPreservation(name, text)));
   return text;
 };

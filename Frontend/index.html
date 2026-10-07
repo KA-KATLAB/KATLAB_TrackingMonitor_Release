@@ -286,6 +286,66 @@
         }
       }
     </style>
+    <style id="katlab-changes-review-lanes">
+      /* Changes Review Lanes: file-first hierarchy in normal grouped rows only. */
+      #root #main-content > div > .changes-workbench > section[aria-label="Grouped uncommitted changes"] .ui-work-list[data-reveal] > div.mt-4 > .ui-work-row > [data-review-ledger="true"] {
+        display: grid;
+        min-width: 0;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+        gap: 0.75rem;
+      }
+      #root #main-content > div > .changes-workbench > section[aria-label="Grouped uncommitted changes"] .ui-work-list[data-reveal] > div.mt-4 > .ui-work-row > [data-review-ledger="true"] > [data-review-cell] {
+        min-width: 0;
+      }
+      #root #main-content > div > .changes-workbench > section[aria-label="Grouped uncommitted changes"] .ui-work-list[data-reveal] > div.mt-4 > .ui-work-row > [data-review-ledger="true"] > [data-review-cell="signal"] > span {
+        flex-wrap: wrap;
+        max-width: 100%;
+      }
+      #root #main-content > div > .changes-workbench > section[aria-label="Grouped uncommitted changes"] .ui-work-list[data-reveal] > div.mt-4 > .ui-work-row > [data-review-ledger="true"] > [data-review-cell="body"] {
+        display: grid;
+        min-width: 0;
+        gap: 0.375rem;
+      }
+      #root #main-content > div > .changes-workbench > section[aria-label="Grouped uncommitted changes"] .ui-work-list[data-reveal] > div.mt-4 > .ui-work-row > [data-review-ledger="true"] > [data-review-cell="body"] > button:first-child,
+      #root #main-content > div > .changes-workbench > section[aria-label="Grouped uncommitted changes"] .ui-work-list[data-reveal] > div.mt-4 > .ui-work-row > [data-review-ledger="true"] > [data-review-cell="body"] > span:first-child {
+        min-width: 0;
+        width: 100%;
+        font-size: 1rem;
+        line-height: 1.5;
+        font-weight: 500;
+      }
+      #root #main-content > div > .changes-workbench > section[aria-label="Grouped uncommitted changes"] .ui-work-list[data-reveal] > div.mt-4 > .ui-work-row > [data-review-ledger="true"] > [data-review-cell="body"] > [data-review-cell="context"] {
+        display: flex;
+        min-width: 0;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.375rem 0.5rem;
+        overflow-wrap: anywhere;
+      }
+      #root #main-content > div > .changes-workbench > section[aria-label="Grouped uncommitted changes"] .ui-work-list[data-reveal] > div.mt-4 > .ui-work-row > [data-review-ledger="true"] > [data-review-cell="body"] > [data-review-cell="context"] > * {
+        min-width: 0;
+        max-width: 100%;
+      }
+      #root #main-content > div > .changes-workbench > section[aria-label="Grouped uncommitted changes"] .ui-work-list[data-reveal] > div.mt-4 > .ui-work-row > [data-review-ledger="true"] > [data-review-cell="action"] {
+        display: flex;
+        min-width: 0;
+        justify-content: flex-start;
+        align-items: center;
+      }
+      #root #main-content > div > .changes-workbench > section[aria-label="Grouped uncommitted changes"] .ui-work-list[data-reveal] > div.mt-4 > .ui-work-row > [data-review-ledger="true"] > [data-review-cell="action"] > button {
+        margin-left: 0;
+      }
+      @media (min-width: 1024px) {
+        #root #main-content > div > .changes-workbench > section[aria-label="Grouped uncommitted changes"] .ui-work-list[data-reveal] > div.mt-4 > .ui-work-row > [data-review-ledger="true"] {
+          grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) max-content;
+          gap: 1rem;
+        }
+        #root #main-content > div > .changes-workbench > section[aria-label="Grouped uncommitted changes"] .ui-work-list[data-reveal] > div.mt-4 > .ui-work-row > [data-review-ledger="true"] > [data-review-cell="action"] {
+          justify-content: flex-end;
+        }
+      }
+    </style>
     <title>KATLAB Tracking Monitor</title>
   </head>
   <body class="bg-slate-950 text-slate-100">

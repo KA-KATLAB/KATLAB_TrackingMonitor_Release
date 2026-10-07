@@ -1,5 +1,24 @@
 # Version Notes
 
+## v0.4.3.1 - Changes Review Lanes (2026-10-07)
+
+- Give normal grouped Changes rows a file-first hierarchy: attribution signal,
+  flexible full-path body with secondary capture context, and existing Diff.
+  Stack below1024px; use8rem/minmax0/max-content lanes above that threshold.
+- Add one static normal-only prop and pure local conditional wrappers. Keep
+  History/plan/Folder/queue native markup and every data/request/paging owner.
+  Preserve Diff/Retry/Hide, offline retained focus recovery, callbacks and text.
+- Scope one fifth inline style to direct normal rows plus ledger markers.
+  Preserve four old styles, all eager/Overview/Mission CSS and dependencies.
+  Keep MODE colors, full16px paths, wrapping and shared focus/coarse behavior.
+- Preserve original oracles through strict complete new inverses before older
+  preservation inputs. Operational pre-return, Mission source fixtures and
+  incoming suite pins need explicit coverage; current behavior stays unprojected.
+- Require whole CDD/CFT5, focused/full checks,16 compiled gates, complete build
+  parity and bounded owned activation. Actual outcomes belong in the plan.
+- Native/operator acceptance, known Connection:close and existing build/security
+  advisories stay OPEN. No dependency, transport or native assurance claimed.
+
 ## v0.4.3.0 - Mission Command Desk (2026-10-07)
 
 - Add one named, normal-flow Mission sections nav before the original content;

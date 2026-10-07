@@ -75,7 +75,7 @@ ignored detailed plan after execution. These notes do not claim unrun passes.
 
 ## Safe delivery and explicit limits
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Reprove literal OLD 2.3 native ownership and demo clearance before the standard
 owned stop. BOTH 8100 and 8101 must be clear before the matching production
 build, canonical gate and complete compiled parity. Use the standard Hidden
@@ -101,5 +101,5 @@ uncooperative attribution deadlines/late bulk differences, Records empty-number
 policy, stale legend and caption-copy limitations are not repaired here.
 Limited publication never waives a new blocking focus/state/request regression.
 
-Previous [v0.4.2.3 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.2.3_Release_Notes.md)
+Previous [v0.4.2.3 notes](TrackingMonitor_v0.4.2.3_Release_Notes.md)
 retain every historical byte except the two move-affected Markdown URLs.

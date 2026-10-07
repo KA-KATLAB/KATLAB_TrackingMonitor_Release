@@ -5,24 +5,22 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.3.0 - Mission Command Desk**
+Current source version: **v0.4.3.1 - Changes Review Lanes**
 
-Mission has a named sections navigator above its content, or a 12rem rail from
-1536px. Native buttons jump to existing Now, conditional Plans, Forecast,
-Verification, Evidence and Flight recorder headings within the same main
-scroller. A valid jump cancels pending route-focus intent before revalidation
-and focus; it never changes the route, selects data, refreshes or starts replay.
-Keep all original section order, plan/provider/session identities, independent
-loading/error/empty states and 12/50-item paging. Workbench 2.0, Changes Review
-Desk, Attribution Station and Diagnostic Studio remain complete.
-Four entry styles, shared styles, eager/Overview CSS and dependencies stay.
-Strict source/suite preservation and fifteen compiled gates are required;
-actual check outcomes and current closure counts belong in the detailed plan.
-The deferred zero-choice caption is not repaired. Activation requires current
-notes AND exact Chronicle CSS. Native/operator acceptance, large Connection:close
-and prior advisory/chunk/Tailwind notices remain OPEN. Rebuild and reload after
-version changes; restarting Python alone cannot replace loaded UI assets.
-See the [current release notes](TrackingMonitor_v0.4.3.0_Release_Notes.md).
+Normal grouped Changes rows separate attribution, the full file path with
+secondary capture context, and the existing Diff action. At desktop widths
+the file gets a flexible central lane; narrow layouts stack in reading order.
+Full paths stay visible. Session, differing-branch, tool and time details stay
+available without competing on the primary line. Plan edits, History, Folder
+and the manual attribution queue retain their current presentation.
+
+All Diff/Retry/Hide, offline/retained/error states, file-story/session callbacks,
+focus recovery, exact identities and paging remain unchanged. Mission Command
+Desk and the four prior presentation styles remain complete. Preservation uses
+exact bounded input inverses; current behavioral tests execute current source.
+Native/operator acceptance and the known large HTTP Connection:close fault
+remain OPEN. Reload existing tabs after upgrade to see the matching UI build.
+See the [current release notes](TrackingMonitor_v0.4.3.1_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -195,7 +193,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.3.0_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.3.1_Release_Notes.md)
 
 ## Guarantees
 

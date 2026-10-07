@@ -4019,7 +4019,7 @@ function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet, onSessio
         )}
         {normal.slice(eventPager.start, eventPager.end).map((e) => (
           <EventRow key={e.id} event={e} repos={repos} onSessionClick={onSessionClick}
-            onOpenFileStory={onOpenFileStory} onStatus={onStatus} />
+            onOpenFileStory={onOpenFileStory} onStatus={onStatus} reviewLedger />
         ))}
         {normal.length > 50 && (
           <CollectionPager collectionLabel={`${refLabel} events`} page={eventPager}
@@ -4380,8 +4380,9 @@ function PickRow ({ event, tasks, onPicked, onStatus, choice, onChoiceChange,
 // B.8: one row everywhere - context-aware diff (commit diff when linked).
 // v0.1.5.0 D1: session dot before the timestamp; clickable only when the
 // caller passes onSessionClick (Changes task groups — RV4).
-function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onStatus }:
-  { event: TrackedEvent; repos: Repo[]; showRef?: boolean;
+function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onStatus,
+  reviewLedger = false }:
+  { event: TrackedEvent; repos: Repo[]; showRef?: boolean; reviewLedger?: boolean;
     onSessionClick?: (identity: EventSessionIdentity) => void;
     // v0.1.7.0 D2 (B.2): passed ONLY from Changes task groups (the
     // v0.1.5.0 RV4 zone precedent) — History/queue file names stay plain.
@@ -4443,62 +4444,80 @@ function EventRow ({ event, repos, showRef, onSessionClick, onOpenFileStory, onS
     setDiffError("");
     setDiffBusy(false);
   };
+  const reviewCell = (
+    name: "signal" | "body" | "context" | "action",
+    children: ReactNode,
+  ): ReactNode => {
+    if (!reviewLedger || children === false || children === null || children === undefined) {
+      return children;
+    }
+    return <div data-review-cell={name}>{children}</div>;
+  };
   return (
     <div ref={diffRowRef} role="group" tabIndex={-1}
       aria-label={`Tracked change in ${event.repo_id}: ${event.file}`}
       className="ui-work-row focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
-      <div className="flex min-w-0 basis-full flex-wrap items-center gap-2 text-sm">
-        <ModeBadge mode={event.mode} swept={event.swept === 1} />
-        {onOpenFileStory ? (
-          <button onClick={() => onOpenFileStory(event.repo_id, event.file)}
-            title={`${event.file} — open file story`}
-            className="min-w-0 flex-1 break-all font-mono text-base text-left hover:text-sky-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
-            {event.file}
-          </button>
-        ) : (
-          <span className="min-w-0 flex-1 break-all font-mono text-base">{event.file}</span>
+      <div className="flex min-w-0 basis-full flex-wrap items-center gap-2 text-sm"
+        data-review-ledger={reviewLedger ? "true" : undefined}>
+        {reviewCell("signal",
+          <ModeBadge mode={event.mode} swept={event.swept === 1} />
         )}
-        {showRef && event.task_ref && (
-          <span className="min-w-0 basis-full break-words text-xs text-sky-300">
-            {event.task_ref}
-          </span>
-        )}
-        <SessionDot identity={sessionIdentity}
-          onClick={onSessionClick && sessionIdentity
-            ? () => onSessionClick(sessionIdentity) : undefined} />
-        {event.branch && repoBranch && event.branch !== repoBranch && (
-          <span className="text-xs text-amber-300/80"
-            title="captured on a different branch than the repo is on now">
-            &#x2387; {event.branch}
-          </span>
-        )}
-        <span className="text-xs text-slate-400" title={event.ts}>
-          {event.tool} · {fmtRel(event.ts)}
-        </span>
-        {(online || diff !== null) && (
-          <button className="ml-auto min-h-[24px] text-xs text-sky-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-40"
-            disabled={diffBusy} aria-busy={diffBusy}
-            aria-expanded={diff !== null}
-            aria-label={diffBusy
-              ? `Loading diff for ${event.file}`
-              : diff === null
-                ? diffError ? `Retry diff for ${event.file}` : `Show diff for ${event.file}`
-                : `Hide diff for ${event.file}`}
-            onClick={(clickEvent) => {
-              if (diff !== null) {
-                const row = diffRowRef.current;
-                if (!online && document.activeElement === clickEvent.currentTarget
-                    && row?.isConnected && row.contains(clickEvent.currentTarget)
-                    && !row.closest("[inert]") && !document.body.dataset.overlayOpen) {
-                  row.focus({ preventScroll: true });
+        {reviewCell("body", <>
+          {onOpenFileStory ? (
+            <button onClick={() => onOpenFileStory(event.repo_id, event.file)}
+              title={`${event.file} — open file story`}
+              className="min-w-0 flex-1 break-all font-mono text-base text-left hover:text-sky-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
+              {event.file}
+            </button>
+          ) : (
+            <span className="min-w-0 flex-1 break-all font-mono text-base">{event.file}</span>
+          )}
+          {showRef && event.task_ref && (
+            <span className="min-w-0 basis-full break-words text-xs text-sky-300">
+              {event.task_ref}
+            </span>
+          )}
+          {reviewCell("context", <>
+            <SessionDot identity={sessionIdentity}
+              onClick={onSessionClick && sessionIdentity
+                ? () => onSessionClick(sessionIdentity) : undefined} />
+            {event.branch && repoBranch && event.branch !== repoBranch && (
+              <span className="text-xs text-amber-300/80"
+                title="captured on a different branch than the repo is on now">
+                &#x2387; {event.branch}
+              </span>
+            )}
+            <span className="text-xs text-slate-400" title={event.ts}>
+              {event.tool} · {fmtRel(event.ts)}
+            </span>
+          </>)}
+        </>)}
+        {reviewCell("action",
+          (online || diff !== null) && (
+            <button className="ml-auto min-h-[24px] text-xs text-sky-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:opacity-40"
+              disabled={diffBusy} aria-busy={diffBusy}
+              aria-expanded={diff !== null}
+              aria-label={diffBusy
+                ? `Loading diff for ${event.file}`
+                : diff === null
+                  ? diffError ? `Retry diff for ${event.file}` : `Show diff for ${event.file}`
+                  : `Hide diff for ${event.file}`}
+              onClick={(clickEvent) => {
+                if (diff !== null) {
+                  const row = diffRowRef.current;
+                  if (!online && document.activeElement === clickEvent.currentTarget
+                      && row?.isConnected && row.contains(clickEvent.currentTarget)
+                      && !row.closest("[inert]") && !document.body.dataset.overlayOpen) {
+                    row.focus({ preventScroll: true });
+                  }
+                  hideDiff();
+                } else {
+                  loadDiff();
                 }
-                hideDiff();
-              } else {
-                loadDiff();
-              }
-            }}>
-            {diffBusy ? "loading…" : diff === null ? diffError ? "retry diff" : "diff" : "hide"}
-          </button>
+              }}>
+              {diffBusy ? "loading…" : diff === null ? diffError ? "retry diff" : "diff" : "hide"}
+            </button>
+          )
         )}
       </div>
       {!online && !diffError && (diff !== null || diffBusy) && (

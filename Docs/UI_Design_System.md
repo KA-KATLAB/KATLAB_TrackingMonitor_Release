@@ -478,6 +478,52 @@ Native paint, keyboard/focus, reflow, coarse input, zoom and AT acceptance remai
 OPEN; source/SSR/compiled/HTTP checks cannot certify them or the known large
 Connection:close fault. A new blocking regression prevents publication.
 
+### 3.6 Changes Review Lanes
+
+Only normal grouped Changes EventRow callers enable the static reviewLedger
+presentation. Plan-file edits, History, Folder and manual assignment stay outside
+this composition. Keep the outer group/ref/tabindex/aria/focus owner and all
+post-header offline, DiffView and error siblings unchanged.
+
+Use three normal-flow lanes: MODE signal, a dominant file body with secondary
+capture context, and the original conditional Diff action. The file retains its
+full escaped16px mono text, original File Story callback or static span, and
+optional task reference. Context retains provider-qualified SessionDot, the
+original both-known/different-branch warning and exact tool/time expressions.
+Keep original child/focus order. No data summaries, filters, state or API changes.
+
+A pure local reviewCell function returns children directly for defaultfalse
+and absent false/null/undefined children; otherwise it adds a named native div.
+Never define a component inside EventRow or duplicate the action handler.
+Fragments preserve default-mode native markup; confirm using actual-source SSR.
+Keep keyed row state, hooks, controllers/deadlines/generation, Diff/Retry/Hide,
+busy/aria/disabled states and the original offline-Hide focus-return conditions.
+
+The fifth inline style is scoped to the direct normal TaskGroup row boundary
+AND the explicit ledger marker. Keep the four existing styles byte-identical.
+Use one zero-minimum column,12px gap and top alignment initially. From1024px
+use minmax(0,8rem)/minmax(0,1fr)/max-content with16px gap and right-aligned action.
+Do not reorder DOM or create a scroller, clip, fixed height, color or motion rule.
+Signal's ModeBadge flex root wraps and has max-width100%; preserve MODE colors.
+Body is a zero-minimum grid with6px gap. Its first file button/span fills width,
+keeps16px/1.5 text and uses weight500. Capture context wraps with6px/8px gaps,
+zero minimums, max-width100% children and anywhere wrapping for long metadata.
+Action uses normal flex layout and margin-left0 on its unchanged button.
+Retain shared focus/disabled/coarse controls and original row dividers/padding.
+
+Compose strict whole-source/suite preservation before previous adapters, ONLY
+at preservation inputs and before adversarial fixture mutation. Keep all original
+hashes and historical helpers; current AST/SSR/runtime stays raw. The operational
+pre-return digest and complete input adapters are distinct coupling mechanisms;
+audit both and incoming suite pins instead of reusing older counts.
+
+The independent sixteenth compiled gate validates all five actual head styles,
+the new normal-only owners and full unchanged eager/Overview/Mission CSS. Prior
+four-style result fields describe retained historical-contract proof, not a claim
+that current HTML has only four styles. Validate the fifth before filtering it
+from preservation inputs; never restore actual runtime JS. Native reflow/focus/
+operator beauty and accepted transport/advisory limitations remain open.
+
 ## 4. Shared component contract
 
 Shared primitives are small implementation helpers, not a component framework. They forward native props and refs, preserve native disabled/focus behavior, and accept `className` only for local layout.

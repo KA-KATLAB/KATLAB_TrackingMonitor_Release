@@ -1,4 +1,4 @@
-import { deskPreservation } from "./helpers/missionCommandDesk.mjs";
+import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -356,7 +356,7 @@ function independentSuiteInverse (text, spec) {
 test("independent twelve-root plus media CSS and complete fourth-window HTML inverses", () => {
   assert.equal(Buffer.byteLength(CSS), 3152); assert.equal(count(CSS, "\n"), 74); assert.equal(sha(CSS), CSS_SHA);
   assert.equal(Buffer.byteLength(WINDOW), 3651); assert.equal(sha(WINDOW), WINDOW_SHA); checkCss(CSS);
-  const source = read("Frontend/index.html"); assert.equal(ending(source), "\n");
+  const source = deskPreservation("Frontend/index.html", read("Frontend/index.html")); assert.equal(ending(source), "\n");
   assert.equal(Buffer.byteLength(source), 13548); assert.equal(count(source, "\n"), 295);
   for (const eol of ["\n", "\r\n"]) {
     const current = physical(lf(source), eol), original = independentHtmlInverse(current);
@@ -369,7 +369,7 @@ test("independent twelve-root plus media CSS and complete fourth-window HTML inv
   }
 });
 test("fourth-owner HTML rejects structural, identity, byte and outside-window mutations", () => {
-  const source = read("Frontend/index.html"), original = independentHtmlInverse(source);
+  const source = deskPreservation("Frontend/index.html", read("Frontend/index.html")), original = independentHtmlInverse(source);
   const values = [original, source.replace(WINDOW, WINDOW + WINDOW), source.replace(WINDOW, "<!--" + WINDOW + "-->\n"),
     source.replace(WINDOW, "").replace("  </head>\n", WINDOW + "  </head>\n"),
     source.replace(WINDOW, "").replace("  </body>\n", WINDOW + "  </body>\n"),

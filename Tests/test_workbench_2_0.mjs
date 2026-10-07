@@ -1,4 +1,4 @@
-import { deskPreservation } from "./helpers/missionCommandDesk.mjs";
+import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -212,7 +212,7 @@ function checkHtml (text) {
   assert.equal(sha(lf(text)), REVIEWED_HTML); assert.equal(sha(lf(original)), ORIGINAL_HTML);
   return original;
 }
-const html = restoreChangesReviewDeskHtml(restoreAttributionStationHtml(studioHtml(read("Frontend/index.html"))));
+const html = restoreChangesReviewDeskHtml(restoreAttributionStationHtml(studioHtml(deskPreservation("Frontend/index.html", read("Frontend/index.html")))));
 test("independent exact insertion preserves the entire original HTML, Unicode and LF/CRLF inverses", () => {
   assert.equal(Buffer.byteLength(CSS), 2572); assert.equal(CSS.split("\n").length - 1, 73); assert.equal(sha(CSS), CSS_HASH);
   assert.equal(Buffer.byteLength(windowFor("\n")), 3060); assert.equal(sha(windowFor("\n")), WINDOW_HASH); checkCss(CSS);
