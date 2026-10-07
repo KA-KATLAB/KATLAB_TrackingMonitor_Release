@@ -14,6 +14,7 @@
 import type { Task } from "./api";
 import { DisclosureTable } from "./accessibleData";
 import { CollectionPager, SectionHeading, Surface, useBoundedPage } from "./ui";
+import "./activePlanGallery.css";
 
 const shortId = (ref: string) => ref.split(" - ").pop() ?? ref;
 const basename = (p: string) => p.replace(/\\/g, "/").split("/").pop() ?? p;
@@ -134,7 +135,7 @@ export function PlanBoard ({ tasks, onOpenFileStory }: {
   if (plans.length === 0) return null; // the hidden-at-0 precedent
   const planTasks = plans.flatMap((plan) => plan.tasks);
   return (
-    <Surface data-reveal tone="quiet">
+    <Surface data-reveal tone="quiet" data-active-plan-board="true">
       <SectionHeading level={4} title="Active plans"
         description="The missions currently in motion." />
       <div className="ui-work-list">

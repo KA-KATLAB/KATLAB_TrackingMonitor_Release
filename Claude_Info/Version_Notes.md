@@ -1,5 +1,41 @@
 # Version Notes
 
+## v0.4.1.6 - Active Plan Gallery (2026-10-07)
+
+- Overview's existing Active plans use one zero-minimum gallery column below
+  1024px and two equal columns from that boundary, with 16px gaps. The direct
+  list becomes borderless/transparent; each original card has 20px padding,
+  a shared 1px border, 8px corners and surface tone, including the last card.
+- Existing wrapping headers use 12px gaps/top alignment. The full basename
+  takes a complete flex line at 18px/27px; repository and done/total stay 12px.
+  Active-task spotlights use 16px padding, a 3px warning-token left boundary,
+  8px corners and raised tone. Direct explanatory/next-up paragraphs use
+  14px/21px and anywhere wrapping; all exact values and status text remain.
+- Only one stylesheet import after the shared UI import and one marker on the
+  existing PlanBoard Surface are added. Every other Board byte remains; App,
+  Overview, shared UI/CSS, bootstrap, prior styling owners and old suites stay.
+  The six-rule stylesheet and one 1024px media rule are lazy Overview-owned,
+  not an eager application or Tasks-drawer dependency. Actual lazy CSS assets
+  must be discovered and verified, not assumed to be in the entry stylesheet.
+- Non-done grouping, composite identities, event ordering/null-last/ties,
+  served task order, every active task and first pending task remain. Zero and
+  done-only plans still hide; stats/workspace gates and retained/error labels
+  keep their owners. Progress segments, four-file preview/+N, literal/glob
+  distinctions, exact File Story callbacks and 50-item paging are unchanged.
+- New verification checks the independent CSS literal/complete AST allowlist,
+  strict two-window source inverse and RAW/LF pins, retained owners and actual
+  current Board SSR/data/callbacks. Controlled shared page-window checks do not
+  claim mounted paging effects or native focus. Separate build/live checks
+  verify discovered lazy CSS and matching served assets, not native acceptance.
+- Native v0.4 H.1, recorded large Connection: close failure, prior high
+  build-only braces advisory (recorded alert #15) and chunk notice remain open
+  under accepted limited publication. Keep-alive diagnostics are not a repair;
+  historical GitHub push notices are not a fresh advisory-detail audit.
+- Published v0.4.1.5 notes move to Archive with only two affected URLs changed.
+  Actual review/CFT/test/build/live/commit/ref evidence belongs in the 1.6 plan.
+  Rebuild matching source, use the standard hidden restart and reload existing
+  tabs; restarting Python alone does not update frontend assets.
+
 ## v0.4.1.5 - Workspace Command Frame (2026-10-07)
 
 - The shared six-view shell gains quieter identity, utility and context zones,

@@ -561,6 +561,29 @@ reduced-motion behavior. Do not add scale, clipped/fixed height, sticky layers,
 motion or a scroll owner. CSS/source/SSR contracts do not certify native paint,
 geometry, focus, keyboard, zoom, coarse input or assistive technology acceptance.
 
+The Active Plan Gallery styles only the existing PlanBoard Surface marked
+`data-active-plan-board="true"` and its direct list/card/header/spotlight owners.
+Its stylesheet import belongs to PlanBoard, loaded with lazy Overview only;
+do not present it as an eager application stylesheet or Tasks-drawer feature.
+Below 1024px the gallery has one zero-minimum column; from 1024px it has two
+equal zero-minimum columns with 16px gaps, preserving DOM and pager order.
+The direct list is borderless/transparent with no corners. Each original card,
+including the last, uses a shared 1px border, 20px padding, 8px corners and
+surface tone. This local 20px padding does not change the standard panel token.
+Keep the existing wrapping header with 12px gaps/top alignment. Its full
+basename occupies one flex line at 18px/27px with anywhere wrapping; repository
+and done/total remain 12px. Existing active-task spotlights use 16px padding,
+a 3px warning-token left boundary, 8px corners and raised tone. Direct card
+paragraphs and spotlight explanatory paragraphs use 14px/21px/anywhere wrap.
+Preserve grouping/sort/composite identities, every active task/first pending,
+zero/done-only hiding, independent stats/workspace gates and retained warnings.
+No new wrapper, state, metric, request, fixed height, clipping, ordering, motion
+or scroll owner is introduced. Progress segments, declared-file controls and
+patterns, four-file previews/+N, exact-data table and all 50-item pagers retain
+their source and interaction owners. Discover the actual built lazy CSS path;
+entry CSS alone does not prove gallery delivery. Source/SSR/assets do not
+certify native paint, geometry, focus, keyboard, zoom, coarse input or AT.
+
 Active plans file declarations can be paths or custom-glob scope patterns. Show
 '*'/'?' patterns in full with a visible 'pattern' label, without a button, link or
 tab stop; only concrete paths open their exact repository/file Story. Brackets
