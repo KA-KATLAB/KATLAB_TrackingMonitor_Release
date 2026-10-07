@@ -69,10 +69,10 @@ publication. Actual review, CFT, test, build, live, commit and remote-ref eviden
 belongs in `temp/Plan/PLAN_v0.4.1.2_Mission_Plan_Gallery.txt`, not guessed results
 or counts here.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Stop tracker and demo before rebuilding matching frontend source; use the
 standard hidden restart and reload existing tabs. A Python restart alone does
 not update served or already-loaded frontend assets.
 
-Previous [v0.4.1.1 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.1.1_Release_Notes.md)
+Previous [v0.4.1.1 notes](TrackingMonitor_v0.4.1.1_Release_Notes.md)
 retain every historical byte except their two move-affected Markdown URLs.

@@ -1,5 +1,39 @@
 # Version Notes
 
+## v0.4.1.3 - System Snapshot Panels (2026-10-07)
+
+- System's accepted HealthBody uses four named native sections in the original
+  order: Server, conditional Activity inbox, conditional Providers and
+  Repositories. Exact health-*-heading IDs name their h3 headings; the single
+  modal snapshot owner renders one HealthBody, not another health data source.
+- Body copy, values and section headings use 16px/24px; Row labels remain 12px.
+  Row keeps adjacent label/value spans, stacks below 640px and uses two columns
+  from 640px, with 8px top/bottom padding and 12px desktop gaps. Long values wrap.
+- Primary panels use 16px padding and 8px corners. Nested provider panels use
+  12px horizontal/8px vertical padding and 8px corners. Repository rows retain
+  four spans, values, offline badges and log-write titles; they stack below
+  640px and use two columns with a zero-minimum value track from 640px.
+- The System dialog cap becomes 672px, matching the existing DialogShell.
+  Existing safe areas, maximum height, body scrolling, overlay lease, closing,
+  keyboard and focus owners remain unchanged. No new scroll owner or clipping.
+- Only Row/HealthBody final returns and HealthModal's final-return width
+  attribute change. Pre-render logic, Button/SnapshotContent, APIs, decoders,
+  hooks, callbacks, receipt/uptime, retained/error/Retry/deadline and cancellation
+  stay. UI build remains visible at all states; refresh does not imply live data.
+- New source/SSR verification checks exact old/new windows, strict three-window
+  inverse, whole RAW/LF pins, actual current module/models/paging and snapshot
+  state/callback contracts. Old fixtures are preservation-only, never executed.
+  Separate build/live checks inspect compiled utilities and matching assets;
+  none certify native paint, geometry, keyboard, focus, zoom, coarse input or AT.
+- Native v0.4 H.1, recorded large Connection: close failure, prior high
+  build-only braces advisory and chunk notice remain open. Keep-alive diagnostics
+  are not a repair; historical GitHub push notices are not a fresh detail audit.
+  Publication remains limited under accepted constraints; new blockers stop it.
+- Published v0.4.1.2 notes move to Archive with only two affected URLs changed.
+  Actual review/CFT/test/build/live/commit/ref evidence belongs in the 1.3 plan.
+  Rebuild matching frontend source, use the standard hidden restart and reload
+  existing tabs; restarting Python alone does not update frontend assets.
+
 ## v0.4.1.2 - Mission Plan Gallery (2026-10-07)
 
 - A separate scoped stylesheet styles only the actual Mission plan-card grid,

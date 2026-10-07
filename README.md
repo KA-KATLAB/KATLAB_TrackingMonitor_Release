@@ -5,17 +5,17 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.1.2 - Mission Plan Gallery**
+Current source version: **v0.4.1.3 - System Snapshot Panels**
 
-Mission's existing plan choices gain a responsive gallery with clearer names
-and aligned count footers. Selected Now remains primary; exact plan identities,
-backend readiness, task counts and native selection buttons keep their owners.
-One scoped stylesheet and its bootstrap import change presentation, not Mission
-logic or shared CSS. The Overview deck and visible KATLAB build badge remain.
+System's accepted snapshot gains named panels, 16px/24px body copy and values,
+phone-first rows and a 672px dialog cap. Local receipt time, retained responses,
+manual Refresh/Retry, deadline and close ownership remain unchanged. Only three
+health-render windows change; the Mission gallery, Overview deck, shared dialog
+foundation and visible KATLAB build badge retain their existing owners.
 Large Connection: close responses and native UI acceptance remain unresolved;
 the previously recorded high build-only braces advisory and chunk notice are not addressed.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.1.2_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.1.3_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -188,7 +188,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.1.2_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.1.3_Release_Notes.md)
 
 ## Guarantees
 

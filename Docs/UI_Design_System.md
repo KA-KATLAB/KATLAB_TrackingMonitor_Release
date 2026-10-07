@@ -332,6 +332,27 @@ local browser receipt time, update it only on an accepted response, and base
 the displayed uptime on that receipt time. This is not a server observation
 timestamp or freshness guarantee. Health requests bypass browser cache.
 
+Compose the accepted System HealthBody as four named native sections with h3
+headings, in order: Server, conditional Activity inbox, conditional Providers
+and Repositories. Their exact heading IDs are health-server-heading,
+health-activity-heading, health-providers-heading and health-repositories-heading;
+each section uses aria-labelledby. Keep one HealthBody under the single modal
+snapshot owner. Use shared surface/border tokens, 16px panel padding, 8px corners
+and 16px/24px body copy, values and headings. Nested provider panels use 8px
+corners, 12px horizontal and 8px vertical padding without changing keys or text.
+Row remains a div with adjacent label/value spans: 12px labels, 16px/24px values,
+tabular figures, anywhere wrapping and 8px top/bottom padding. Stack below 640px;
+from 640px use the original label/value two-column order with a 12px gap.
+Repository rows keep four original spans in order, stack below 640px and use two
+columns from 640px with a zero-minimum value track and inherited anywhere wrap.
+Preserve exact values, offline badges, log-write titles and 50-repository paging.
+Cap the System panel at 672px within the existing viewport/safe-area limits.
+More vertical content must use DialogShell's existing body scroll; do not add
+fixed heights, clipping, font scaling, a new scroll owner or freshness inference.
+Keep UI build visible at all states, including its larger Row value styling.
+Source/SSR/classes and compiled-asset checks are not native layout, keyboard,
+focus, zoom, coarse-input or assistive-technology acceptance.
+
 Validate consumed health fields before accepting a snapshot. Malformed successful
 JSON uses the existing static failure/Retry path without echoing its contents or
 replacing prior data/receipt time. Counts and byte sizes must be nonnegative safe
