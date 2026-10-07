@@ -1,0 +1,105 @@
+.city-district-brief {
+  min-width: 0;
+  margin-bottom: 1.25rem;
+}
+
+.city-district-brief > .city-district-brief-heading {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem 1rem;
+}
+
+.city-district-brief > .city-district-brief-heading > h3 {
+  margin: 0;
+  color: rgb(var(--ui-text));
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.city-district-brief > .city-district-brief-heading > p,
+.city-district-brief > .city-district-brief-empty {
+  min-width: 0;
+  margin: 0;
+  color: rgb(var(--ui-text-muted));
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.city-district-brief > .city-district-brief-empty {
+  margin-top: 1rem;
+}
+
+.city-district-brief > .city-district-brief-list {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.city-district-brief > .city-district-brief-list > li {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 0.5rem;
+  background: rgb(var(--ui-canvas));
+}
+
+.city-district-brief > .city-district-brief-list > li > .city-district-identity {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.75rem;
+  justify-content: flex-start;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.city-district-brief > .city-district-brief-list > li > dl {
+  display: grid;
+  min-width: 0;
+  gap: 0.75rem;
+  margin: 0.75rem 0 0;
+}
+
+.city-district-brief > .city-district-brief-list > li > dl > div {
+  min-width: 0;
+}
+
+.city-district-brief > .city-district-brief-list > li > dl > div > dt {
+  margin: 0;
+  color: rgb(var(--ui-text-muted));
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.city-district-brief > .city-district-brief-list > li > dl > div > dd {
+  margin: 0.25rem 0 0;
+  color: rgb(var(--ui-text));
+  font-size: 1rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 768px) {
+  .city-district-brief > .city-district-brief-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .city-district-brief > .city-district-brief-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

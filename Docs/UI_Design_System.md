@@ -1178,6 +1178,50 @@ zoom, motion or subjective acceptance.
 - Invalid current Git status is labelled unavailable in plaques and exact data;
   do not decorate retained clean values as a current clean district.
 
+
+The City District Brief is a pure native presentation of the SAME supplied
+visibleDistricts and pageRange. Insert it only in the accepted cityReady branch,
+above the existing local scene scroller and outside containerRef's SVG export
+subtree. Keep the current heading, hydration/stale/Retry, pager, full scene,
+full-workspace scale, overlays/transient retirement and exact-data disclosure.
+City remains workspace-wide, regardless of the application's selected scope.
+
+Use one named section headed Visible districts with the exact range and a
+workspace-wide qualifier. Zero districts shows No districts to show. Otherwise
+render the supplied order as a native list. Full exact repository identities
+use the shared ControlButton and existing onGoRepo callback to scoped Overview;
+offline/unavailable states do not invent a new navigation restriction. The
+list's keys include the supplied ordinal without sorting or mutating inputs.
+
+Each district has a Git status and Plan tasks definition pair. Status precedence
+is offline, status_valid !== true, clean, then the exact uncommitted count. Label
+the actual inProgress length as tasks marked in progress, with singular grammar.
+Do not infer recent activity, freshness, productivity, workload or Mission
+readiness from that count. Numeric values alone use the current Azeret Mono
+stack and tabular figures; surrounding status/task sentences remain body copy.
+Do not render retained offline/invalid Git values as
+current clean or zero. The brief adds no captured-event, churn or weather claim.
+
+Scope CSS to the new brief's direct heading/list/card/control/definition owners.
+Use one zero-minimum column below 768px, two from 768px and three from 1280px;
+retain DOM order, full anywhere wrapping and normal document flow. Section text
+is 1.125rem, identity/body 1rem, supporting range 0.875rem and definition labels
+0.75rem, all with 1.5 line height. At the default 16px root these equal 18px,
+16px, 14px and 12px. Cards use canvas tone, shared 1px border, 0.5rem corners and
+1rem padding. Identity controls declare a 2.75rem minimum height, equivalent to
+44px at the default root; shared hover, focus and coarse-important rules retain
+their owners. No clipping, new scroller, positioning, ordering or motion.
+
+The component's stylesheet is City-lazy through its owner import. Add no new
+Tailwind utility candidate, package, image/icon asset, font, state, effect, timer, storage,
+WebSocket subscription or request. Preserve all six entry style bodies and
+complete eager/Overview/Mission CSS. Validate exact source inverses, actual
+current zero/one/six and later-page rendering, callbacks, frozen inputs, all
+nineteen compiled contracts and complete isolated/production result parity.
+Adding the brief can increase page height; do not claim a shorter first viewport.
+Source, controlled SSR and compiled evidence do not certify native geometry,
+focus, keyboard, coarse input, zoom, AT or subjective visual quality.
+
 ### 6.5 Chronicle
 
 - This contract owns the React host and `pages.py` generated stylesheet only.

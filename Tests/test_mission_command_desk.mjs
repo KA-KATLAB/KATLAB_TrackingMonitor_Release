@@ -1,3 +1,4 @@
+import { cityBriefPreservation } from "./helpers/cityDistrictBrief.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -599,7 +600,7 @@ test("current App/Mission whole bytes invert to independent original RAW/LF with
 test("all 25 adapted suites retain complete published2.3 identities and unrelated pin inputs stay raw", () => {
   assert.equal(ADAPTED_SUITES.length,25);
   for (const [path,originalHash] of ADAPTED_SUITES) {
-    const actual = reviewLanesPreservation(path, mastheadPreservation(path, read(path))); strictBytes(actual);
+    const actual = reviewLanesPreservation(path, mastheadPreservation(path, cityBriefPreservation(path, read(path)))); strictBytes(actual);
     const restored = restoreMissionCommandDeskSuite(path,actual);
     assert.ok(Buffer.isBuffer(restored)); assert.equal(sha(restored),originalHash);
     assert.equal(sha(lf(restored)),originalHash);
@@ -613,7 +614,7 @@ test("all 25 adapted suites retain complete published2.3 identities and unrelate
     assert.throws(() => restoreMissionCommandDeskSuite(path,actual.toString("utf8").replace("\n","\r\n")));
   }
   for (const [path,rawHash,lfHash] of IMMUTABLE_PINS) {
-    const value = reviewLanesPreservation(path, mastheadPreservation(path, read(path)));
+    const value = reviewLanesPreservation(path, mastheadPreservation(path, cityBriefPreservation(path, read(path))));
     assert.equal(sha(value),rawHash,path); assert.equal(sha(lf(value)),lfHash,path+" LF");
     assert.deepEqual(deskPreservation(path,value),value);
   }

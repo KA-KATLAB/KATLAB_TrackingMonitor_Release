@@ -1,3 +1,4 @@
+import { cityBriefPreservation } from "./helpers/cityDistrictBrief.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
 import assert from "node:assert/strict";
@@ -267,7 +268,7 @@ test("complete CSS AST guard rejects changed, widened, reordered, nested and for
 });
 test("all actual source, old oracle and dependency RAW/LF pins remain immutable", () => {
   for (const [name, rawPin, lfPin] of PINS) {
-    const current = deskPreservation(name, mastheadPreservation(name, read(name))); ending(current); assert.equal(sha(current), rawPin, name); assert.equal(sha(lf(current)), lfPin, name);
+    const current = deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, read(name)))); ending(current); assert.equal(sha(current), rawPin, name); assert.equal(sha(lf(current)), lfPin, name);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(current).replace(/\n/g, eol))), lfPin, name);
   }
 });

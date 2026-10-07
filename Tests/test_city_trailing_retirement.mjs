@@ -1,3 +1,4 @@
+import { cityBriefPreservation } from "./helpers/cityDistrictBrief.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -437,7 +438,7 @@ function assertOriginal(source) {
 test("strict two-owner reversal preserves all original source and dependency fingerprints", () => {
   assert.equal(sha(OLD_WINDOW), "9aef07eff97dfc8e7b19db1e11630ac2b6a0a5405bb19fc9121f6ecc5f5370ec");
   assert.equal(sha(NEW_WINDOW), "f2b9615dce94ffb62da77fe06e5e9f13b37e290d74d91d435c75a537eebe883e");
-  for (const newline of ["\n", "\r\n"]) assertOriginal(restore(lf(originalSource).replaceAll("\n", newline)));
+  for (const newline of ["\n", "\r\n"]) assertOriginal(restore(lf(cityBriefPreservation("Frontend/src/city.tsx", originalSource)).replaceAll("\n", newline)));
   assert.equal(sha(lf(apiSource)), "2bdccf5c79ccf5a72f9696df00a924ff918a82c6cf8e4f15ba2a69b39e7cd2b8");
   const ast = parse(originalSource);
   const pool = only(ast.statements.filter(node => ts.isFunctionDeclaration(node)
@@ -468,7 +469,7 @@ test("strict reversal rejects partial, moved, duplicated and altered dispatch gu
 });
 
 test("immutable original fingerprints detect unrelated owner, helper and presentation changes", () => {
-  const source = lf(originalSource);
+  const source = lf(cityBriefPreservation("Frontend/src/city.tsx", originalSource));
   for (const [before, after] of [
     ["mountedRef.current = false;", "mountedRef.current = true;"],
     ['if (repo.offline) return "fog";', 'if (repo.offline) return "sun";'],

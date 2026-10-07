@@ -45,7 +45,7 @@ retained compiled contracts and the new masthead gate. Compare complete
 isolated/production results. Actual results and commit identity belong in the
 detailed plan after execution, not in advance of verification.
 
-Follow the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Follow the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Reprove the deployed v0.4.3.2 instance and native ownership before standard stop.
 Both tracker and demo ports must be clear before production build. Use the
 standard Hidden restart, then verify the current version, six inline styles,
@@ -62,5 +62,5 @@ unresolved. Existing high advisory 15, chunk, Tailwind and SSR diagnostics are
 qualified historical limits, not fixes delivered by this release.
 Accepted limitations do not waive any new regression.
 
-Previous [v0.4.3.2 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.3.2_Release_Notes.md)
+Previous [v0.4.3.2 notes](TrackingMonitor_v0.4.3.2_Release_Notes.md)
 remain archived with only moved relative documentation URLs corrected.

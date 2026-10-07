@@ -26,6 +26,7 @@ import type { Mood, Wardrobe } from "./pet";
 import { UNCOMMITTED_AGE_H, usePrefersReducedMotion } from "./theme";
 import { DisclosureTable } from "./accessibleData";
 import { CollectionPager, ControlButton, SectionHeading, useRememberedBoundedPage } from "./ui";
+import { CityDistrictBrief } from "./CityDistrictBrief";
 
 type ChurnRow = StatsData["file_churn"][number];
 
@@ -901,6 +902,7 @@ export function CityView ({ repos, tasks, events, workspaceReady, mood, wardrobe
         </div>
       ) : (
       <div className="rounded-panel border border-ui-border bg-ui-surface p-4 sm:p-5">
+        <CityDistrictBrief districts={visibleDistricts} pageRange={pageRange} onGoRepo={onGoRepo} />
         <div className="ui-local-scroller overflow-x-auto" role="region"
           aria-label={`KATLAB City scene — ${pageRange}`} tabIndex={0}>
         <div ref={containerRef} className="relative" style={{ width, height: HEIGHT }}>

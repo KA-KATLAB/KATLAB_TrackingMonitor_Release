@@ -1,5 +1,26 @@
 # Version Notes
 
+## v0.4.4.1 - City District Brief (2026-10-08)
+
+- Add a pure native brief above the current City scene, using the same visible
+  district slice and exact repository range. City remains workspace-wide and
+  preserves configured order, the six-item pager and full-workspace scene scales.
+- Show the full repository identity through the existing scoped Overview action,
+  then qualified Git status and the actual number of tasks marked in progress.
+  Offline and invalid Git observations never become current clean/zero claims.
+- Use one column below 768px, two from 768px and three from 1280px. Keep full
+  wrapping, native shared controls and a 2.75rem fine-input minimum-height
+  declaration, equivalent to 44px at the default 16px root.
+- Insert only within the accepted City branch and outside the SVG export owner.
+  Preserve pre-render hooks, stale/Retry, scene actions, export, transient
+  retirement, reduced motion and the independently paged exact-data disclosure.
+- Add only City-lazy component CSS. Preserve all six entry style bodies, complete
+  eager/Overview/Mission CSS, App/shared owners and dependency manifests.
+- Require whole CDD/CFT5, focused/full checks, eighteen retained compiled
+  contracts plus the new City brief gate, full build parity and owned activation.
+  Actual outcomes and release identity belong in the detailed plan.
+- Native/operator, Connection:close and prior advisory/build limits remain OPEN.
+
 ## v0.4.4.0 - Workspace Command Masthead (2026-10-08)
 
 - Give the shared WorkspaceContext separate scope, exact-summary and qualified

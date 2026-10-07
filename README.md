@@ -5,21 +5,24 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.4.0 - Workspace Command Masthead**
+Current source version: **v0.4.4.1 - City District Brief**
 
-The shared masthead separates repository scope, the exact workspace summary,
-and qualified secondary facts. Readable typography and naturally wrapping
-header tracks keep the existing Repository status action beside the brief on
-wider screens and after it on narrow screens. The loaded UI build stays visible.
+City now pairs its existing scene with a readable native brief for the same
+visible district page. Full repository identities open the existing scoped
+Overview. Each district states offline, unavailable Git status, clean, or its
+exact uncommitted count, followed by the number of tasks marked in progress.
 
-Manual attribution now states that no task choices are available for this event,
-without claiming that no tasks exist. Candidate eligibility, assignment,
-selection and retries remain unchanged. All five prior entry styles, view content
-composition, data calculations, eager/lazy CSS and dependencies are preserved;
-one scoped sixth style is added.
+The brief remains workspace-wide, follows the configured six-district page,
+and shows the existing repository range. It adds no productivity, freshness or
+readiness inference. The scene, pager, stale/Retry states, export and exact-data
+disclosure keep their existing ownership and behavior.
+
+One City-lazy presentation module and scoped stylesheet are added. All six
+entry styles and complete eager, Overview and Mission CSS remain unchanged.
+No new data request, timer, persistence, dependency or font is introduced.
 Native/operator acceptance, the known large HTTP Connection:close fault and
-prior advisory/build warnings remain OPEN. Reload existing tabs after upgrade.
-See the [current release notes](TrackingMonitor_v0.4.4.0_Release_Notes.md).
+prior advisory/build limits remain OPEN. Reload existing tabs after upgrade.
+See the [current release notes](TrackingMonitor_v0.4.4.1_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -192,7 +195,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.4.0_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.4.1_Release_Notes.md)
 
 ## Guarantees
 

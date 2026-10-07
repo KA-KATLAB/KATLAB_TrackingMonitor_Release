@@ -1,3 +1,4 @@
+import { cityBriefPreservation } from "./helpers/cityDistrictBrief.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
 import assert from "node:assert/strict";
@@ -210,7 +211,7 @@ test("inverse retains unrelated valid changes instead of swallowing them", () =>
 test("all thirty coupled source, old-suite and dependency RAW/LF pins remain exact", () => {
   assert.equal(PINS.length, 30);
   for (const [name, raw, normalized] of PINS) {
-    const bytes = deskPreservation(name, mastheadPreservation(name, readFileSync(resolve(root, name))));
+    const bytes = deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, readFileSync(resolve(root, name)))));
     assert.equal(sha(bytes), raw, name + " RAW");
     assert.equal(sha(lf(bytes.toString("utf8"))), normalized, name + " LF");
   }
