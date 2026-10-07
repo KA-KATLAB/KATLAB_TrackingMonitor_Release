@@ -444,6 +444,20 @@ input.form-control, .form-control:focus {
   }
 }
 
+/* One reader canvas with a bounded direct-prose measure. */
+[role="main"] {
+  padding: 24px;
+  border: 1px solid var(--k-border);
+  border-radius: 8px;
+  background-color: var(--k-panel);
+}
+[role="main"] > p, [role="main"] > ul, [role="main"] > ol, [role="main"] > blockquote {
+  max-width: 72ch;
+}
+@media (max-width: 640px) {
+  [role="main"] { padding: 16px; }
+}
+
 /* footer */
 footer { color: var(--k-muted); border-top: 1px solid var(--k-border); margin-top: 3rem; }
 """

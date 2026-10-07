@@ -1,5 +1,43 @@
 # Version Notes
 
+## v0.4.1.8 - Chronicle Reader Canvas (2026-10-07)
+
+- The actual generated div.col-md-9[role=main] gains one panel-toned canvas,
+  a shared 1px border, 8px corners and 24px padding above 640px; padding is
+  16px at or below 640px. Existing min-width and anywhere wrapping remain.
+- Only direct p/ul/ol/blockquote receive max-width:72ch. Top-level headings,
+  tables, pre, diagrams and images have no new 72ch declaration. Contained
+  media/code/tables obey the prose parent's available width with existing
+  wrapping/media bounds. ch is not a guaranteed number of characters/glyphs,
+  and this design choice is not a WCAG 1.4.8/AAA or native-reflow certificate.
+- One exact 14-LF-line/366-byte block is inserted before the unique footer
+  comment, after reduced motion, inside build_extra_css's returned constant.
+  It contains four root nodes: one comment, two rules and one 640px media
+  containing one direct main-padding rule. Every outside source byte remains.
+- Markdown/YAML builders, static FOOTER, navigation/freshness JavaScript,
+  TOC/search/heading/font/focus/motion/table/diagram owners, grid and content
+  remain. No new wrapper, scroller, position, hide/order, dependency or runtime
+  request is introduced. All React owners and previous suites stay unchanged.
+- The generator's existing safe writer emits assets/extra.css; its dirty
+  latch, strict candidate build, failure preservation and swap retain ownership.
+  Signed runtime, sanitized/pinned vendor assets and capability rules stay.
+  The React host's probe/retry/iframe/activity semantics are not replaced.
+- New verification uses independent complete CSS/selector/declaration guards,
+  actual Python AST/site/RAW-LF inverse and current-only pure CSS generation.
+  Restored historical source is preservation data, never executed. Separate
+  offline/live checks must inspect actual generated main/link markup and exact
+  emitted/served CSS, not copied markup or only the React entry stylesheet.
+- Canonical source version is 0.4.1.8; matching entry identity still requires
+  rebuilding even though React sources are unchanged. Use the standard hidden
+  restart and reload existing tabs; never hand-edit Chronicle/runtime.
+- Native v0.4 H.1, subjective approval, recorded large Connection: close
+  failure, prior high build-only braces advisory (recorded alert #15) and chunk
+  notice remain open under accepted limited publication. Keep-alive diagnostics
+  are not a repair; historical push notices are not a fresh advisory-detail audit.
+- Published v0.4.1.7 notes move to Archive with only two affected URLs changed.
+  Actual review/CFT/test/build/live/commit/ref evidence belongs in the 1.8 plan;
+  no unrun results or historical counts are asserted for this cycle here.
+
 ## v0.4.1.7 - Repository Scope Picker (2026-10-07)
 
 - The existing scope summary wraps with 8px gaps/top alignment, 16px bottom

@@ -89,9 +89,9 @@ review, CFT, test, build, restart, live, commit and remote-ref evidence belongs
 in `temp/Plan/PLAN_v0.4.1.7_Repository_Scope_Picker.txt`; no completed results are
 invented here. New blocking regressions must stop delivery.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Stop Tracker and demo before rebuilding matching source. Use the standard hidden
 restart and reload existing tabs; restarting Python alone does not update UI assets.
 
-Previous [v0.4.1.6 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.1.6_Release_Notes.md)
+Previous [v0.4.1.6 notes](TrackingMonitor_v0.4.1.6_Release_Notes.md)
 retain every historical byte except their two move-affected Markdown URLs.

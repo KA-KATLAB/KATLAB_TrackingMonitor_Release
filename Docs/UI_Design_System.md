@@ -699,6 +699,20 @@ locally; controlled callback/SSR checks do not certify native acceptance.
   page retains its own existing freshness/navigation behavior.
 - A focused same-origin iframe counts as activity and blocks attract-mode arming.
 - New-tab actions are real anchors with `target="_blank" rel="noopener"`.
+- The actual generated `div.col-md-9[role="main"]` uses one quiet reader
+  canvas: panel tone, shared 1px border, 8px corners and 24px padding above
+  640px, with 16px padding at or below 640px. Keep its existing minimum-width
+  and anywhere-wrap owners; do not add a wrapper, scroller or clipping.
+  Only direct paragraphs/lists/blockquotes receive a `72ch` maximum measure.
+  Top-level headings/tables/pre/diagrams/images have no new 72ch declaration;
+  media/code/tables inside bounded prose obey that containing block's width
+  and retain existing wrapping/bounds. `ch` measures a font's zero-glyph
+  advance, not a guaranteed count of characters. This choice certifies neither
+  WCAG 1.4.8/AAA nor native reflow or subjective acceptance. Preserve the grid,
+  native table semantics, local fonts, focus, reduced motion, TOC/search/nav,
+  content and static version-free footer. Change only the pure generated CSS
+  constant; deliver through the existing safe writer/strict candidate/swap and
+  verify actual generated/served main markup, CSS link and exact stylesheet.
 - Generated MkDocs runtime under `Chronicle/runtime/` is never hand-edited.
   Harmonize its CSS through the generator: local Segoe UI/Consolas, quiet slate
   canvas, readable muted text, focus-visible, reduced-motion and bounded long
