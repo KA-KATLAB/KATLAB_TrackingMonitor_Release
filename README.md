@@ -5,19 +5,19 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.1.4 - History Commit Ledger**
+Current source version: **v0.4.1.5 - Workspace Command Frame**
 
-History's captured commits gain separate, quiet panels with 20px padding, 16px
-gaps and 8px corners. Hash, title and timestamp keep their source order: stacked
-below 640px, hash/title beside each other with time below from 640px, and three
-columns from 1440px with a zero-minimum, wrapping 12rem timestamp track. Exact
-ID disclosure, linked events, graph, paging and request/recovery owners stay.
-One AppShell stylesheet import leaves App, bootstrap, shared CSS, the Mission
-gallery, Overview deck, System panels and visible build badge owners unchanged.
+The shared header separates identity, utility actions and contextual snapshots
+into quiet zones. All six navigation choices gain 16px/24px labels, generous
+padding and a clearly bordered current item in both desktop rail and mobile
+drawer. The visible version, exact labels, disabled/current states, callbacks,
+natural wrapping, focus and existing coarse-input minima keep their owners.
+One ApplicationBrand stylesheet import leaves AppShell, App, bootstrap, shared
+CSS, the Mission gallery, Overview deck, System panels and History ledger intact.
 Large Connection: close responses and native UI acceptance remain unresolved;
 the previously recorded high build-only braces advisory and chunk notice are not addressed.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.1.4_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.1.5_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -190,7 +190,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.1.4_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.1.5_Release_Notes.md)
 
 ## Guarantees
 

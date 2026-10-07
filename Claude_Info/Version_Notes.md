@@ -1,5 +1,44 @@
 # Version Notes
 
+## v0.4.1.5 - Workspace Command Frame (2026-10-07)
+
+- The shared six-view shell gains quieter identity, utility and context zones,
+  not another information/state source. Existing primary gets 16px vertical
+  padding and top alignment; utilities use 8px/12px padding and 8px gaps;
+  context uses 12px padding and 8px/16px gaps. Both framed zones use a shared
+  1px border, 8px corners and canvas tone. Natural wrapping and all slots stay.
+- The same six navigation choices in desktop rail and mobile drawer use
+  16px/24px labels, 12px/16px padding, 8px list gaps, 8px corners and the existing
+  3px left marker. The declared fine-input minimum height is 3rem, or 48px at
+  the standard base; existing coarse 44px important minima retain priority.
+  No computed coarse 48px minimum or actual target geometry is claimed.
+- Inactive navigation stays transparent/muted; enabled inactive hover becomes
+  raised with primary text. Current uses a focus-token full border, raised
+  surface, primary text and 600 weight, and stays raised on enabled hover.
+  Existing focus rings, disabled opacity, pointer and scroll owners stay.
+- Exact six labels/order/type/aria-current/onSelect behavior is unchanged;
+  only Mission/Overview/History disable before membership readiness. The
+  1280px/14rem rail switch, mobile drawer, route/overlay cleanup and main-scroll
+  ownership remain. No new wrapper, breakpoint, state, control, metric or API.
+- One side-effect import follows UI_BUILD_VERSION in ApplicationBrand; every
+  other Brand byte and complete product name, decorative mark, visible build
+  badge, aria/title/type and onSystem callback stay. AppShell/App/main/index/
+  health/gallery/ledger and old suites remain untouched. The eight-rule static
+  stylesheet is always loaded and changes no global token, dependency or data.
+- New verification checks an independent literal/complete allowlist, strict
+  one-import AST inverse/RAW-LF pins, untouched owners/regressions, actual
+  private navigation across all six ready/not-ready states and current shell/
+  Brand/context SSR/callback behavior. Separate build/live checks inspect
+  effective precedence and matching assets; neither certifies native UI or AT.
+- Native v0.4 H.1, recorded large Connection: close failure, previous high
+  build-only braces advisory (recorded alert #15) and chunk notice remain open
+  under accepted limited publication. Keep-alive diagnostics are not a repair;
+  historical GitHub push notices are not a fresh advisory-detail audit.
+- Published v0.4.1.4 notes move to Archive with only two affected URLs changed.
+  Actual review/CFT/test/build/live/commit/ref evidence belongs in the 1.5 plan.
+  Rebuild matching frontend source, use the standard hidden restart and reload
+  existing tabs; restarting Python alone does not update frontend assets.
+
 ## v0.4.1.4 - History Commit Ledger (2026-10-07)
 
 - Existing captured commits become separate quiet panels, not a new data,

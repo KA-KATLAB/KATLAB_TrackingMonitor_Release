@@ -126,6 +126,13 @@ At very short viewport heights, an explicitly opened warning detail panel may sh
 - Preserve the `#main-content` skip target and make the landmark programmatically focusable.
 - The header separates brand/build version, Repository, Commands, transport
   status, Attention, System and Tools. Allow identity and controls to wrap.
+- The shared Workspace Command Frame styles only the existing direct primary,
+  action-group and context owners. Primary uses 16px vertical padding and top
+  alignment. Utilities use 8px vertical/12px horizontal padding and 8px gaps;
+  context uses 12px padding and 8px vertical/16px horizontal gaps. Both zones
+  use a shared 1px border, 8px corners and canvas tone. Preserve natural flex
+  wrapping, narrow 100% basis, safe areas, slot order and utility control sizes.
+  Do not add fixed height, hiding, truncation, positioning, reordering or owners.
 - The complete product identity uses 22–26px text with an aria-hidden decorative
   K monogram. Keep one actual h1 and a visibly bordered/accented mono build
   badge beside it. Wrap the full name and badge without truncation; keep
@@ -136,6 +143,19 @@ At very short viewport heights, an explicitly opened warning detail panel may sh
 - Label the rail Workspace. Inactive primary navigation rests transparent;
   the active item has a current border marker plus aria-current and text, not
   color alone. Preserve all six labels and existing focus/disabled feedback.
+- The same six-view navigation styling applies in the desktop rail and modal
+  drawer: 8px list gaps, 16px/24px labels, 12px vertical/16px horizontal padding,
+  a declared 3rem minimum height for fine input, 8px corners and the existing
+  3px left marker. The scoped 8px navigation corners are a local shape exception,
+  not a global control-token change. Existing coarse 44px important minima keep
+  priority; do not claim a computed 48px minimum or native geometry there.
+  Inactive labels remain muted/transparent; enabled inactive hover uses raised
+  surface and primary text. Current uses the focus-token full border, raised
+  surface, primary text and 600 weight, and stays raised on enabled hover.
+  Preserve focus rings, disabled opacity and pointer/scroll/visibility owners.
+  Keep exact label/order/type/aria-current/onSelect behavior; only Mission,
+  Overview and History are disabled before membership readiness. Source/SSR/
+  compiled declarations do not certify native reflow, focus, targets or AT.
 - Repository selection and detailed repository status each use a named drawer.
   The compact context line remains visible; do not rebuild a permanent status rail.
 - Installed-PWA header, drawers, dialogs, and bottom/right notices respect safe-area insets.

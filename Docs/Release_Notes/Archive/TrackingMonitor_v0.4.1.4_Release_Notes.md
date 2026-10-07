@@ -81,10 +81,10 @@ not claimed fixed; new blocking regressions must stop delivery. Actual review,
 CFT, tests, build, live, commit and remote-ref evidence belongs in
 `temp/Plan/PLAN_v0.4.1.4_History_Commit_Ledger.txt`, not invented results here.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Stop Tracker and demo before rebuilding matching frontend source. Use the
 standard hidden restart and reload existing tabs; restarting Python alone does
 not update served or already-loaded assets.
 
-Previous [v0.4.1.3 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.1.3_Release_Notes.md)
+Previous [v0.4.1.3 notes](TrackingMonitor_v0.4.1.3_Release_Notes.md)
 retain every historical byte except their two move-affected Markdown URLs.

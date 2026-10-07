@@ -1,4 +1,5 @@
 import { UI_BUILD_VERSION } from "./appVersion";
+import "./workspaceCommandFrame.css";
 
 export function ApplicationBrand ({ onSystem }: { onSystem: () => void }): JSX.Element {
   return (

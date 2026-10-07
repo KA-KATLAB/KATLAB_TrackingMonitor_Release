@@ -1,0 +1,48 @@
+/* Workspace presentation only; existing navigation and status owners stay. */
+header.app-shell-header > .app-header-primary {
+  padding: 1rem 0;
+  align-items: flex-start;
+}
+header.app-shell-header > .app-header-primary > .app-header-actions {
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 8px;
+  background: rgb(var(--ui-canvas));
+}
+header.app-shell-header > .app-workspace-context {
+  gap: 0.5rem 1rem;
+  padding: 0.75rem;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 8px;
+  background: rgb(var(--ui-canvas));
+}
+nav[aria-label="Primary views"] > div {
+  gap: 0.5rem;
+}
+nav[aria-label="Primary views"] > div > button.ui-control {
+  min-width: 0;
+  min-height: 3rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid transparent;
+  border-left-width: 3px;
+  border-radius: 8px;
+  background-color: transparent;
+  color: rgb(var(--ui-text-muted));
+  font-size: 1rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+nav[aria-label="Primary views"] > div > button.ui-control:hover:not(:disabled):not([aria-current="page"]) {
+  background-color: rgb(var(--ui-surface-raised));
+  color: rgb(var(--ui-text));
+}
+nav[aria-label="Primary views"] > div > button.ui-control[aria-current="page"] {
+  border-color: rgb(var(--ui-focus));
+  background-color: rgb(var(--ui-surface-raised));
+  color: rgb(var(--ui-text));
+  font-weight: 600;
+}
+nav[aria-label="Primary views"] > div > button.ui-control[aria-current="page"]:hover:not(:disabled) {
+  background-color: rgb(var(--ui-surface-raised));
+}
