@@ -1,3 +1,4 @@
+import { deskPreservation } from "./helpers/missionCommandDesk.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -318,7 +319,7 @@ test("same-part generation and canceled manual run cannot finish a replacement r
 
 const sha = (text) => createHash("sha256").update(text).digest("hex");
 test("exact four-edit restoration preserves original owner, whole file and outside scope in LF and CRLF", () => {
-  const current = read("MissionView.tsx").replace(/\r\n/g, "\n");
+  const current = deskPreservation("Frontend/src/MissionView.tsx", read("MissionView.tsx")).replace(/\r\n/g, "\n");
   assert.equal(sha(JSON.stringify(MISSION_OWNER_CHANGES)), MISSION_OWNER_CHANGES_SHA);
   for (const text of [current, current.replace(/\n/g, "\r\n")]) {
     const restored = restoreMissionOwnerRetirement(text);
@@ -336,7 +337,7 @@ test("exact four-edit restoration preserves original owner, whole file and outsi
 });
 
 test("restoration rejects partial, absent, repeated and unrelated owner or render changes", () => {
-  const current = read("MissionView.tsx").replace(/\r\n/g, "\n");
+  const current = deskPreservation("Frontend/src/MissionView.tsx", read("MissionView.tsx")).replace(/\r\n/g, "\n");
   for (const change of MISSION_OWNER_CHANGES) {
     assert.ok(current.includes(change.after));
     assert.throws(() => restoreMissionOwnerRetirement(current.replace(change.after, change.before)), undefined, `absent ${change.name}`);

@@ -1,3 +1,4 @@
+import { deskPreservation } from "./helpers/missionCommandDesk.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -244,7 +245,7 @@ test("valid unrelated source and calculation changes survive the inverse and fai
 });
 test("unchanged caller, helpers, tokens, gallery, Chronicle, lifecycle, prior suites and dependencies keep RAW/LF pins", () => {
   for (const [path, raw, normalized] of PINS) {
-    const bytes = readFileSync(resolve(root, path)); assert.equal(sha(bytes), raw, path + " RAW");
+    const bytes = deskPreservation(path, readFileSync(resolve(root, path))); assert.equal(sha(bytes), raw, path + " RAW");
     assert.equal(sha(lf(bytes.toString("utf8"))), normalized, path + " LF");
   }
 });

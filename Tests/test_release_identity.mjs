@@ -1,3 +1,4 @@
+import { deskPreservation } from "./helpers/missionCommandDesk.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -153,12 +154,12 @@ function baselineHash (text) {
 
 test("whole App pre-render permits only the exact identity and fingerprinted presence edits", () => {
   for (const text of [appText.replace(/\r\n/g, "\n"), appText.replace(/\r?\n/g, "\r\n")]) {
-    assert.equal(baselineHash(text), "b8c39e9e4bcf9ce970e4ab56be4b627d776522c580929277eba946368ffbeefb");
+    assert.equal(baselineHash(deskPreservation("Frontend/src/App.tsx", text)), "b8c39e9e4bcf9ce970e4ab56be4b627d776522c580929277eba946368ffbeefb");
   }
 });
 
 test("the oracle still accepts the captured pre-presence source without a new baseline", () => {
-  const previous = restorePresenceEffects(appText);
+  const previous = restorePresenceEffects(deskPreservation("Frontend/src/App.tsx", appText));
   assert.doesNotMatch(previous, /workspacePresence\(/);
   assert.equal(baselineHash(previous), "b8c39e9e4bcf9ce970e4ab56be4b627d776522c580929277eba946368ffbeefb");
 });
@@ -168,14 +169,14 @@ test("presence restoration rejects altered behavior, dependencies and partial re
     ["[repos, workspaceReady, error]", "[repos, workspaceReady]"],
     ["const status = workspacePresence(repos, workspaceReady, error);", "const status = otherPresence();"]]) {
     assert.ok(appText.includes(before));
-    assert.throws(() => baselineHash(appText.replace(before, after)), assert.AssertionError);
+    assert.throws(() => baselineHash(deskPreservation("Frontend/src/App.tsx", appText).replace(before, after)), assert.AssertionError);
   }
 });
 
 test("presence restoration cannot conceal an unrelated App statement change", () => {
   const before = "setWorkspaceReady(true);";
   assert.equal(appText.split(before).length - 1, 1);
-  assert.notEqual(baselineHash(appText.replace(before, "setWorkspaceReady(false);")),
+  assert.notEqual(baselineHash(deskPreservation("Frontend/src/App.tsx", appText).replace(before, "setWorkspaceReady(false);")),
     "b8c39e9e4bcf9ce970e4ab56be4b627d776522c580929277eba946368ffbeefb");
 });
 

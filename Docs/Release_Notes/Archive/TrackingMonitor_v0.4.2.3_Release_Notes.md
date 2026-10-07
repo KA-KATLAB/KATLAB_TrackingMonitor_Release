@@ -90,7 +90,7 @@ empty-number policy and stale legend are not repaired or certified here.
 
 ## Safe delivery and explicit limits
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Prove native ownership of literal OLD 2.2 and demo clear before the standard
 owned stop. BOTH 8100 and 8101 must be clear before the actual production 2.3
 build, canonical gate and all fourteen gates/full JSON parity. Use the standard
@@ -115,5 +115,5 @@ security audit is claimed. Prior high build-only braces alert 15, the >500KiB
 chunk notice and test-harness Tailwind warning are not repaired here. Limited
 publication is explicit; a new blocking regression stops delivery.
 
-Previous [v0.4.2.2 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.2.2_Release_Notes.md)
+Previous [v0.4.2.2 notes](TrackingMonitor_v0.4.2.2_Release_Notes.md)
 preserve every historical byte except the two move-affected Markdown URLs.

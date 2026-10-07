@@ -1,5 +1,40 @@
 # Version Notes
 
+## v0.4.3.0 - Mission Command Desk (2026-10-07)
+
+- Add one named, normal-flow Mission sections nav before the original content;
+  from 1536px use a 12rem rail. Keep section order and conditional Plans, original
+  page heading/Refresh/error/loading and Assignment dialog outside the wrapper.
+- Add exactly two App and eleven Mission windows, seven focusable H3 sites,
+  the Mission-lazy desk TSX/CSS and one optional callback/wire. Exact native
+  RAW/LF inverses preserve every original byte outside approved windows.
+- Use native buttons without fragments/history/state/API changes. Valid owned
+  jumps synchronously cancel old route-focus intent, revalidate after flush and
+  focus, and clamp only main.scrollTop to current finite geometry. Keep original
+  route-focus effect/generation/hydration/retry; stale frames/observers retire.
+- Keep all plan/evidence/session/timeline/request/assignment/replay data owners,
+  exact identities, independent error states and existing 12/50-page contracts.
+  Preserve selected Now's mark and 20px/24px surface padding after reparenting.
+- Keep all four entry styles, shared styles, full eager/Overview CSS and six
+  dependencies. Retain every old oracle/helper through strict preservation-only
+  adapters; actual-current behavioral SSR/AST/effect tests never execute restored
+  historical JS. Recompute current closure counts; no caption-copy repair.
+- Require fourteen retained compiled gates plus the new desk gate, complete
+  bounded sequential focused/full checks and full isolated/production JSON parity.
+  Include the dynamic release-identity App pre-render guard in affected-source
+  coverage; preserve all old assertions and current release behavior. Its original
+  oracle is bounded, but strict whole-App input projection also couples caption
+  edits. Distinguish original assertion semantics from effective current coupling.
+  Controlled hosts/vendor source predicates are not native interaction evidence.
+- Canonical source/build0.4.3.0; prove literal OLD2.3 ownership/BOTH ports clear
+  before production build/gates and standard Hidden restart parent. Readiness
+  requires current notes AND full8784-byte Chronicle CSS/full4772af identity.
+- Archive2.3 preserving all old bytes except two moved URLs. Actual review/test/
+  build/live/ONEcommit/threeFF/fourref outcomes belong in the ignored3.0 plan,
+  not inferred here. Native/operator acceptance, large Connection:close, high
+  build-only braces alert15/chunk/Tailwind and prior async/empty/legend/caption
+  limitations remain OPEN; no transport/security repair or unrun pass claim.
+
 ## v0.4.2.3 - Diagnostic Studio (2026-10-07)
 
 - Refine only the accepted System snapshot: stronger named section headings,

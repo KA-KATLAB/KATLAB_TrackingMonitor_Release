@@ -1,3 +1,4 @@
+import { deskPreservation } from "./helpers/missionCommandDesk.mjs";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -463,7 +464,7 @@ test("strict disclosure restoration preserves original whole App, complete owner
   const sha = value => createHash("sha256").update(value).digest("hex");
   const printer = ts.createPrinter({ removeComments: true });
   assert.equal(sha(DIFF_DISCLOSURE_WINDOW), DIFF_DISCLOSURE_WINDOW_SHA);
-  const lf = restoreWarningTimestampOrder(restoreGitGraphBoundaryCopy(restoreChangesWorkbench(read("App.tsx")))).replace(/\r\n/g, "\n");
+  const lf = restoreWarningTimestampOrder(restoreGitGraphBoundaryCopy(restoreChangesWorkbench(deskPreservation("Frontend/src/App.tsx", read("App.tsx"))))).replace(/\r\n/g, "\n");
   for (const newline of ["\n", "\r\n"]) {
     const source = lf.replace(/\n/g, newline), restored = restoreDiffDisclosureState(source);
     const ast = disclosureAst(restored), owner = disclosureOwner(ast);
@@ -490,7 +491,7 @@ test("strict disclosure restoration preserves original whole App, complete owner
 test("strict disclosure restoration rejects absent, repeated, partial, wrong-site and unrelated owner changes", async () => {
   const { restoreDiffDisclosureState, DIFF_DISCLOSURE_LINE, DIFF_DISCLOSURE_WINDOW } =
     await import("./helpers/diffDisclosureState.mjs");
-  const source = read("App.tsx").replace(/\r\n/g, "\n");
+  const source = deskPreservation("Frontend/src/App.tsx", read("App.tsx")).replace(/\r\n/g, "\n");
   const ast = disclosureAst(source), owner = disclosureOwner(ast), originalOwner = owner.getText(ast);
   const changedOwner = body => source.slice(0, owner.getStart(ast)) + body + source.slice(owner.end);
   const cases = [
@@ -518,7 +519,7 @@ test("strict disclosure restoration rejects absent, repeated, partial, wrong-sit
 
 test("disclosure restoration leaves unrelated History changes for its original negative oracles", async () => {
   const { restoreDiffDisclosureState } = await import("./helpers/diffDisclosureState.mjs");
-  const source = read("App.tsx");
+  const source = deskPreservation("Frontend/src/App.tsx", read("App.tsx"));
   const before = "Explore commit history and its linked captured events.", after = "Independent History sentinel.";
   assert.equal(restoreDiffDisclosureState(disclosureReplaceOnce(source, before, after)),
     disclosureReplaceOnce(restoreDiffDisclosureState(source), before, after));
@@ -527,8 +528,8 @@ test("disclosure restoration leaves unrelated History changes for its original n
 test("all six old diff tests and every old History oracle survive exact append-only and two-site adaptations", async () => {
   const { createHash } = await import("node:crypto");
   const sha = value => createHash("sha256").update(value).digest("hex");
-  const currentLF = readFileSync(fileURLToPath(import.meta.url), "utf8").replace(/\r\n/g, "\n");
-  const historyLF = restoreGitGraphOracleAdapters("test_history_graph_read_states.mjs", restoreChangesWorkbenchOracleAdapters("test_history_graph_read_states.mjs", readFileSync(resolve(root, "Tests/test_history_graph_read_states.mjs"), "utf8"))).replace(/\r\n/g, "\n");
+  const currentLF = deskPreservation("Tests/test_diff_availability.mjs", readFileSync(fileURLToPath(import.meta.url), "utf8")).replace(/\r\n/g, "\n");
+  const historyLF = restoreGitGraphOracleAdapters("test_history_graph_read_states.mjs", restoreChangesWorkbenchOracleAdapters("test_history_graph_read_states.mjs", deskPreservation("Tests/test_history_graph_read_states.mjs", readFileSync(resolve(root, "Tests/test_history_graph_read_states.mjs"), "utf8")))).replace(/\r\n/g, "\n");
   for (const newline of ["\n", "\r\n"]) {
     // Checkout newline conversion cannot excuse any changed token or old test.
     const current = Buffer.from(currentLF.replace(/\n/g, newline).replace(/\r\n/g, "\n"));

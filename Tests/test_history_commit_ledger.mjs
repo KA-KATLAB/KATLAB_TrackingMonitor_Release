@@ -1,3 +1,4 @@
+import { deskPreservation } from "./helpers/missionCommandDesk.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -233,7 +234,7 @@ test("valid outside mutations pass through the inverse and fail full original pi
     }
   }
   for (const [name, rawPin, lfPin] of PINS) {
-    const text = read(name); ending(text); assert.equal(sha(text), rawPin, name); assert.equal(sha(lf(text)), lfPin, name);
+    const text = deskPreservation(name, read(name)); ending(text); assert.equal(sha(text), rawPin, name); assert.equal(sha(lf(text)), lfPin, name);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(text).replace(/\n/g, eol))), lfPin);
   }
 });

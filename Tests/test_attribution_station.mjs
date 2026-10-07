@@ -1,3 +1,4 @@
+import { deskPreservation } from "./helpers/missionCommandDesk.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -15,8 +16,8 @@ const { renderToStaticMarkup } = require("react-dom/server");
 const read = name => {
   const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(readFileSync(resolve(root, name)));
   if (name === "Frontend/index.html") return studioHtml(text);
-  if (name === "Tests/test_workbench_2_0.mjs") return studioWorkbench(text);
-  if (name === "Tests/test_changes_review_desk.mjs") return studioChanges(text);
+  if (name === "Tests/test_workbench_2_0.mjs") return studioWorkbench(deskPreservation(name, text));
+  if (name === "Tests/test_changes_review_desk.mjs") return studioChanges(deskPreservation(name, text));
   return text;
 };
 const sha = value => createHash("sha256").update(value).digest("hex"), lf = text => text.replace(/\r\n/g, "\n");
@@ -409,7 +410,7 @@ test("two-window adapters restore both whole prior suites and preserve unrelated
   }
   assert.equal(PINS.length, 37);
   for (const [name, raw, normalized] of [...PINS, ...ADDITIONAL_PINS]) {
-    const text = read(name); assert.equal(sha(text), raw, name + " RAW"); assert.equal(sha(lf(text)), normalized, name + " LF");
+    const text = deskPreservation(name, read(name)); assert.equal(sha(text), raw, name + " RAW"); assert.equal(sha(lf(text)), normalized, name + " LF");
   }
 });
 test("actual AST binds direct queue/row/feedback and excluded portal/pager owners", () => {

@@ -1,3 +1,4 @@
+import { deskPreservation } from "./helpers/missionCommandDesk.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -213,7 +214,7 @@ test("complete Mission, shared stylesheet and four old suites preserve distinct 
     ["Tests/test_mission_owner_retirement.mjs", "9adaf72a29ba6e582d7a0fe0227863e4efbbb38d19ecdf8cc07293881231ca1f",
       "9adaf72a29ba6e582d7a0fe0227863e4efbbb38d19ecdf8cc07293881231ca1f"],
   ]) {
-    const raw = read(name); ending(raw);
+    const raw = deskPreservation(name, read(name)); ending(raw);
     assert.equal(sha(raw), rawPin, "whole actual physical bytes: " + name);
     assert.equal(sha(lf(raw)), lfPin, "whole original LF bytes: " + name);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(raw).replace(/\n/g, eol))), lfPin);

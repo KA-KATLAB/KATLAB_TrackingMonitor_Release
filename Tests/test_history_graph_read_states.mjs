@@ -1,3 +1,4 @@
+import { deskPreservation } from "./helpers/missionCommandDesk.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -422,7 +423,7 @@ const replaceOnce = (text, before, after) => {
   return text.replace(before, after);
 };
 test("original whole pre-render/outside-graph hashes and reviewed graph survive LF/CRLF", () => {
-  const lf = source.replace(/\r\n/g, "\n");
+  const lf = deskPreservation("Frontend/src/App.tsx", source).replace(/\r\n/g, "\n");
   checkPreservation(lf); checkPreservation(lf.replace(/\n/g, "\r\n"));
 });
 
@@ -438,21 +439,21 @@ test("strict two-term reversal rejects missing, repeated, partial and unrelated 
     ["!loading", "loading"],
   ]) {
     const modified = replaceOnce(gate, before, after);
-    assert.throws(() => checkPreservation(replaceOnce(source, gate, modified)), /complete bottom gate/);
+    assert.throws(() => checkPreservation(replaceOnce(deskPreservation("Frontend/src/App.tsx", source), gate, modified)), /complete bottom gate/);
   }
 });
 
 test("preservation guards reject unrelated owners, other returns and partial graph edits", () => {
   const owner = local("runLoad");
-  assert.throws(() => checkPreservation(replaceOnce(source, owner,
+  assert.throws(() => checkPreservation(replaceOnce(deskPreservation("Frontend/src/App.tsx", source), owner,
     replaceOnce(owner, "api.history(id, PAGE, offset", "api.history(id, PAGE - 1, offset"))));
-  assert.throws(() => checkPreservation(replaceOnce(source,
+  assert.throws(() => checkPreservation(replaceOnce(deskPreservation("Frontend/src/App.tsx", source),
     "Explore commit history and its linked captured events.", "Unrelated changed description.")));
   const oldGraph = graph.getText(app);
   for (const [before, after] of [["showGraph &&", "true &&"],
     ["graphRows.length > 0", "graphRows.length >= 0"],
     ["rows={graphRows}", "rows={graphRows.slice(1)}"],
     ["|| !graphSvg}", "}"],
-  ]) assert.throws(() => checkPreservation(replaceOnce(source, oldGraph,
+  ]) assert.throws(() => checkPreservation(replaceOnce(deskPreservation("Frontend/src/App.tsx", source), oldGraph,
     replaceOnce(oldGraph, before, after))));
 });

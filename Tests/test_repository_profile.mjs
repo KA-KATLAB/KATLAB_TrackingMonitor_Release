@@ -1,3 +1,4 @@
+import { deskPreservation } from "./helpers/missionCommandDesk.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -208,7 +209,7 @@ test("inverse retains unrelated valid changes instead of swallowing them", () =>
 test("all thirty coupled source, old-suite and dependency RAW/LF pins remain exact", () => {
   assert.equal(PINS.length, 30);
   for (const [name, raw, normalized] of PINS) {
-    const bytes = readFileSync(resolve(root, name));
+    const bytes = deskPreservation(name, readFileSync(resolve(root, name)));
     assert.equal(sha(bytes), raw, name + " RAW");
     assert.equal(sha(lf(bytes.toString("utf8"))), normalized, name + " LF");
   }

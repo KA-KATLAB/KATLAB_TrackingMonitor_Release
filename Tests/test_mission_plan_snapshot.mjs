@@ -1,3 +1,4 @@
+import { deskPreservation } from "./helpers/missionCommandDesk.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -137,7 +138,7 @@ const payload = (plans = [], extra = {}) => ({ scope: { kind: "all", repo: null 
   plans, ...extra });
 
 test("Mission presentation preserves the entire baseline pre-render computation and owners", () => {
-  const original = ts.createSourceFile("MissionView.tsx", restoreMissionOwnerRetirement(read("MissionView.tsx")),
+  const original = ts.createSourceFile("MissionView.tsx", restoreMissionOwnerRetirement(deskPreservation("Frontend/src/MissionView.tsx", read("MissionView.tsx"))),
     ts.ScriptTarget.Latest, true);
   const statements = [...declaration(original, "MissionView").body.statements];
   assert.ok(ts.isReturnStatement(statements.pop()));

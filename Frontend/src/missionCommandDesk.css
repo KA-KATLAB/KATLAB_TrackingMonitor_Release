@@ -1,0 +1,72 @@
+/* Mission Command Desk: normal-flow wayfinding within the existing main scroller. */
+.mission-command-desk {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 1.5rem;
+}
+.mission-command-desk > .mission-command-navigation {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 8px;
+  background: rgb(var(--ui-surface));
+}
+.mission-command-navigation .mission-command-title {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.4;
+  font-weight: 600;
+  color: rgb(var(--ui-text));
+}
+.mission-command-navigation .mission-command-description {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: rgb(var(--ui-text-muted));
+  overflow-wrap: anywhere;
+}
+.mission-command-navigation .mission-command-links {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.mission-command-navigation .mission-command-links > .mission-command-link {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  justify-content: flex-start;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.mission-command-desk > .mission-command-content {
+  min-width: 0;
+}
+.mission-command-content > .ui-surface.border-l-4 {
+  padding: 1.25rem;
+  background: rgb(var(--ui-surface));
+}
+@media (min-width: 768px) {
+  .mission-command-content > .ui-surface.border-l-4 {
+    padding: 1.5rem;
+  }
+}
+@media (min-width: 1536px) {
+  .mission-command-desk {
+    grid-template-columns: 12rem minmax(0, 1fr);
+  }
+  .mission-command-navigation .mission-command-links {
+    flex-direction: column;
+  }
+  .mission-command-navigation .mission-command-links > .mission-command-link {
+    width: 100%;
+  }
+}

@@ -1727,6 +1727,10 @@ export default function App () {
     return () => window.removeEventListener("popstate", onPopState);
   }, [saveCurrentEntry]);
 
+  const cancelMissionRouteFocus = useCallback(() => {
+    flushSync(() => setRouteFocusRequest(null));
+  }, []);
+
   const consumeInitialDayScopeAction = useCallback(() => {
     if (dayLaneForegroundEntryRef.current === entryIdRef.current) {
       dayLaneForegroundEntryRef.current = "";
@@ -2567,6 +2571,7 @@ export default function App () {
               <Suspense fallback={<LazyViewStatus name="Mission" />}>
                 <LazyMissionView scope={scopeApiId(scope)} invalidationNonce={missionNonce}
                   entryState={missionUi} onEntryStateChange={setMissionUi}
+                  onSectionNavigation={cancelMissionRouteFocus}
                   onStatus={announceStatus} />
               </Suspense>
             </LazyViewBoundary>

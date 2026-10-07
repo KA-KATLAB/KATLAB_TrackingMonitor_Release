@@ -1,3 +1,4 @@
+import { deskPreservation } from "./helpers/missionCommandDesk.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -265,7 +266,7 @@ test("valid outside-window edits survive inverse and fail complete original/resu
 test("coupled current owners, old suites and six dependencies preserve whole RAW/LF", () => {
   assert.equal(PINS.length, 57); assert.equal(new Set(PINS.map(([name]) => name)).size, PINS.length);
   for (const [name, raw, normalized] of PINS) {
-    const value = read(name); assert.equal(sha(value), raw, name + " RAW"); assert.equal(sha(lf(value)), normalized, name + " LF");
+    const value = deskPreservation(name, read(name)); assert.equal(sha(value), raw, name + " RAW"); assert.equal(sha(lf(value)), normalized, name + " LF");
     assert.equal(sha(lf(value).replace(/\n/g, "\r\n").replace(/\r\n/g, "\n")), normalized, name + " CRLF round trip");
   }
 });

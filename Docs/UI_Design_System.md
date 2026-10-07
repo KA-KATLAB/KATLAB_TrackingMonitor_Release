@@ -417,6 +417,67 @@ Retain historical release-note bytes. Native/operator paint, reflow, keyboard,
 coarse input, zoom and AT acceptance remain open; source/SSR/built/HTTP evidence
 does not certify them or repair the known large Connection:close body fault.
 
+### 3.5 Mission Command Desk composition and focus
+
+Mission Command Desk is a Mission-lazy composition, not a new route or readiness
+model. Keep the existing page heading, Refresh, error/loading notices before the
+desk and Assignment dialog outside and after it. All original Now, conditional
+Plan scope, Attribution forecast, Verification rail, Evidence queue and Session
+flight recorder children remain mounted in their original order. Preserve exact
+plan/provider/session identities, backend states, independent errors and every
+12-plan/50-item page, request, deadline, replay and Exact Data owner.
+
+The named Mission sections nav precedes the content in normal flow. It offers
+Now, conditional Plans, Forecast, Verification, Evidence and Flight recorder;
+Plans uses exactly the existing Plan scope condition. Use native type=button
+ControlButton controls and aria-controls for the existing section H3 headings.
+Both mutually exclusive Now branches share one fixed heading ID; never mount
+duplicates or reuse data-view-heading. Keep all six named targets at tabindex=-1.
+No current-section inference, tabs, hidden panels, fragment links, history writes,
+new entry state, persistence, requests, timers or automatic section navigation.
+
+Scope the separate stylesheet to the new desk/nav/content owners. Use one
+zero-minimum column and a 24px gap; from 1536px use a normal-flow 12rem rail beside
+a zero-minimum content column. Smaller layouts wrap controls above the content.
+No sticky/fixed position, new scroller, clipping or reordered DOM. Nav surface
+uses 16px padding/8px corners and semantic surface/border/text. Its title uses
+20px/1.4/600; supporting copy uses 12px/1.5 and natural anywhere wrapping. Desk
+controls use 14px/1.5, 8px vertical/12px horizontal padding and a 44px minimum
+height; preserve shared focus, disabled, coarse and reduced-motion ownership.
+Content keeps 24px separation. Reapply ONLY selected Now's semantic surface and
+20px padding, 24px from 768px, because the wrapper changes its direct parent.
+Keep its existing readiness mark, text and every other Workbench/Studio rule.
+
+A user section jump requires the same connected trigger, unique focusable H3,
+desk and existing main[data-app-scroll]; reject hidden/disabled/inert ancestors,
+active overlay leases, replacement/duplicate nodes and nonfinite geometry.
+Invoke the optional callback only after valid preguards. The dedicated App
+callback synchronously clears routeFocusRequest through existing flushSync,
+then the jump revalidates ownership and geometry. Revalidate again after focus
+with preventScroll:true; clamp ONLY current main.scrollTop to finite post-flush
+geometry. The old App route-focus effect, generation, hydration/retry, history,
+entry, snapshot and API owners stay unchanged. No deferred focus, scrollIntoView,
+window/document scrolling or new motion. The callback alone never jumps.
+
+Keep exact native RAW/LF inverses for the two App and eleven Mission windows.
+Historical source/suite projection belongs ONLY in preservation assertions;
+behavioral AST/SSR/effect hosts use actual current code. Keep historical helpers
+and all old oracles, complete four inline styles, eager/Overview CSS and six
+dependency files. Recompute transitive current preservation and caption closures
+without confusing focused delivery paths or estimates with verified totals.
+Include dynamically fingerprinted pre-render owners in affected-source review.
+Distinguish the original assertion's bounded semantics from effective coupling:
+a strict whole-App input projection also couples that suite to caption edits.
+Count the complete current adapter path, preserving original assertions through
+projection before fixture mutation; actual release behavior stays unprojected.
+Require the fourteen retained compiled gates plus a strict desk/lazy CSS gate
+and full isolated/production JSON parity. Installed ReactDOM18.3.1/createRoot
+source predicates and controlled synchronous hosts are bounded evidence, not
+native React/browser execution or a future-version cleanup guarantee.
+Native paint, keyboard/focus, reflow, coarse input, zoom and AT acceptance remain
+OPEN; source/SSR/compiled/HTTP checks cannot certify them or the known large
+Connection:close fault. A new blocking regression prevents publication.
+
 ## 4. Shared component contract
 
 Shared primitives are small implementation helpers, not a component framework. They forward native props and refs, preserve native disabled/focus behavior, and accept `className` only for local layout.

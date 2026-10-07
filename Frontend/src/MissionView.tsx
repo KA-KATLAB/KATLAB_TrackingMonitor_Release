@@ -26,6 +26,7 @@ import type {
 import { DialogShell } from "./dialog";
 import { AssignmentFeedback } from "./assignmentFeedback";
 import { runAssignmentRequest } from "./assignmentRequest";
+import { MissionCommandDesk } from "./missionCommandDesk";
 import { fmtRel, fmtTs } from "./format";
 import { decodeForecast, forecastCandidateKey } from "./forecastDecoder";
 import type { ForecastDecodeResult } from "./forecastDecoder";
@@ -147,6 +148,7 @@ function ForecastPanel ({ result, repoId, loading, error, onRetry, retryBusy }: 
   return (
     <Surface tone="quiet" className="border-t-ui-border">
       <SectionHeading title="Attribution forecast" level={3}
+        headingId="mission-forecast-heading" headingProps={{ tabIndex: -1 }}
         description="Read-only preview of captured dirty paths and their possible task attribution." />
       <p className="text-xs text-ui-muted">
         Based on the last completed plan sync. Plan edits appear after the watcher syncs them.
@@ -291,6 +293,7 @@ export interface MissionViewProps {
   entryState: MissionEntryState;
   onEntryStateChange: (state: MissionEntryState) => void;
   onStatus: (message: string) => void;
+  onSectionNavigation?: () => void;
 }
 
 function ErrorNotice ({ message, onRetry, busy = false }: {
@@ -433,6 +436,7 @@ function NowPanel ({ plan, scope, summary, busy }: {
     return (
       <Surface tone="raised">
         <SectionHeading title="Now" level={3}
+          headingId="mission-now-heading" headingProps={{ tabIndex: -1 }}
           description="One exact plan is shown only after it is proven unique or explicitly selected." />
         <div className="ui-empty-state">
           {missionPlanPrompt(summary, scope, busy,
@@ -447,6 +451,7 @@ function NowPanel ({ plan, scope, summary, busy }: {
   return (
     <Surface tone="raised" className="border-l-4 border-l-sky-400">
       <SectionHeading
+        headingId="mission-now-heading" headingProps={{ tabIndex: -1 }}
         title={<span className="inline-flex items-center gap-2"><MissionIcon /> Now</span>}
         level={3}
         description="Backend-evaluated readiness. Green means declared evidence is fresh, not universal correctness."
@@ -699,7 +704,7 @@ function ActivityTable ({ rows, selectedId, onSelect }: {
 }
 
 export function MissionView ({ scope, invalidationNonce, entryState,
-  onEntryStateChange, onStatus }: MissionViewProps): JSX.Element {
+  onEntryStateChange, onStatus, onSectionNavigation }: MissionViewProps): JSX.Element {
   const reducedMotion = usePrefersReducedMotion();
   const entryRef = useRef(entryState);
   entryRef.current = entryState;
@@ -1116,332 +1121,339 @@ export function MissionView ({ scope, invalidationNonce, entryState,
       {missionBusy && !mission && (
         <div className="ui-skeleton h-32 rounded-panel" aria-label="Loading Mission" />
       )}
-      <NowPanel plan={selectedPlan} scope={scope} summary={mission?.summary ?? null}
-        busy={missionBusy} />
+      <MissionCommandDesk showPlans={Boolean(mission && mission.plans.length > 0)}
+        onSectionNavigation={onSectionNavigation}>
+        <NowPanel plan={selectedPlan} scope={scope} summary={mission?.summary ?? null}
+          busy={missionBusy} />
 
-      {mission && mission.plans.length > 0 && (
-        <Surface tone="quiet">
-          <SectionHeading title="Plan scope" level={3}
-            description={`${mission.plans.length} tracked plans in this scope. Choose an exact repository + plan pair; ambiguous scopes are never guessed.`} />
-          <div id="mission-plan-cards" className="grid min-w-0 gap-3 md:grid-cols-2">
-            {visiblePlans.map((plan) => {
-              const key = planKey(plan.repo, plan.plan_file);
-              return <PlanCard key={key} plan={plan} selected={entryState.planKey === key}
-                onSelect={() => patchEntry({ planKey: key })} />;
-            })}
-          </div>
-          {mission.plans.length > 12 && (
-            <CollectionPager collectionLabel="Mission plans" controlsId="mission-plan-cards"
-              page={planPager} onPageChange={planPager.setPage} className="mt-3" />
-          )}
-        </Surface>
-      )}
-
-      <ForecastPanel result={forecastResult} repoId={forecastRepoId}
-        loading={missionBusy} error={Boolean(missionError)}
-        onRetry={refresh} retryBusy={refreshBusy} />
-
-      <Surface>
-        <SectionHeading title="Verification rail" level={3}
-          description="Current backend-evaluated gate state, freshness, and clean-review streak." />
-        {!selectedPlan ? (
-          <p className="text-sm text-ui-muted [overflow-wrap:anywhere]">
-            {missionPlanPrompt(mission?.summary ?? null, scope, missionBusy,
-              "Select one exact plan to inspect its requirements.")}
-          </p>
-        ) : selectedPlan.requirements.length === 0 ? (
-          <p className="text-sm text-ui-muted">This plan declares no verification requirements.</p>
-        ) : (
-          <div id="mission-verification-rail" className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {selectedPlan.requirements.slice(
-              verificationPager.start, verificationPager.end,
-            ).map((requirement) => {
-              const state = requirementPresentation(requirement);
-              return (
-                <article key={requirement.check_id}
-                  className={cx("min-w-0 rounded-panel border p-3", TONE_CLASS[state.tone])}>
-                  <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h4 className="break-words text-base font-semibold">{requirement.label}</h4>
-                      <p className="break-all font-mono text-xs opacity-80">{requirement.check_id}</p>
-                    </div>
-                    <span className="rounded-full border border-current px-2 py-0.5 text-xs font-semibold">
-                      <span aria-hidden="true">{state.marker} </span>{state.label}
-                    </span>
-                  </div>
-                  <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
-                    <dt>Outcome</dt><dd className="break-words">{requirement.latest_outcome ?? "not reported"}</dd>
-                    <dt>Observed</dt><dd>{requirement.observed_at ? fmtRel(requirement.observed_at) : "never"}</dd>
-                    <dt>Fresh after</dt><dd className="break-all font-mono">{fmtTs(requirement.freshness_floor)}</dd>
-                    {state.progress && <><dt>Streak</dt><dd>{state.progress} clean</dd></>}
-                  </dl>
-                </article>
-              );
-            })}
-          </div>
+        {mission && mission.plans.length > 0 && (
+          <Surface tone="quiet">
+            <SectionHeading title="Plan scope" level={3}
+              headingId="mission-plans-heading" headingProps={{ tabIndex: -1 }}
+              description={`${mission.plans.length} tracked plans in this scope. Choose an exact repository + plan pair; ambiguous scopes are never guessed.`} />
+            <div id="mission-plan-cards" className="grid min-w-0 gap-3 md:grid-cols-2">
+              {visiblePlans.map((plan) => {
+                const key = planKey(plan.repo, plan.plan_file);
+                return <PlanCard key={key} plan={plan} selected={entryState.planKey === key}
+                  onSelect={() => patchEntry({ planKey: key })} />;
+              })}
+            </div>
+            {mission.plans.length > 12 && (
+              <CollectionPager collectionLabel="Mission plans" controlsId="mission-plan-cards"
+                page={planPager} onPageChange={planPager.setPage} className="mt-3" />
+            )}
+          </Surface>
         )}
-        {selectedPlan && selectedPlan.requirements.length > 50 && (
-          <CollectionPager collectionLabel="Verification requirements"
-            controlsId="mission-verification-rail" page={verificationPager}
-            onPageChange={verificationPager.setPage} className="mt-3" />
-        )}
-      </Surface>
 
-      <Surface>
-        <SectionHeading title="Evidence queue" level={3}
-          description="Missing or unhealthy requirements plus selected-plan and eligible unassigned evidence from the current bounded ledger page."
-          actions={
-            <SegmentedControl<EvidenceFilter>
-              label="Evidence filter"
-              className="max-w-full flex-wrap"
-              value={entryState.evidenceFilter}
-              onChange={(evidenceFilter) => patchEntry({ evidenceFilter })}
-              options={[
-                { value: "attention", label: "Attention" },
-                { value: "unassigned", label: "Unassigned" },
-                { value: "all", label: "All" },
-              ]}
-            />
-          }
-        />
-        {evidenceError && <ErrorNotice message={evidenceError} onRetry={refresh}
-          busy={refreshBusy} />}
-        {!selectedPlan ? (
-          <p className="text-sm text-ui-muted [overflow-wrap:anywhere]">
-            {missionPlanPrompt(mission?.summary ?? null, scope, missionBusy,
-              "Select a plan to inspect evidence.")}
-          </p>
-        ) : (
-          <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-            <section className="min-w-0" aria-labelledby="mission-requirement-queue-title">
-              <h4 id="mission-requirement-queue-title" className="ui-panel-title mb-3 text-ui-text">
-                Requirement attention
-              </h4>
-              <div id="mission-requirement-queue" className="ui-work-list">
-                {visibleRequirements.map((requirement) => {
-                  const state = requirementPresentation(requirement);
-                  return (
-                    <div key={requirement.check_id}
-                      className="ui-work-row justify-between text-sm">
-                      <span className="min-w-0 flex-1">
-                        <span className="block break-words text-base text-ui-text">{requirement.label}</span>
-                        <span className="block break-all font-mono text-xs text-ui-muted">{requirement.check_id}</span>
-                      </span>
-                      <span className={cx("shrink-0 font-semibold", TONE_CLASS[state.tone].split(" ").at(-1))}>
+        <ForecastPanel result={forecastResult} repoId={forecastRepoId}
+          loading={missionBusy} error={Boolean(missionError)}
+          onRetry={refresh} retryBusy={refreshBusy} />
+
+        <Surface>
+          <SectionHeading title="Verification rail" level={3}
+            headingId="mission-verification-heading" headingProps={{ tabIndex: -1 }}
+            description="Current backend-evaluated gate state, freshness, and clean-review streak." />
+          {!selectedPlan ? (
+            <p className="text-sm text-ui-muted [overflow-wrap:anywhere]">
+              {missionPlanPrompt(mission?.summary ?? null, scope, missionBusy,
+                "Select one exact plan to inspect its requirements.")}
+            </p>
+          ) : selectedPlan.requirements.length === 0 ? (
+            <p className="text-sm text-ui-muted">This plan declares no verification requirements.</p>
+          ) : (
+            <div id="mission-verification-rail" className="grid min-w-0 gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {selectedPlan.requirements.slice(
+                verificationPager.start, verificationPager.end,
+              ).map((requirement) => {
+                const state = requirementPresentation(requirement);
+                return (
+                  <article key={requirement.check_id}
+                    className={cx("min-w-0 rounded-panel border p-3", TONE_CLASS[state.tone])}>
+                    <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h4 className="break-words text-base font-semibold">{requirement.label}</h4>
+                        <p className="break-all font-mono text-xs opacity-80">{requirement.check_id}</p>
+                      </div>
+                      <span className="rounded-full border border-current px-2 py-0.5 text-xs font-semibold">
                         <span aria-hidden="true">{state.marker} </span>{state.label}
                       </span>
                     </div>
-                  );
-                })}
-                {visibleRequirements.length === 0 && (
-                  <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted">
-                    {entryState.evidenceFilter === "unassigned"
-                      ? "Requirement states are hidden by the unassigned-evidence filter."
-                      : "No requirement needs attention."}
-                  </p>
+                    <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+                      <dt>Outcome</dt><dd className="break-words">{requirement.latest_outcome ?? "not reported"}</dd>
+                      <dt>Observed</dt><dd>{requirement.observed_at ? fmtRel(requirement.observed_at) : "never"}</dd>
+                      <dt>Fresh after</dt><dd className="break-all font-mono">{fmtTs(requirement.freshness_floor)}</dd>
+                      {state.progress && <><dt>Streak</dt><dd>{state.progress} clean</dd></>}
+                    </dl>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+          {selectedPlan && selectedPlan.requirements.length > 50 && (
+            <CollectionPager collectionLabel="Verification requirements"
+              controlsId="mission-verification-rail" page={verificationPager}
+              onPageChange={verificationPager.setPage} className="mt-3" />
+          )}
+        </Surface>
+
+        <Surface>
+          <SectionHeading title="Evidence queue" level={3}
+            headingId="mission-evidence-heading" headingProps={{ tabIndex: -1 }}
+            description="Missing or unhealthy requirements plus selected-plan and eligible unassigned evidence from the current bounded ledger page."
+            actions={
+              <SegmentedControl<EvidenceFilter>
+                label="Evidence filter"
+                className="max-w-full flex-wrap"
+                value={entryState.evidenceFilter}
+                onChange={(evidenceFilter) => patchEntry({ evidenceFilter })}
+                options={[
+                  { value: "attention", label: "Attention" },
+                  { value: "unassigned", label: "Unassigned" },
+                  { value: "all", label: "All" },
+                ]}
+              />
+            }
+          />
+          {evidenceError && <ErrorNotice message={evidenceError} onRetry={refresh}
+            busy={refreshBusy} />}
+          {!selectedPlan ? (
+            <p className="text-sm text-ui-muted [overflow-wrap:anywhere]">
+              {missionPlanPrompt(mission?.summary ?? null, scope, missionBusy,
+                "Select a plan to inspect evidence.")}
+            </p>
+          ) : (
+            <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+              <section className="min-w-0" aria-labelledby="mission-requirement-queue-title">
+                <h4 id="mission-requirement-queue-title" className="ui-panel-title mb-3 text-ui-text">
+                  Requirement attention
+                </h4>
+                <div id="mission-requirement-queue" className="ui-work-list">
+                  {visibleRequirements.map((requirement) => {
+                    const state = requirementPresentation(requirement);
+                    return (
+                      <div key={requirement.check_id}
+                        className="ui-work-row justify-between text-sm">
+                        <span className="min-w-0 flex-1">
+                          <span className="block break-words text-base text-ui-text">{requirement.label}</span>
+                          <span className="block break-all font-mono text-xs text-ui-muted">{requirement.check_id}</span>
+                        </span>
+                        <span className={cx("shrink-0 font-semibold", TONE_CLASS[state.tone].split(" ").at(-1))}>
+                          <span aria-hidden="true">{state.marker} </span>{state.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {visibleRequirements.length === 0 && (
+                    <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted">
+                      {entryState.evidenceFilter === "unassigned"
+                        ? "Requirement states are hidden by the unassigned-evidence filter."
+                        : "No requirement needs attention."}
+                    </p>
+                  )}
+                </div>
+                {requirementRows.length > 50 && (
+                  <CollectionPager collectionLabel="Requirement evidence queue"
+                    controlsId="mission-requirement-queue" page={requirementPager}
+                    onPageChange={requirementPager.setPage} className="mt-3" />
                 )}
+              </section>
+              <section className="min-w-0" aria-labelledby="mission-ledger-queue-title">
+                <h4 id="mission-ledger-queue-title" className="ui-panel-title mb-3 text-ui-text">
+                  Evidence ledger
+                </h4>
+                <div id="mission-ledger-queue" className="ui-work-list">
+                  {evidenceRows.map((row) => (
+                    <div key={row.evidence_id}
+                      className="ui-work-row items-center justify-between text-sm">
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words text-base text-ui-text">{activityLabel(row)}</p>
+                        <p className="mt-0.5 break-words text-xs text-ui-muted">
+                          {row.provider} · {fmtTs(row.ts)} · {row.outcome ?? "outcome not reported"}
+                        </p>
+                        <p className="mt-0.5 break-all font-mono text-xs text-ui-muted">
+                          {row.effective_assignment.repo && row.effective_assignment.plan_file
+                            ? `${row.effective_assignment.mode}: ${row.effective_assignment.repo} · ${row.effective_assignment.plan_file}`
+                            : "UNASSIGNED"}
+                        </p>
+                      </div>
+                      {(eligibleAssignmentPlans(mission?.plans ?? [], row).length > 0
+                        || (row.effective_assignment.repo !== null
+                          && row.assignment_repo_ids.includes(row.effective_assignment.repo)
+                          && row.effective_assignment.mode !== "UNASSIGNED"
+                          && row.effective_assignment.mode !== "NONE")) && (
+                        <ControlButton onClick={() => setAssignment(row)}>
+                          {row.effective_assignment.mode === "UNASSIGNED" ? "Assign" : "Review assignment"}
+                        </ControlButton>
+                      )}
+                    </div>
+                  ))}
+                  {evidenceBusy ? (
+                    <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted"
+                      role="status">Loading evidence ledger...</p>
+                  ) : !evidenceError && evidenceRows.length === 0 && (
+                    <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted">
+                      No matching canonical evidence on this activity page.
+                    </p>
+                  )}
+                </div>
+                {!evidenceBusy && evidence.total > 50 && (
+                  <CollectionPager collectionLabel="Evidence ledger activity"
+                    controlsId="mission-ledger-queue" page={evidencePager}
+                    onPageChange={evidencePager.setPage} className="mt-3" />
+                )}
+              </section>
+            </div>
+          )}
+        </Surface>
+
+        <Surface>
+          <SectionHeading title="Session flight recorder" level={3}
+            headingId="mission-flight-heading" headingProps={{ tabIndex: -1 }}
+            description="Provider + session identity, deterministic time ordering, and explicit session-root lanes." />
+          {sessionsError && <ErrorNotice message={sessionsError} onRetry={refresh}
+            busy={refreshBusy} />}
+          <div className="grid min-w-0 gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
+            <section className="min-w-0" aria-labelledby="mission-session-list-title">
+              <h4 id="mission-session-list-title" className="ui-panel-title mb-3 text-ui-text">
+                Sessions
+              </h4>
+              <div id="mission-session-list" className="max-h-96 space-y-2 overflow-y-auto pr-1">
+                {sessions.items.map((session) => (
+                  <button key={sessionIdentityKey(session.provider, session.session_id)} type="button"
+                    aria-pressed={sameSession(entryState.session, session)}
+                    onClick={() => patchEntry({
+                      session: { provider: session.provider, sessionId: session.session_id },
+                      cursor: 0,
+                    })}
+                    className={cx(
+                      "ui-control h-auto w-full min-w-0 flex-col items-start p-3 text-left",
+                      sameSession(entryState.session, session)
+                        ? "border-ui-focus bg-sky-950/40"
+                        : "bg-ui-canvas",
+                    )}>
+                    <span className="block w-full break-all font-mono text-xs text-ui-text">
+                      {session.provider} · {session.session_id}
+                    </span>
+                    <span className="mt-1 block text-xs text-ui-muted">
+                      {session.event_count} events · {session.agent_count} agents · {session.repo_count} repos
+                    </span>
+                    <span className="mt-0.5 block text-xs text-ui-muted">
+                      {fmtRel(session.ended_at)} · {session.delivery}
+                    </span>
+                  </button>
+                ))}
+                {sessionsBusy ? (
+                  <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted"
+                    role="status">Loading sessions...</p>
+                ) : !sessionsError && sessions.items.length === 0 && (
+                    <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted">
+                      No provider sessions recorded in this scope.
+                    </p>
+                  )}
               </div>
-              {requirementRows.length > 50 && (
-                <CollectionPager collectionLabel="Requirement evidence queue"
-                  controlsId="mission-requirement-queue" page={requirementPager}
-                  onPageChange={requirementPager.setPage} className="mt-3" />
+              {!sessionsBusy && sessions.total > 50 && (
+                <CollectionPager collectionLabel="Flight recorder sessions"
+                  controlsId="mission-session-list" page={sessionPager}
+                  onPageChange={sessionPager.setPage} className="mt-3" />
               )}
             </section>
-            <section className="min-w-0" aria-labelledby="mission-ledger-queue-title">
-              <h4 id="mission-ledger-queue-title" className="ui-panel-title mb-3 text-ui-text">
-                Evidence ledger
-              </h4>
-              <div id="mission-ledger-queue" className="ui-work-list">
-                {evidenceRows.map((row) => (
-                  <div key={row.evidence_id}
-                    className="ui-work-row items-center justify-between text-sm">
-                    <div className="min-w-0 flex-1">
-                      <p className="break-words text-base text-ui-text">{activityLabel(row)}</p>
-                      <p className="mt-0.5 break-words text-xs text-ui-muted">
-                        {row.provider} · {fmtTs(row.ts)} · {row.outcome ?? "outcome not reported"}
-                      </p>
-                      <p className="mt-0.5 break-all font-mono text-xs text-ui-muted">
-                        {row.effective_assignment.repo && row.effective_assignment.plan_file
-                          ? `${row.effective_assignment.mode}: ${row.effective_assignment.repo} · ${row.effective_assignment.plan_file}`
-                          : "UNASSIGNED"}
-                      </p>
-                    </div>
-                    {(eligibleAssignmentPlans(mission?.plans ?? [], row).length > 0
-                      || (row.effective_assignment.repo !== null
-                        && row.assignment_repo_ids.includes(row.effective_assignment.repo)
-                        && row.effective_assignment.mode !== "UNASSIGNED"
-                        && row.effective_assignment.mode !== "NONE")) && (
-                      <ControlButton onClick={() => setAssignment(row)}>
-                        {row.effective_assignment.mode === "UNASSIGNED" ? "Assign" : "Review assignment"}
-                      </ControlButton>
-                    )}
-                  </div>
-                ))}
-                {evidenceBusy ? (
-                  <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted"
-                    role="status">Loading evidence ledger...</p>
-                ) : !evidenceError && evidenceRows.length === 0 && (
-                  <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted">
-                    No matching canonical evidence on this activity page.
-                  </p>
+
+            <section className="min-w-0" aria-labelledby="mission-timeline-title">
+              <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
+                <h4 id="mission-timeline-title" className="ui-panel-title text-ui-text">
+                  Timeline
+                </h4>
+                {selectedSession && (
+                  <span className="max-w-full break-all font-mono text-xs text-ui-muted">
+                    {selectedSession.provider} · {selectedSession.sessionId}
+                  </span>
                 )}
               </div>
-              {!evidenceBusy && evidence.total > 50 && (
-                <CollectionPager collectionLabel="Evidence ledger activity"
-                  controlsId="mission-ledger-queue" page={evidencePager}
-                  onPageChange={evidencePager.setPage} className="mt-3" />
+              {timelineError && <ErrorNotice message={timelineError} onRetry={refresh}
+                busy={refreshBusy} />}
+              <div className="ui-local-scroller mission-timeline" role="region"
+                aria-label="Visual agent activity timeline" tabIndex={0}>
+                <div className="min-w-[42rem] space-y-2 p-2">
+                  {flight.lanes.map((lane) => (
+                    <div key={lane.id} className="grid grid-cols-[10rem_minmax(0,1fr)] items-center gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-semibold text-ui-text" title={lane.label}>{lane.label}</p>
+                        <p className="truncate text-xs text-ui-muted" title={lane.parent}>{lane.parent}</p>
+                      </div>
+                      <div className="relative h-10 rounded-control border border-ui-border bg-ui-canvas">
+                        <span className="absolute left-2 right-2 top-1/2 h-px bg-ui-border" aria-hidden="true" />
+                        {lane.points.map((point) => (
+                          <button type="button" key={point.row.id}
+                            aria-label={`Activity ${point.index + 1}: ${activityLabel(point.row)}, ${fmtTs(point.row.ts)}`}
+                            aria-pressed={selectedActivity?.id === point.row.id}
+                            title={activityLabel(point.row)}
+                            onClick={() => patchEntry({ cursor: point.index })}
+                            className={cx(
+                              "mission-timeline-point ui-transition",
+                              selectedActivity?.id === point.row.id && "is-selected",
+                            )}
+                            style={{ "--mission-x": `${2 + point.position * 0.96}%` } as CSSProperties}>
+                            <span className="sr-only">{activityLabel(point.row)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {timelineBusy ? (
+                    <p className="p-3 text-sm text-ui-muted" role="status">Loading session activity...</p>
+                  ) : !timelineError && !sessionsError && flight.rows.length === 0 && (
+                    <p className="p-3 text-sm text-ui-muted">Select a recorded session to inspect its activity.</p>
+                  )}
+                </div>
+              </div>
+
+              {flight.rows.length > 0 && (
+                <div className="mt-3 rounded-panel border border-ui-border bg-ui-canvas/50 p-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    {!reducedMotion && (
+                      <IconButton label={playing ? "Pause timeline replay" : "Play timeline replay"}
+                        aria-pressed={playing} onClick={() => setPlaying((value) => !value)}>
+                        {playing ? <PauseIcon /> : <PlayIcon />}
+                      </IconButton>
+                    )}
+                    <label className="min-w-[12rem] flex-1 text-xs text-ui-muted">
+                      Activity {cursor + 1} of {flight.rows.length}
+                      <input type="range" min={0} max={Math.max(0, flight.rows.length - 1)}
+                        value={cursor} onChange={(event) => patchEntry({ cursor: Number(event.target.value) })}
+                        className="mt-1 w-full" />
+                    </label>
+                  </div>
+                  {selectedActivity && (
+                    <div className="mt-3 grid min-w-0 gap-1 text-xs sm:grid-cols-2">
+                      <p className="break-words text-ui-text">{activityLabel(selectedActivity)}</p>
+                      <p className="break-words text-ui-muted">Actor: {activityActor(selectedActivity)}</p>
+                      <p className="break-all text-ui-muted">Time: {fmtTs(selectedActivity.ts)}</p>
+                      <p className="break-words text-ui-muted">Duration: {formatDuration(selectedActivity.duration_ms)}</p>
+                    </div>
+                  )}
+                </div>
               )}
+
+              {!timelineBusy && timeline.total > 50 && (
+                <CollectionPager collectionLabel="Session activity"
+                  controlsId="mission-exact-data" page={timelinePager}
+                  onPageChange={timelinePager.setPage} className="mt-3" />
+              )}
+
+              {!timelineBusy && !timelineError && (!sessionsError || flight.rows.length > 0)
+                && <details className="mt-3 rounded-panel border border-ui-border">
+                <summary className="ui-control cursor-pointer border-0 bg-ui-raised px-3">
+                  Exact data
+                </summary>
+                <div id="mission-exact-data" className="border-t border-ui-border p-2">
+                  <ActivityTable rows={flight.rows} selectedId={selectedActivity?.id ?? null}
+                    onSelect={(index) => patchEntry({ cursor: index })} />
+                </div>
+              </details>}
             </section>
           </div>
-        )}
-      </Surface>
-
-      <Surface>
-        <SectionHeading title="Session flight recorder" level={3}
-          description="Provider + session identity, deterministic time ordering, and explicit session-root lanes." />
-        {sessionsError && <ErrorNotice message={sessionsError} onRetry={refresh}
-          busy={refreshBusy} />}
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
-          <section className="min-w-0" aria-labelledby="mission-session-list-title">
-            <h4 id="mission-session-list-title" className="ui-panel-title mb-3 text-ui-text">
-              Sessions
-            </h4>
-            <div id="mission-session-list" className="max-h-96 space-y-2 overflow-y-auto pr-1">
-              {sessions.items.map((session) => (
-                <button key={sessionIdentityKey(session.provider, session.session_id)} type="button"
-                  aria-pressed={sameSession(entryState.session, session)}
-                  onClick={() => patchEntry({
-                    session: { provider: session.provider, sessionId: session.session_id },
-                    cursor: 0,
-                  })}
-                  className={cx(
-                    "ui-control h-auto w-full min-w-0 flex-col items-start p-3 text-left",
-                    sameSession(entryState.session, session)
-                      ? "border-ui-focus bg-sky-950/40"
-                      : "bg-ui-canvas",
-                  )}>
-                  <span className="block w-full break-all font-mono text-xs text-ui-text">
-                    {session.provider} · {session.session_id}
-                  </span>
-                  <span className="mt-1 block text-xs text-ui-muted">
-                    {session.event_count} events · {session.agent_count} agents · {session.repo_count} repos
-                  </span>
-                  <span className="mt-0.5 block text-xs text-ui-muted">
-                    {fmtRel(session.ended_at)} · {session.delivery}
-                  </span>
-                </button>
-              ))}
-              {sessionsBusy ? (
-                <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted"
-                  role="status">Loading sessions...</p>
-              ) : !sessionsError && sessions.items.length === 0 && (
-                  <p className="rounded-control border border-dashed border-ui-border p-3 text-sm text-ui-muted">
-                    No provider sessions recorded in this scope.
-                  </p>
-                )}
-            </div>
-            {!sessionsBusy && sessions.total > 50 && (
-              <CollectionPager collectionLabel="Flight recorder sessions"
-                controlsId="mission-session-list" page={sessionPager}
-                onPageChange={sessionPager.setPage} className="mt-3" />
-            )}
-          </section>
-
-          <section className="min-w-0" aria-labelledby="mission-timeline-title">
-            <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
-              <h4 id="mission-timeline-title" className="ui-panel-title text-ui-text">
-                Timeline
-              </h4>
-              {selectedSession && (
-                <span className="max-w-full break-all font-mono text-xs text-ui-muted">
-                  {selectedSession.provider} · {selectedSession.sessionId}
-                </span>
-              )}
-            </div>
-            {timelineError && <ErrorNotice message={timelineError} onRetry={refresh}
-              busy={refreshBusy} />}
-            <div className="ui-local-scroller mission-timeline" role="region"
-              aria-label="Visual agent activity timeline" tabIndex={0}>
-              <div className="min-w-[42rem] space-y-2 p-2">
-                {flight.lanes.map((lane) => (
-                  <div key={lane.id} className="grid grid-cols-[10rem_minmax(0,1fr)] items-center gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold text-ui-text" title={lane.label}>{lane.label}</p>
-                      <p className="truncate text-xs text-ui-muted" title={lane.parent}>{lane.parent}</p>
-                    </div>
-                    <div className="relative h-10 rounded-control border border-ui-border bg-ui-canvas">
-                      <span className="absolute left-2 right-2 top-1/2 h-px bg-ui-border" aria-hidden="true" />
-                      {lane.points.map((point) => (
-                        <button type="button" key={point.row.id}
-                          aria-label={`Activity ${point.index + 1}: ${activityLabel(point.row)}, ${fmtTs(point.row.ts)}`}
-                          aria-pressed={selectedActivity?.id === point.row.id}
-                          title={activityLabel(point.row)}
-                          onClick={() => patchEntry({ cursor: point.index })}
-                          className={cx(
-                            "mission-timeline-point ui-transition",
-                            selectedActivity?.id === point.row.id && "is-selected",
-                          )}
-                          style={{ "--mission-x": `${2 + point.position * 0.96}%` } as CSSProperties}>
-                          <span className="sr-only">{activityLabel(point.row)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {timelineBusy ? (
-                  <p className="p-3 text-sm text-ui-muted" role="status">Loading session activity...</p>
-                ) : !timelineError && !sessionsError && flight.rows.length === 0 && (
-                  <p className="p-3 text-sm text-ui-muted">Select a recorded session to inspect its activity.</p>
-                )}
-              </div>
-            </div>
-
-            {flight.rows.length > 0 && (
-              <div className="mt-3 rounded-panel border border-ui-border bg-ui-canvas/50 p-3">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  {!reducedMotion && (
-                    <IconButton label={playing ? "Pause timeline replay" : "Play timeline replay"}
-                      aria-pressed={playing} onClick={() => setPlaying((value) => !value)}>
-                      {playing ? <PauseIcon /> : <PlayIcon />}
-                    </IconButton>
-                  )}
-                  <label className="min-w-[12rem] flex-1 text-xs text-ui-muted">
-                    Activity {cursor + 1} of {flight.rows.length}
-                    <input type="range" min={0} max={Math.max(0, flight.rows.length - 1)}
-                      value={cursor} onChange={(event) => patchEntry({ cursor: Number(event.target.value) })}
-                      className="mt-1 w-full" />
-                  </label>
-                </div>
-                {selectedActivity && (
-                  <div className="mt-3 grid min-w-0 gap-1 text-xs sm:grid-cols-2">
-                    <p className="break-words text-ui-text">{activityLabel(selectedActivity)}</p>
-                    <p className="break-words text-ui-muted">Actor: {activityActor(selectedActivity)}</p>
-                    <p className="break-all text-ui-muted">Time: {fmtTs(selectedActivity.ts)}</p>
-                    <p className="break-words text-ui-muted">Duration: {formatDuration(selectedActivity.duration_ms)}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {!timelineBusy && timeline.total > 50 && (
-              <CollectionPager collectionLabel="Session activity"
-                controlsId="mission-exact-data" page={timelinePager}
-                onPageChange={timelinePager.setPage} className="mt-3" />
-            )}
-
-            {!timelineBusy && !timelineError && (!sessionsError || flight.rows.length > 0)
-              && <details className="mt-3 rounded-panel border border-ui-border">
-              <summary className="ui-control cursor-pointer border-0 bg-ui-raised px-3">
-                Exact data
-              </summary>
-              <div id="mission-exact-data" className="border-t border-ui-border p-2">
-                <ActivityTable rows={flight.rows} selectedId={selectedActivity?.id ?? null}
-                  onSelect={(index) => patchEntry({ cursor: index })} />
-              </div>
-            </details>}
-          </section>
-        </div>
-      </Surface>
+        </Surface>
+      </MissionCommandDesk>
 
       {assignment && mission && (
         <AssignmentDialog row={assignment} plans={mission.plans}
