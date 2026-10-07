@@ -284,6 +284,44 @@ of unchanged appearance after these explicit ID-scoped overrides. Actual
 source/SSR/compiled delivery is separate from still-open native reflow,
 focus, keyboard, coarse input, zoom, AT and operator aesthetic acceptance.
 
+### 3.2 Changes Review Desk presentation overrides
+
+The identified `katlab-changes-review-desk` inline style follows the unchanged
+Workbench 2.0 block in the HTML entry. It supersedes only the named Changes
+summary and grouped-ledger presentation below. Keep every TSX/JS/global/private
+stylesheet and semantic token unchanged. Retained stylesheet bytes prove
+preservation, not unchanged computed appearance after these explicit overrides.
+
+The actual captured-work dl becomes one surface panel with 20px padding, 1px
+decorative border and 8px corners. Flatten its three metrics' outer framing,
+retaining the original 16px gap, one column and three zero-minimum columns from
+768px. Only data-has-picks=true restores the action metric's 3px warning border
+and adds 16px left padding. Keep its conditional warning label color; false or
+unset is neutral. Labels use 14px/20px and exact mono/tabular counters 36px/1.25.
+Descriptions remain 14px/1.5. Retain every count, scope qualification and wrap.
+
+Only Grouped uncommitted changes gets a decorative heading divider with 12px
+bottom padding and 20px bottom margin. Its task/folder cards use solid surface,
+20px padding and 8px corners. Only normal EventRows directly under a card's
+div.mt-4 body lose horizontal padding; keep vertical padding, dividers, focus,
+wrapping and all metadata/actions. Expanded plan-file rows retain original
+padding and their nested 8px wrapper gutters. The TaskGroup's unique direct Why
+paragraph uses 14px/1.5 and 8px top margin; nested recovery/continuation copy stays.
+
+Exclude the attribution queue and assignment rows, active-filter panel, sticky
+section navigation, History/other work lists, pagers, dialogs and local scrollers.
+Retain the 1440px positive-pick queue/list split, saved task/session filters,
+unfiltered queue/folder view, 50-item paging, reveal/reduced motion and current
+diff/session/file-story recovery. No new wrapper, data/control/request/state,
+motion, font, resource, cap, clipping, position/order or scroll owner is added.
+
+Require the complete second-window inverse to Workbench 2.0 HTML, the old
+Workbench suite's exact two-adapter inverse, independent current-source SSR/
+AST and actual built nine-rule/two-style checks. Preserve all nineteen old
+Workbench contexts, its compiled style body and full eager/lazy CSS identities.
+Native reflow, focus, keyboard, targets, zoom, AT and operator beauty remain
+open; source/SSR/compiled assets and HTTP shells are not native acceptance.
+
 ## 4. Shared component contract
 
 Shared primitives are small implementation helpers, not a component framework. They forward native props and refs, preserve native disabled/focus behavior, and accept `className` only for local layout.

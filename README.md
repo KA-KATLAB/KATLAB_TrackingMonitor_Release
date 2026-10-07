@@ -5,24 +5,22 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.2.0 - Workbench 2.0**
+Current source version: **v0.4.2.1 - Changes Review Desk**
 
-A coordinated UI redesign gives the command header two clear bands, a quiet
-graphite navigation rail and a roomier work canvas. Desktop current navigation
-uses primary fill; the mobile drawer retains its existing selection and controls.
-Overview's Now section separates primary metrics from quieter captured activity;
-selected Mission Now stands out without changing readiness or data.
-Main gutters are 16px, 24px from 768px and 32px from 1280px. Mission's redundant
-inner padding is removed, not added twice. Preserve all views, actions, visible
-build version, scope/status truth, focus, reduced motion and scrolling owners.
-A bounded HTML inline style overrides presentation explicitly; old TSX, source
-stylesheets and all prior tests stay. Verify the actual built inline style and
-all ten retained compiled owners, with complete external CSS byte identity.
-Activation requires both exact Chronicle CSS and newly mirrored current notes.
-Large Connection: close responses and native UI acceptance remain unresolved;
-the previously recorded high build-only braces advisory and chunk notice are not addressed.
+Changes now has one captured-work summary panel and a clearer grouped ledger.
+Keep exact counts and their scope descriptions; highlight attribution only when
+it needs a task choice. Task/folder cards use aligned normal rows and readable
+Why copy, retaining all assignment, filter, diff, paging and session behavior.
+Workbench 2.0's quiet shared header, rail, work canvas and Now hierarchy stay;
+the full product name and loaded build version remain visible with System.
+Two bounded HTML styles explicitly own presentation. Preserve original
+TSX/JS/stylesheets, the old Workbench suite through exactly two adapters, and
+complete prior guards. Verify both actual built styles and twelve compiled
+contracts, retaining full eager/lazy CSS bytes. Activation requires exact
+Chronicle CSS and current notes. Native UI acceptance and the known large
+Connection:close fault remain open; prior advisory/chunk notices are not fixed.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.2.0_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.2.1_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -195,7 +193,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.2.0_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.2.1_Release_Notes.md)
 
 ## Guarantees
 

@@ -1,5 +1,35 @@
 # Version Notes
 
+## v0.4.2.1 - Changes Review Desk (2026-10-07)
+
+- Continue Workbench 2.0 with one coherent Changes composition: captured-work
+  summary, attribution priority, then readable task/folder ledgers. Keep all
+  exact counts, scope qualifications, saved filters and existing actions.
+- Add one identified inline style after unchanged Workbench 2.0. The complete
+  6323-byte/147LF HTML inverts through its exact 2081-byte window to all4242
+  prior bytes. Independently check all nine CSS contexts and actual owners.
+- Give the summary one solid-surface panel/20px padding/8px corners; flatten
+  metric framing while restoring the warning bar ONLY for positive picks.
+  Labels14px, counters36px; mono/tabular/wrapping and descriptions stay.
+- Grouped headings get a divider; task/folder cards use20px padding and solid
+  surface. Only normal direct EventRows lose horizontal padding. Expanded
+  plan-file rows keep original padding and nested gutters; Why copy uses14px.
+- Keep attribution queue, filters, sticky sections, 768/1440 layout owners,
+  pagers, local scrollers, diff/session recovery and all other views unchanged.
+  No TSX/JS/style-token/dependency change, data or automation is introduced.
+- Preserve the old Workbench suite via exactly two bounded adapters and its
+  complete704c source inverse. Behavioral SSR executes current production TSX.
+  Require twelve actual compiled gates, both inline styles and complete old
+  eager/lazy CSS identities; intact old bytes are not unchanged computed paint.
+- Canonical source/UI build0.4.2.1. Activation proves literal OLD2.0 ownership,
+  both ports clear, matching production build, hidden standard parent restart,
+  exact current notes AND8784-byte Chronicle CSS/full4772af SHA readiness.
+- Native H.1/operator beauty, large Connection:close fault, prior high build-
+  only braces alert15 and chunk notice remain open under limited publication.
+  No transport repair, fresh detailed advisory audit or native acceptance claim.
+- Archive2.0 notes preserving every historical byte except two moved URLs.
+  Actual CDD/CFT/tests/live/commit/ref outcomes belong in the ignored2.1 plan.
+
 ## v0.4.2.0 - Workbench 2.0 (2026-10-07)
 
 - Redesign the shared command header, navigation rail and work canvas together,

@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 import { after, before, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { readBuildVersion } from "../Frontend/buildVersion.mjs";
+import { restoreChangesReviewDeskHtml } from "./helpers/changesReviewDesk.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), ".."), frontend = resolve(root, "Frontend");
 const require = createRequire(resolve(frontend, "package.json"));
@@ -208,7 +209,7 @@ function checkHtml (text) {
   assert.equal(sha(lf(text)), REVIEWED_HTML); assert.equal(sha(lf(original)), ORIGINAL_HTML);
   return original;
 }
-const html = read("Frontend/index.html");
+const html = restoreChangesReviewDeskHtml(read("Frontend/index.html"));
 test("independent exact insertion preserves the entire original HTML, Unicode and LF/CRLF inverses", () => {
   assert.equal(Buffer.byteLength(CSS), 2572); assert.equal(CSS.split("\n").length - 1, 73); assert.equal(sha(CSS), CSS_HASH);
   assert.equal(Buffer.byteLength(windowFor("\n")), 3060); assert.equal(sha(windowFor("\n")), WINDOW_HASH); checkCss(CSS);

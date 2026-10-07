@@ -73,7 +73,7 @@ advisory (recorded alert 15) and chunk notice are not addressed; no fresh detail
 advisory audit or dependency fix is claimed. Limited publication with these
 constraints is accepted. New blocking regressions stop delivery.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Prove ownership of the literal old tracker; stop it and confirm BOTH 8100+8101
 clear before production building matching 0.4.2.0 assets. Use the standard hidden
 restart and reload existing tabs; Python restart alone cannot update loaded UI.
@@ -88,5 +88,5 @@ External resources, constructed URLs and native interaction remain outside proof
 Keep main; one scoped commit and normal fast-forward pushes to the three existing targets.
 No new branch, default change, deletion, force, merge, tag or hosted Release.
 
-Previous [v0.4.1.13 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.1.13_Release_Notes.md)
+Previous [v0.4.1.13 notes](TrackingMonitor_v0.4.1.13_Release_Notes.md)
 retain every historical byte except their two move-affected Markdown URLs.
