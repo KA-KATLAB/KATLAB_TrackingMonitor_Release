@@ -9,6 +9,7 @@ import { canonicalPrintedText } from "./helpers/printed_source.mjs";
 import { restoreSessionIdentity } from "./helpers/sessionIdentity.mjs";
 import { restoreDialogChronology } from "./helpers/dialogChronology.mjs";
 import { restoreSessionTaskGroups } from "./helpers/sessionTaskGroups.mjs";
+import { restoreFileStoryEvidenceTimeline } from "./helpers/fileStoryEvidenceTimeline.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const frontend = resolve(root, "Frontend");
@@ -420,7 +421,7 @@ function originalFingerprint (file, name, target, incoming, text) {
 
 test("all three other complete collectors retain original fingerprints after exactly one append reversal", () => {
   for (const [file, name, target, incoming, expected] of fingerprints) {
-    const text = read(file);
+    const text = restoreFileStoryEvidenceTimeline(read(file), name);
     for (const variant of [text.replace(/\r\n/g, "\n"), text.replace(/\r?\n/g, "\r\n")]) {
       assert.equal(originalFingerprint(file, name, target, incoming, variant), expected, `${name}: whole function`);
     }
@@ -428,7 +429,7 @@ test("all three other complete collectors retain original fingerprints after exa
 });
 test("collector preservation rejects missing, repeated, wrong-argument and unrelated owner edits", () => {
   for (const [file, name, target, incoming, expected] of fingerprints) {
-    const text = read(file), marker = `appendUniqueEvents(${target},`;
+    const text = restoreFileStoryEvidenceTimeline(read(file), name), marker = `appendUniqueEvents(${target},`;
     assert.equal(text.split(marker).length - 1, 1);
     for (const mutated of [text.replace(marker, "otherCollector("),
       text.replace(marker, `appendUniqueEvents(other,`),

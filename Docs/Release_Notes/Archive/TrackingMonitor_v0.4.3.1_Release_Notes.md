@@ -55,7 +55,7 @@ Actual outcomes and commit ID are recorded after execution in the detailed plan.
 
 ## Activation and limits
 
-Follow the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Follow the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Reprove literal OLD0.4.3.0 process ownership, two configured repositories,
 six live watchers and demo clearance before the standard owned stop.
 Both ports must be clear before canonical production build and all compiled
@@ -75,5 +75,5 @@ No dependency/security/transport remediation is claimed. Accepted limits never
 waive a new blocking regression. Publication uses one scoped commit on main
 and the same three existing normal fast-forward destinations.
 
-Previous [v0.4.3.0 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.3.0_Release_Notes.md)
+Previous [v0.4.3.0 notes](TrackingMonitor_v0.4.3.0_Release_Notes.md)
 retain their historical outcomes with only moved documentation URLs adjusted.

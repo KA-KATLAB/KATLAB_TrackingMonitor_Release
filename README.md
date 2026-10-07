@@ -5,22 +5,19 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.3.1 - Changes Review Lanes**
+Current source version: **v0.4.3.2 - File Story Evidence Timeline**
 
-Normal grouped Changes rows separate attribution, the full file path with
-secondary capture context, and the existing Diff action. At desktop widths
-the file gets a flexible central lane; narrow layouts stack in reading order.
-Full paths stay visible. Session, differing-branch, tool and time details stay
-available without competing on the primary line. Plan edits, History, Folder
-and the manual attribution queue retain their current presentation.
+File Story presents each captured event with a readable timestamp rail and
+separate attribution evidence. Repository and captured-window facts are easier
+to scan. Full file identity, editor access, day grouping and paging stay intact;
+narrow layouts stack in reading order using the same installed UI styles.
 
-All Diff/Retry/Hide, offline/retained/error states, file-story/session callbacks,
-focus recovery, exact identities and paging remain unchanged. Mission Command
-Desk and the four prior presentation styles remain complete. Preservation uses
-exact bounded input inverses; current behavioral tests execute current source.
-Native/operator acceptance and the known large HTTP Connection:close fault
-remain OPEN. Reload existing tabs after upgrade to see the matching UI build.
-See the [current release notes](TrackingMonitor_v0.4.3.1_Release_Notes.md).
+All current data, request limits, calculations, retry and modal focus/closing
+behavior remain unchanged. Changes Review Lanes, Mission Command Desk and the
+five prior entry styles remain complete. No new API or dependency is added.
+Native/operator acceptance, the known large HTTP Connection:close fault and
+prior advisory/build warnings remain OPEN. Reload existing tabs after upgrade.
+See the [current release notes](TrackingMonitor_v0.4.3.2_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -193,7 +190,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.3.1_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.3.2_Release_Notes.md)
 
 ## Guarantees
 

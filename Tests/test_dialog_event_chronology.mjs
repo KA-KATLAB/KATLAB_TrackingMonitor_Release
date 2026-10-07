@@ -7,6 +7,7 @@ import { after, before, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { CHRONOLOGY_WINDOW, restoreDialogChronology } from "./helpers/dialogChronology.mjs";
 import { restoreSessionTaskGroups } from "./helpers/sessionTaskGroups.mjs";
+import { restoreFileStoryEvidenceTimeline } from "./helpers/fileStoryEvidenceTimeline.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const frontend = resolve(root, "Frontend"), require = createRequire(resolve(frontend, "package.json"));
@@ -243,12 +244,12 @@ function checkOriginal (text, pins) {
 }
 test("reviewed comparator reversal preserves both original whole owners, imports, renders and physical bytes", () => {
   for (const pins of originals) for (const crlf of [false, true]) {
-    const text = lf(read(`${pins[0]}.tsx`)); checkOriginal(crlf ? text.replace(/\n/g, "\r\n") : text, pins);
+    const text = lf(restoreFileStoryEvidenceTimeline(read(`${pins[0]}.tsx`), pins[0])); checkOriginal(crlf ? text.replace(/\n/g, "\r\n") : text, pins);
   }
 });
 test("strict comparator ownership rejects partial, moved, repeated and unrelated changes without hiding old negatives", () => {
   for (const pins of originals) {
-    const name = pins[0], text = lf(read(`${name}.tsx`));
+    const name = pins[0], text = lf(restoreFileStoryEvidenceTimeline(read(`${name}.tsx`), name));
     assert.equal(text.split(CHRONOLOGY_WINDOW).length - 1, 1);
     const move = text.replace(CHRONOLOGY_WINDOW, "").replace("        for (let pageIndex", CHRONOLOGY_WINDOW + "        for (let pageIndex");
     const structural = [

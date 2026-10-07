@@ -1,5 +1,22 @@
 # Version Notes
 
+## v0.4.3.2 - File Story Evidence Timeline (2026-10-08)
+
+- Separate timestamp and evidence in File Story using a stacked layout below
+  640px and the existing bounded Health-row grid above it. Preserve DOM order,
+  current MODE/task/session/branch data and chronological day/continuation text.
+- Give repository and captured-window facts clear wrapping summary lines while
+  keeping exact values, qualifications, title/editor/Close and modal ownership.
+- Preserve the three-page collector, first-observation deduplication, comparator,
+  deadlines, retries, retained rows, full-window calculations and 50-row paging.
+- Reuse current emitted utilities; keep all eager/lazy CSS, five inline styles,
+  App/Mission/shared source and dependencies unchanged. No new data feature.
+- Protect historical full-source/collector assertions with strict render-only
+  input inverses. Current behavioral checks continue to execute current source.
+- Require whole CDD/CFT5, focused/full checks,17 compiled contracts and safe owned
+  activation. Actual outcomes and release identity are recorded in the plan.
+- Native/operator, Connection:close and prior advisory/build limits stay OPEN.
+
 ## v0.4.3.1 - Changes Review Lanes (2026-10-07)
 
 - Give normal grouped Changes rows a file-first hierarchy: attribution signal,

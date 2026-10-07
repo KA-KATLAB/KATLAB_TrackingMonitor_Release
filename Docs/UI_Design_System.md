@@ -524,6 +524,32 @@ that current HTML has only four styles. Validate the fifth before filtering it
 from preservation inputs; never restore actual runtime JS. Native reflow/focus/
 operator beauty and accepted transport/advisory limitations remain open.
 
+### 3.7 File Story Evidence Timeline
+
+File Story is a bounded evidence inspector, not a new activity dashboard.
+Keep the full file title, editor link, Close and DialogShell as the existing
+focus and scroll owner. Separate repository and captured-window facts into
+readable wrapping summary lines without changing accessible text or values.
+Keep chronological day labels and same-day continuation captions unchanged.
+
+Rows retain timestamp before MODE, task, session and differing-branch evidence.
+Use an existing single-column grid below 640px, then the already emitted Health
+row tracks minmax(7rem,10rem) minmax(0,1fr). The second cell wraps its existing
+evidence in original order. Keep zero minimums, long-content wrapping and
+semantic MODE colors; no clipping, reordering, nested scroller or motion.
+Reuse compiled utilities instead of adding style rules or new tokens.
+
+Preserve first-observation deduplication, timestamp/id chronology, at most three
+500-event fetch pages, full-window calculations and 50 mounted rows. Loading,
+empty, error/retry, retained data and fetched-window limits keep their original
+owners and truthful copy. No new fetching, state, persistence or summaries.
+
+Strict render-only inverses belong solely at historical preservation inputs
+before older adapters and adversarial mutation. Current behavioral source stays
+raw. Require all five entry styles and eager/Overview/Mission CSS unchanged,
+plus the current File Story compiled marker/utility contract. Source/SSR/HTTP
+checks do not replace native operator, reflow, focus or accessibility acceptance.
+
 ## 4. Shared component contract
 
 Shared primitives are small implementation helpers, not a component framework. They forward native props and refs, preserve native disabled/focus behavior, and accept `className` only for local layout.

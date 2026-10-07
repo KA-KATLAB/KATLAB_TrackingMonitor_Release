@@ -130,16 +130,19 @@ export function FileStory ({
     : 0;
   const summary = rows && rows.length > 0
     ? (
-      <>
-        <span>{repo}</span>
-        <span aria-hidden="true"> · </span>
-        <span>
-          {rows.length} event{rows.length === 1 ? "" : "s"} · {fmtTs(rows[0].ts)}
-          {" → "}{fmtTs(rows[rows.length - 1].ts)} · {commits} commit
-          {commits === 1 ? "" : "s"} · {fmtMinutes(effortMin)}
-          {limitReached ? " (fetched window)" : ""}
+      <span data-file-story-summary className="grid min-w-0 gap-2">
+        <span data-file-story-fact="repository" className="min-w-0 break-words text-base font-semibold leading-6 text-ui-text">
+          {repo}
         </span>
-      </>
+        <span data-file-story-fact="range" className="min-w-0 break-words">
+          <span>
+            {rows.length} event{rows.length === 1 ? "" : "s"} · {fmtTs(rows[0].ts)}
+            {" → "}{fmtTs(rows[rows.length - 1].ts)} · {commits} commit
+            {commits === 1 ? "" : "s"} · {fmtMinutes(effortMin)}
+            {limitReached ? " (fetched window)" : ""}
+          </span>
+        </span>
+      </span>
     )
     : repo;
   const editorHref = repoPath
@@ -195,34 +198,36 @@ export function FileStory ({
                   {event.ts.slice(0, 10)} (UTC){continuation ? " — continued" : ""}
                 </div>
               )}
-              <div className="ui-work-row flex-wrap items-center !px-3 !py-3">
-                <span className="text-xs text-ui-muted" title={event.ts}>{fmtTs(event.ts)}</span>
-                <span
-                  className="rounded px-1.5 py-0.5 text-xs font-bold text-white"
-                  style={{ backgroundColor: MODE_COLOR[event.mode], color: MODE_BADGE[event.mode].foreground }}
-                >
-                  {MODE_BADGE[event.mode].label}
-                </span>
-                {event.task_ref && (
-                  <span className="min-w-0 break-words text-sky-300">
-                    {event.task_ref.split(" - ").pop()}
-                  </span>
-                )}
-                {session && (
+              <div data-file-story-row className="ui-work-row grid min-w-0 grid-cols-1 gap-3 !px-3 !py-3 sm:grid-cols-[minmax(7rem,10rem)_minmax(0,1fr)]">
+                <span className="min-w-0 text-xs text-ui-muted [overflow-wrap:anywhere]" title={event.ts}>{fmtTs(event.ts)}</span>
+                <div data-file-story-evidence className="flex min-w-0 flex-wrap items-center gap-3">
                   <span
-                    title={`${session.provider} session ${session.sessionId.slice(0, 8)}`}
-                    className="inline-block h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: sessionColor(session.provider, session.sessionId) }}
-                  />
-                )}
-                {event.branch && repoBranch && event.branch !== repoBranch && (
-                  <span
-                    className="min-w-0 break-all text-amber-300/80"
-                    title="captured on a different branch than the repo is on now"
+                    className="rounded px-1.5 py-0.5 text-xs font-bold text-white"
+                    style={{ backgroundColor: MODE_COLOR[event.mode], color: MODE_BADGE[event.mode].foreground }}
                   >
-                    ⎇ {event.branch}
+                    {MODE_BADGE[event.mode].label}
                   </span>
-                )}
+                  {event.task_ref && (
+                    <span className="min-w-0 break-words text-sky-300">
+                      {event.task_ref.split(" - ").pop()}
+                    </span>
+                  )}
+                  {session && (
+                    <span
+                      title={`${session.provider} session ${session.sessionId.slice(0, 8)}`}
+                      className="inline-block h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: sessionColor(session.provider, session.sessionId) }}
+                    />
+                  )}
+                  {event.branch && repoBranch && event.branch !== repoBranch && (
+                    <span
+                      className="min-w-0 break-all text-amber-300/80"
+                      title="captured on a different branch than the repo is on now"
+                    >
+                      ⎇ {event.branch}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           );
