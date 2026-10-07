@@ -1,5 +1,51 @@
 # Version Notes
 
+## v0.4.1.10 - Personal Records Showcase (2026-10-07)
+
+- Overview's four existing Records stack their unchanged label/value/date
+  order: 16px/24px labels, 32px/40px tabular Azeret Mono values and 12px/18px
+  supplied dates. Only the first three direct text spans use full flex-basis,
+  min-width 0 and anywhere wrap; their strings and full information remain.
+- The real list uses one zero-minimum column below 640px and two equal columns
+  from that boundary with 16px gaps. Each original li retains relative flex,
+  wrap, baseline and horizontal-gap owners, with 16px padding, a shared 1px
+  border, 8px corners and surface tone. Scoped specificity overrides the old
+  last-row border utility. First/second text spans use 8px bottom margins;
+  row-gap is zero and the date's automatic left margin is removed.
+- The optional fourth decorative wrapper and twelve nested particles receive
+  no new styling, position, gap, clipping or animation. Native zero-jump
+  geometry is not certified. Wrap naturally in the half-width Records pane
+  beside trophies from 1280px; no fixed height or scroll owner is introduced.
+- Only one CSS import and one literal marker on the existing quiet Surface
+  change records.tsx. The complete protected ul, pre-return logic, helpers,
+  all other bytes/classes/nodes/order/math/hooks/strings and old suites stay.
+  The stylesheet has 45 LF lines/1317 bytes: one comment, five direct rules
+  and one 640px media containing one rule. No new font/dependency is added.
+- CSS is eager through App -> pet -> records, not lazy-only. Actual compiled
+  verification must remove only the six validated Records rules and restore
+  every old global CSS byte before accepting the new eager identity. Existing
+  Gallery/Momentum lazy CSS and shared index.css source remain unchanged.
+- Supplied UTC bounds/coverage/dates, earliest ties, full-calendar display
+  versus prior-calendar detection, strict-greater crossings, first-payload
+  seeding and typed scope remounts remain. Rolling-seven, streak, wardrobe,
+  burst/banner nonce, 900/4000ms timers/cleanup and live reduced motion stay.
+  Empty-calendar numeric zeros with an unavailable period remain explicitly
+  deferred behavior, not a new availability/truth fix or freshness claim.
+- New checks require independent complete CSS/AST adversaries, a two-window
+  RAW/LF inverse, actual current Records/Surface SSR and separately labelled
+  controlled burst/banner rendering, plus unchanged executable year/weekly
+  regressions. None certifies native effects, geometry, focus, keyboard or AT.
+- Canonical source version is 0.4.1.10. Rebuild matching assets, use the
+  standard hidden restart and reload existing tabs. Chronicle readiness needs
+  both its exact retained CSS and the new mirrored 1.10 note identity.
+- Native v0.4 H.1, recorded large Connection: close failure, prior high
+  build-only braces advisory (recorded alert #15) and chunk notice remain open
+  under accepted limited publication. Keep-alive diagnostics are not a repair;
+  historical GitHub push notices are not a fresh detailed advisory audit.
+- Published v0.4.1.9 notes move to Archive with only two affected URLs changed.
+  Actual review/CFT/test/build/live/commit/ref evidence belongs in the 1.10 plan;
+  no unrun results or historical test counts are asserted here.
+
 ## v0.4.1.9 - Momentum Comparison Deck (2026-10-07)
 
 - Overview's existing Momentum cards stack their original source order: label,

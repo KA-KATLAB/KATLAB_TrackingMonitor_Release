@@ -643,6 +643,35 @@ with kind/repository/plan/task identity and global ordinal keys. Do not expand
 patterns, infer matching files or introduce new requests. Full declarations wrap
 locally; controlled callback/SSR checks do not certify native acceptance.
 
+The Personal Records Showcase styles only the existing quiet Records Surface
+marked `data-personal-records="true"`, its direct ul/li and first three direct
+text spans. Keep the complete list AST, pre-return detection/hooks, helpers,
+classes, strings, four keys and source order unchanged. One records-owned CSS
+import is eager through App -> pet -> records, not Overview-lazy. Keep its
+Explore placement after trophies and typed repo/all remount ownership.
+Use one zero-minimum list column below 640px and two equal columns from 640px,
+with 16px gaps. Each original li keeps relative/flex/wrap/baseline/horizontal
+gap behavior and uses 16px padding, a shared 1px border, 8px corners and surface
+tone. Its scoped border overrides the last-row border utility without important.
+Only the first three direct spans use full flex-basis, min-width 0 and anywhere
+wrapping: label 16px/24px, value 32px/40px tabular figures in the configured
+Azeret Mono stack, date 12px/18px with automatic left margin removed.
+The first two text spans have 8px bottom margins; li row-gap is zero. Do not
+style the optional fourth decorative wrapper or its twelve nested particles,
+add spacing for it, or introduce positioning, clipping, animation or scrolling.
+This does not certify native zero-jump geometry. Account for the half-width
+Records pane beside trophies from 1280px, not just the viewport's total width.
+Preserve supplied UTC bounds/coverage and dates, earliest ties, full-calendar
+display versus prior-calendar detection, strict crossing/first-payload seed,
+rolling-seven/streak/wardrobe calculations, nonce/timers and live reduced motion.
+Empty-calendar numeric zeros remain explicitly deferred behavior with an
+unavailable period; this presentation does not introduce Unavailable values,
+certify complete partial windows or claim current/fresh records. Verify actual
+eager CSS and a complete old-global-byte inverse after subtracting only validated
+Records rules; existing Gallery/Momentum lazy CSS stays unchanged. Source,
+SSR, controlled rendering and assets are not native geometry, focus, keyboard,
+zoom, coarse-input, AT, motion or subjective acceptance evidence.
+
 ### 6.3 History
 
 - Style only the existing data-history-ready owner's direct Captured commits

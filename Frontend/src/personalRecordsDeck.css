@@ -1,0 +1,45 @@
+/* Personal records hierarchy only; snapshot and celebration owners stay. */
+.ui-surface[data-personal-records="true"] > ul {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.ui-surface[data-personal-records="true"] > ul > li {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 8px;
+  background-color: rgb(var(--ui-surface));
+  row-gap: 0;
+}
+.ui-surface[data-personal-records="true"] > ul > li > span:nth-child(1) {
+  flex-basis: 100%;
+  min-width: 0;
+  font-size: 16px;
+  line-height: 24px;
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-personal-records="true"] > ul > li > span:nth-child(2) {
+  flex-basis: 100%;
+  min-width: 0;
+  font-family: "Azeret Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 32px;
+  line-height: 40px;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-personal-records="true"] > ul > li > span:nth-child(3) {
+  flex-basis: 100%;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 18px;
+  margin-left: 0;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 640px) {
+  .ui-surface[data-personal-records="true"] > ul {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

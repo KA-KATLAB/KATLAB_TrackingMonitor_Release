@@ -12,6 +12,7 @@ import { calendarRangeLabel } from "./calendarDay";
 import { fmtMinutes } from "./format";
 import { usePrefersReducedMotion } from "./theme";
 import { SectionHeading, Surface } from "./ui";
+import "./personalRecordsDeck.css";
 
 type CalDay = StatsData["activity_calendar"][number];
 const fmt = (n: number) => n.toLocaleString("en-US");
@@ -122,7 +123,7 @@ export function Records ({ calendar }: { calendar: CalDay[] }) {
   ];
 
   return (
-    <Surface data-reveal tone="quiet">
+    <Surface data-reveal tone="quiet" data-personal-records="true">
       <SectionHeading level={4} title="Personal records"
         description={`${calendarRangeLabel(calendar)}; ${calendar.length}/365 days supplied.`}
         actions={banner !== null ? (

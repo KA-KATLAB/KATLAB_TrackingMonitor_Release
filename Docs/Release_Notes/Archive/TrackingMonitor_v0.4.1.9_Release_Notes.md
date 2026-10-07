@@ -70,7 +70,7 @@ historical GitHub push notices are not a fresh detailed advisory audit.
 The user accepts limited publication with these constraints. New blocking
 regressions stop delivery; no browser, security or environment workaround occurs.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Stop Tracker and demo before rebuilding matching canonical 0.4.1.9 frontend
 assets, use the standard hidden restart and reload existing tabs. Restarting
 Python alone does not update frontend assets. Let the normal Chronicle
@@ -79,5 +79,5 @@ Readiness requires both exact unchanged Chronicle CSS and the actual mirrored
 v0.4.1.9/Momentum Comparison Deck note identity. Only 404 is pending; unexpected
 200 identity fails. Unchanged CSS alone can belong to old v0.4.1.8 output.
 
-Previous [v0.4.1.8 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.1.8_Release_Notes.md)
+Previous [v0.4.1.8 notes](TrackingMonitor_v0.4.1.8_Release_Notes.md)
 retain every historical byte except their two move-affected Markdown URLs.
