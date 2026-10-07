@@ -59,12 +59,12 @@ The user explicitly accepts limited publication with the recorded native and
 transport limitations. They are not claimed fixed; new blocking regressions
 must stop publication.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Stop tracker and demo before rebuilding the frontend from matching source;
 restart through the standard hidden launcher and reload existing tabs. A
 Python restart alone does not update served or already-loaded frontend assets.
 Commit ID, live checks and existing remote refs belong in the plan, not guessed
 results here.
 
-Previous [v0.4.1.0 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.1.0_Release_Notes.md)
+Previous [v0.4.1.0 notes](TrackingMonitor_v0.4.1.0_Release_Notes.md)
 retain every historical byte except their two move-affected Markdown URLs.

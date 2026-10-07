@@ -617,6 +617,22 @@ locally; controlled callback/SSR checks do not certify native acceptance.
 - Make the selected Now plan visually primary. Plan scope and Forecast stay
   secondary. Page all blockers and warnings at 50, with exact repository/plan
   identity and total counts; do not silently truncate after the first page.
+- Mission Plan Gallery is a view-local shape/type exception on the existing
+  #mission-plan-cards owner. Use one column below 768px, two from 768px and three
+  from 1280px, with 16px gaps. Direct native plan-choice buttons use 20px padding
+  and 12px corners; their existing name labels use 18px type and 28px leading.
+  The existing 12px count footer spans the card width, uses auto top margin,
+  a divider and 12px top padding, tabular figures and overflow-wrap:anywhere.
+  Stretch naturally by grid row without adding fixed/min/max heights or clipping;
+  keep existing 32px control and 44px coarse-target minima. Never scale or omit
+  long identities/counts. Preserve all children and meaningful DOM/read order.
+  Import this separate scoped stylesheet immediately after shared index.css in
+  the existing bootstrap. Do not alter the shared stylesheet, Mission owners,
+  selection callbacks, exact repository/plan keys, aria-pressed, state labels/
+  tones, done/total/progress, 12-item paging, focus, hover, motion or scroll owners.
+  Do not add ARIA grid semantics, roving focus, status inference or another data
+  source. Source/SSR checks and separate compiled-asset checks are not native
+  paint, geometry, focus, keyboard, zoom, coarse-input or AT acceptance.
 - Attribution Forecast is a separate read-only preview from the last completed
   plan sync. Show the exact repo, Git/demo observation time, plan-context time,
   five mode totals, and actual dirty paths. Say that plan edits appear only after

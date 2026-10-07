@@ -1,5 +1,37 @@
 # Version Notes
 
+## v0.4.1.2 - Mission Plan Gallery (2026-10-07)
+
+- A separate scoped stylesheet styles only the actual Mission plan-card grid,
+  its direct native buttons, name labels and count footers. Main adds one CSS
+  side-effect import immediately after index.css; every other bootstrap byte,
+  MissionView, original shared stylesheet and existing regression suites stay.
+- Below 768px the gallery stacks; from 768px it has two columns and from 1280px
+  three, with 16px gaps. Naturally stretched row cards use 20px padding and 12px
+  corners. Names use 18px/28px; count footers retain 12px text with a divider,
+  12px top padding, auto top margin and explicit uninterrupted-token wrapping.
+- These are view-local shape/type exceptions, not global token changes. No new
+  fixed/min/max height, clipping, font scaling, motion, scroll or focus owner is
+  added. Existing 32px control and 44px coarse-target minima remain intact.
+- Native selection, exact repository/plan keys, aria-pressed, backend state
+  labels/tones, done/total/progress, DOM order and the 12-item pager are unchanged.
+  Selected Now stays primary. Base snapshot and Forecast/session/evidence states,
+  request retirement, deadlines and existing error/Retry ownership stay distinct.
+- The new suite checks the full literal stylesheet, strict actual bootstrap
+  import/site inverse, unchanged source/old-suite bytes and raw-current PlanCard
+  SSR/callback behavior. Separate build/live checks inspect compiled delivery;
+  neither source/SSR nor asset checks certify native layout, focus, keyboard or AT.
+- Native v0.4 H.1 and the recorded large Connection: close response failure
+  remain open. Keep-alive diagnostics are not a repair. Publication stays limited
+  under the user's accepted known limitations; new blockers must stop delivery.
+- The previous high build-only braces advisory and chunk notice are not fixed.
+  Historical GitHub push alert notices are not a fresh advisory-detail audit or
+  remediation. No dependency, transport, environment or browser workaround.
+- Published v0.4.1.1 notes are archived with only their two move-affected URLs
+  changed. Actual review/CFT/test/live/commit/ref evidence belongs in the v0.4.1.2
+  plan. Matching frontend rebuild, standard hidden restart and tab reload remain
+  required; restarting Python alone does not update frontend assets.
+
 ## v0.4.1.1 - Overview Operations Deck (2026-10-07)
 
 - Scoped CSS frames the existing Now section, four primary metrics and quieter

@@ -1,0 +1,29 @@
+/* Mission plan gallery: existing selection and readiness owners. */
+#mission-plan-cards {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+#mission-plan-cards > button {
+  padding: 1.25rem;
+  gap: 1rem;
+  border-radius: 0.75rem;
+}
+#mission-plan-cards > button > span:first-child > span:first-child > span:first-child {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+}
+#mission-plan-cards > button > span:last-child {
+  width: 100%;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgb(var(--ui-border));
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 768px) {
+  #mission-plan-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1280px) {
+  #mission-plan-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

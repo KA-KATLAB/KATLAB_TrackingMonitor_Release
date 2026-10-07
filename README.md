@@ -5,17 +5,17 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.1.1 - Overview Operations Deck**
+Current source version: **v0.4.1.2 - Mission Plan Gallery**
 
-Overview frames its four existing operational metrics in a responsive deck:
-attribution needs lead, while known Git changes, clean-repository coverage and
-dated effort retain their labels and state distinctions. Scoped CSS
-changes presentation only; source data, state, interactions and all six views
-retain their existing owners. The visible build badge remains beside KATLAB.
+Mission's existing plan choices gain a responsive gallery with clearer names
+and aligned count footers. Selected Now remains primary; exact plan identities,
+backend readiness, task counts and native selection buttons keep their owners.
+One scoped stylesheet and its bootstrap import change presentation, not Mission
+logic or shared CSS. The Overview deck and visible KATLAB build badge remain.
 Large Connection: close responses and native UI acceptance remain unresolved;
 the previously recorded high build-only braces advisory and chunk notice are not addressed.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.1.1_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.1.2_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -188,7 +188,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.1.1_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.1.2_Release_Notes.md)
 
 ## Guarantees
 
