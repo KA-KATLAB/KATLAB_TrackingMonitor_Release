@@ -672,6 +672,30 @@ Records rules; existing Gallery/Momentum lazy CSS stays unchanged. Source,
 SSR, controlled rendering and assets are not native geometry, focus, keyboard,
 zoom, coarse-input, AT, motion or subjective acceptance evidence.
 
+The Achievement Gallery styles only the existing quiet TrophyCase Surface
+marked `data-achievement-gallery="true"`, its direct grid/tiles and direct
+numeric/supporting/header owners. Its import is lazy Overview-owned beside
+Gallery/Momentum, not eager Records. Keep seven ranked achievements and two
+secrets, their nine keys/order, classes, margins, one/two/three columns at
+640/1536px and half-width placement beside Records from 1280px.
+Use 16px gaps and tile padding, a shared 1px border, 8px corners, surface tone
+and min-width 0. Numeric children use 32px/40px tabular Azeret Mono with anywhere
+wrapping; basis/secret stories use 14px/21px and next-rank copy 12px/18px.
+Titles wrap with min-width 0. Rank badges use 6px corners, 4px/8px padding and
+12px/18px. Do not restyle the shared heading, nested progress, adjacent panels
+or motion/scrolling owners; no fixed height, clipping, ordering or new font.
+Only ordinary C/B badge foregrounds change to #ffffff/#020617 on the original
+#64748b/#0284c7 backgrounds. Require unrounded source-pair contrast at least
+4.5, including all other rank/unranked/secret pairs; native rendered acceptance
+remains separate. Keep all other colors, progress opacity, inclusive thresholds,
+rank/next/max/rounding/cap, calendar and all-time/local-time bases, scoped tasks
+versus server-scoped stats, locked ???/stories and React escaping unchanged.
+Add no data, hooks, state, request, API/storage or clock behavior. Verify all
+seven lazy compiled additions and restore the complete old lazy CSS bytes
+after subtracting only validated rules; retain the entire eager stylesheet.
+Current-only SSR/source/contrast/compiled assets do not certify native paint,
+geometry, focus, keyboard, AT, zoom, state/motion or subjective acceptance.
+
 ### 6.3 History
 
 - Style only the existing data-history-ready owner's direct Captured commits

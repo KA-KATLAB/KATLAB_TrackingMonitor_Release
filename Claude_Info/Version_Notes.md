@@ -1,5 +1,46 @@
 # Version Notes
 
+## v0.4.1.11 - Achievement Gallery (2026-10-07)
+
+- Overview's nine existing tiles retain seven ranked achievements and two
+  secrets, with 16px gaps/padding, shared 1px borders, 8px corners and surface
+  tone. Existing one/two/three columns at 640/1536px, source order, header
+  wrapping, margins and the half-width pane beside Records from 1280px stay.
+- Direct numeric values use 32px/40px tabular Azeret Mono; basis/secret stories
+  use 14px/21px, next-rank copy 12px/18px. Titles wrap with min-width 0; rank
+  badges use 6px corners, 4px/8px padding and 12px/18px. Heading and nested
+  progress owners are outside the seven scoped root rules, with no media,
+  color, opacity, motion, scrolling or new font resource in the stylesheet.
+- Only ordinary C/B badge text changes: white on #64748b and #020617 on
+  #0284c7 calculate to unrounded 4.758842787868666 and 4.925815585974154.
+  Their old source pairs were below 4.5. Other ranks, unranked/secrets,
+  backgrounds and progress opacity stay. These are source-pair calculations,
+  not native rendered contrast or full accessibility certification.
+- trophies.tsx gains only an immediate CSS import, a literal marker on its
+  existing quiet Surface and the ordinary badge foreground expression.
+  Inclusive thresholds, rank/next/max/progress rounding/cap, nine keys/order,
+  classes, data periods, local punch-card inputs, scoped tasks versus
+  server-scoped stats, locked stories and React escaping keep their owners.
+  No hooks, state, data, request, storage, API or clock behavior is added.
+- CSS is lazy Overview-owned with Gallery/Momentum, unlike eager Records.
+  Validate all seven compiled additions, subtract only those validated rules
+  and restore every old lazy stylesheet byte before retargeting its identity.
+  The complete eager stylesheet and source index.css remain unchanged.
+- New checks require independent CSS/AST adversaries, a three-window RAW/LF
+  inverse, all badge color-pair ratios and actual current TrophyCase/Surface
+  SSR with rank, scope, secret and frozen-data cases. Restored history is not
+  executed. Existing weekly/year/Records/Momentum/UI suites must also run.
+- Canonical source version is 0.4.1.11. Use matching builds and the standard
+  hidden restart; reload existing tabs. Chronicle readiness needs both its
+  retained exact CSS and the new mirrored Achievement Gallery note identity.
+- Native v0.4 H.1, large Connection: close failure, prior high build-only
+  braces advisory (recorded alert #15) and chunk notice remain open under
+  accepted limited publication. Keep-alive checks are not a repair; historical
+  GitHub push notices are not a fresh detailed advisory audit.
+- Published v0.4.1.10 notes move to Archive with only two affected URLs changed.
+  Actual review/CFT/test/build/live/commit/ref results belong in the 1.11 plan;
+  no unrun results or historical counts are asserted here.
+
 ## v0.4.1.10 - Personal Records Showcase (2026-10-07)
 
 - Overview's four existing Records stack their unchanged label/value/date

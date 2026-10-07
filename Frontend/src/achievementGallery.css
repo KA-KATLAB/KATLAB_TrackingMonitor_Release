@@ -1,0 +1,39 @@
+/* Earned progress presentation; thresholds, scope and secret owners stay. */
+.ui-surface[data-achievement-gallery="true"] > .grid {
+  gap: 16px;
+}
+.ui-surface[data-achievement-gallery="true"] > .grid > div {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 8px;
+  background-color: rgb(var(--ui-surface));
+}
+.ui-surface[data-achievement-gallery="true"] > .grid > div > div.text-xl {
+  min-width: 0;
+  font-family: "Azeret Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 32px;
+  line-height: 40px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-achievement-gallery="true"] > .grid > div > div.leading-relaxed {
+  font-size: 14px;
+  line-height: 21px;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-achievement-gallery="true"] > .grid > div > div:nth-child(4) {
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-achievement-gallery="true"] > .grid > div > .flex > span:nth-child(2) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-achievement-gallery="true"] > .grid > div > .flex > span:nth-child(3) {
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 18px;
+}

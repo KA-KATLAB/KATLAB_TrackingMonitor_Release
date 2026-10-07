@@ -7,6 +7,7 @@
 import type { StatsData } from "./charts";
 import type { Task } from "./api";
 import { SectionHeading, Surface } from "./ui";
+import "./achievementGallery.css";
 
 const RANKS = ["C", "B", "A", "S", "SS", "SSS"] as const;
 // slate-500 / sky-600 / teal-500 / amber-400 / purple-500 / rose-500
@@ -92,7 +93,7 @@ export function TrophyCase ({ stats, tasks, scope }: {
 }) {
   const scoped = scope ? tasks.filter((t) => t.repo === scope) : tasks;
   return (
-    <Surface data-reveal tone="quiet">
+    <Surface data-reveal tone="quiet" data-achievement-gallery="true">
       <SectionHeading level={4} title="Trophy case"
         description={scope ?? "All repos"} />
       <div className="grid min-w-0 gap-x-6 gap-y-4 sm:grid-cols-2 2xl:grid-cols-3">
@@ -111,7 +112,8 @@ export function TrophyCase ({ stats, tasks, scope }: {
                 <span className="min-w-0 break-words font-semibold text-ui-text">{t.title}</span>
                 <span className="ml-auto rounded px-1.5 text-xs font-bold"
                   style={{ backgroundColor: color,
-                    color: crossed === 0 ? "#cbd5e1" : "#0f172a" }}>
+                    color: crossed === 0 ? "#cbd5e1"
+                    : crossed === 1 ? "#ffffff" : crossed === 2 ? "#020617" : "#0f172a" }}>
                   {rank}
                 </span>
               </div>
