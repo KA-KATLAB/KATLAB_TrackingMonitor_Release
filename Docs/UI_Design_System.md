@@ -502,6 +502,24 @@ known clean repositories and dated effort. Captured events, auto-attribution and
 busiest task remain secondary. No status data means unavailable, not zero.
 Never scale down metric text; wrap while retaining exact values and snapshot dates.
 
+The Overview Operations Deck is scoped CSS presentation of this existing Now
+section, not a new summary or interaction owner. Frame its primary metric group
+and a quieter captured-activity strip without changing semantic markup, source
+data, hooks, callbacks, requests, timers or state. Below 768px both groups stack;
+from 768px use two equal primary columns and three secondary columns. From 1024px
+use three asymmetric primary columns: the first metric spans two rows; dated
+effort spans columns 2-3 on the second row. Preserve DOM/read order and natural
+height/wrapping. An absent busiest task remains absent, not a placeholder.
+The first metric's sky accent is neutral across all states, including measured
+zero and unavailable. Never infer readiness, warning, cleanliness or complete
+coverage from that accent. Keep primary/secondary values 32px/20px, panel gaps
+and padding 16-24px, heading-divider padding 12px, inner secondary-metric padding 0
+and corners 8/12px. Preserve every exact date, coverage/retained-snapshot caption,
+independent stats/workspace gate, PlanBoard and positive-event gate, count-up and
+reduced-motion behavior. Do not add scale, clipped/fixed height, sticky layers,
+motion or a scroll owner. CSS/source/SSR contracts do not certify native paint,
+geometry, focus, keyboard, zoom, coarse input or assistive technology acceptance.
+
 Active plans file declarations can be paths or custom-glob scope patterns. Show
 '*'/'?' patterns in full with a visible 'pattern' label, without a button, link or
 tab stop; only concrete paths open their exact repository/file Story. Brackets

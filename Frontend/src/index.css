@@ -218,6 +218,69 @@ body {
   }
 }
 
+/* Overview operations deck: existing data and interaction owners. */
+section[aria-labelledby="overview-now-heading"] {
+  padding: 1rem;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 0.75rem;
+  background: rgb(var(--ui-surface) / 0.35);
+}
+section[aria-labelledby="overview-now-heading"] > .ui-section-heading {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgb(var(--ui-border));
+}
+section[aria-labelledby="overview-now-heading"] [role="group"][aria-label="Current operational metrics"] {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+section[aria-labelledby="overview-now-heading"] [role="group"][aria-label="Current operational metrics"] > .ui-metric {
+  padding: 1.25rem;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 0.5rem;
+  background: rgb(var(--ui-surface));
+}
+section[aria-labelledby="overview-now-heading"] [role="group"][aria-label="Current operational metrics"] > .ui-metric:first-child {
+  border-color: rgb(var(--ui-focus));
+  background: rgb(var(--ui-primary) / 0.12);
+}
+section[aria-labelledby="overview-now-heading"] [role="group"][aria-label="Captured activity summary"] {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 0.5rem;
+  background: rgb(var(--ui-surface-raised) / 0.35);
+}
+section[aria-labelledby="overview-now-heading"] [role="group"][aria-label="Captured activity summary"] > .ui-metric {
+  padding: 0;
+  border: 0;
+}
+@media (min-width: 768px) {
+  section[aria-labelledby="overview-now-heading"] [role="group"][aria-label="Current operational metrics"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  section[aria-labelledby="overview-now-heading"] [role="group"][aria-label="Captured activity summary"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  section[aria-labelledby="overview-now-heading"] { padding: 1.5rem; }
+  section[aria-labelledby="overview-now-heading"] [role="group"][aria-label="Current operational metrics"] {
+    grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(0, 1fr));
+  }
+  section[aria-labelledby="overview-now-heading"] [role="group"][aria-label="Current operational metrics"] > .ui-metric:first-child {
+    grid-row: 1 / span 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  section[aria-labelledby="overview-now-heading"] [role="group"][aria-label="Current operational metrics"] > .ui-metric:last-child {
+    grid-column: 2 / -1;
+  }
+}
+/* End Overview operations deck. */
+
 @media (min-width: 1280px) {
   .app-shell-navigation {
     display: flex;

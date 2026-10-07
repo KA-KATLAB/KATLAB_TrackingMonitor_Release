@@ -62,10 +62,10 @@ are not addressed. GitHub alert status was not refreshed in this cycle.
 No forced dependency migration or browser workaround.
 No API, schema, backend runtime, configuration or stored-data change is added.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Rebuild the frontend from matching source and reload existing tabs; restarting
 Python alone leaves the old loaded UI assets. Actual owned stop/start, live
 checks, commit ID and existing remote refs are documented in the plan.
 
-Previous [v0.4.0.35 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.0.35_Release_Notes.md)
+Previous [v0.4.0.35 notes](TrackingMonitor_v0.4.0.35_Release_Notes.md)
 retain their historical content with only two move-affected links rebased.

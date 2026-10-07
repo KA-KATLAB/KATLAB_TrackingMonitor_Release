@@ -1,5 +1,34 @@
 # Version Notes
 
+## v0.4.1.1 - Overview Operations Deck (2026-10-07)
+
+- Scoped CSS frames the existing Now section, four primary metrics and quieter
+  captured-activity strip. No React/TypeScript production owner, data, request,
+  state, callback, timer, dependency or semantic markup changes.
+- Below 768px metrics stack; from 768px the primary deck uses two equal columns
+  and the secondary strip uses three. From 1024px the first primary metric spans
+  two rows, followed by changes and clean coverage; dated effort spans the last
+  two columns. DOM/read order and natural wrapping remain unchanged.
+- The first metric's sky accent applies even to zero/unavailable states; it is
+  not a warning, readiness or completeness signal. Primary/secondary values
+  remain 32px/20px without scaling, clipped height or a new scroll owner.
+- Waiting, unavailable, accepted no-repo, unknown/offline coverage, measured
+  zero and retained snapshots remain distinct. Exact dates, approximate effort,
+  stats/workspace independence, PlanBoard and positive-event gates stay intact.
+- The new suite covers the literal CSS block, strict whole-stylesheet inverse,
+  immutable source/original test bytes and raw-current Kpi SSR final-state
+  fixtures. Verification and delivery evidence belong in the v0.4.1.1 plan;
+  source/SSR checks are not native geometry, paint, keyboard, focus or AT proof.
+- Native v0.4 H.1 and the recorded large Connection: close response failure
+  remain open. Keep-alive diagnostics do not repair that failure. Publication
+  remains explicitly limited under the user's accepted known limitations.
+- The previously recorded high build-only braces advisory and chunk notice
+  are not fixed. Historical GitHub push alert notices are not a fresh advisory
+  detail audit or remediation; no forced dependency/browser workaround is added.
+- Published v0.4.1.0 notes are archived with only their two move-affected URLs
+  changed. Matching source/build identity and a reload remain required; a Python
+  restart alone does not update served or already-loaded frontend assets.
+
 ## v0.4.1.0 - Mission Control Workbench (2026-10-07)
 
 - A larger complete KATLAB identity, decorative monogram and bordered build
