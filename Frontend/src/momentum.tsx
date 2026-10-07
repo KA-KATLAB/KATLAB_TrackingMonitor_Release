@@ -12,6 +12,7 @@ import type { StatsData } from "./charts";
 import { calendarRangeLabel } from "./calendarDay";
 import { fmtMinutes } from "./format";
 import { SectionHeading, Surface } from "./ui";
+import "./momentumComparison.css";
 
 type CalDay = StatsData["activity_calendar"][number];
 type Metric = "events" | "minutes" | "commits";
@@ -69,7 +70,7 @@ export function MomentumStrip ({ calendar, scope }:
   const precedingPeriod = calendarRangeLabel(preceding);
   const comparisonAvailable = selected.length === 7 && preceding.length === 7;
   return (
-    <Surface data-reveal>
+    <Surface data-reveal data-momentum-deck="true">
       <SectionHeading level={4} title="Momentum"
         description={`Selected: ${selectedPeriod}, ${selected.length}/7 days. `
           + `Preceding: ${precedingPeriod}, ${preceding.length}/7 days. Scope: ${scope ?? "All repos"}.`} />

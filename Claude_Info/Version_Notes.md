@@ -1,5 +1,45 @@
 # Version Notes
 
+## v0.4.1.9 - Momentum Comparison Deck (2026-10-07)
+
+- Overview's existing Momentum cards stack their original source order: label,
+  selected value/honest delta, preceding value and optional bounded spark.
+  Labels use 16px/24px, selected values 32px/40px tabular Azeret Mono and
+  delta/preceding copy 14px/21px. The existing mono stack needs no new font.
+- The artificial 420px grid floor becomes zero with 16px gaps; original
+  one-column/sm-three-column behavior and the labelled/tabbable local scroller
+  remain. Each original card has one zero-minimum grid column, 16px padding/
+  gaps, a shared 1px border, 8px corners and raised tone. Value lines wrap,
+  preserving baseline/8px gap; long values and comparison copy wrap anywhere.
+  The optional second spark wrapper loses only its automatic left margin,
+  retaining max-width 130px and SVG h-7 (1.75rem, nominally 28px at a 16px root);
+  no full-line stretch is claimed.
+- Only one CSS import and one literal marker on MomentumStrip's existing
+  Surface change its source. All other bytes/classes/nodes/order/math remain.
+  The stylesheet has 44 LF lines/1638 bytes, one comment and eight direct rules.
+  It is lazy Overview-owned alongside byte-unchanged Gallery source; the
+  complete emitted lazy CSS identity changes and must be discovered afresh.
+- Supplied absolute UTC dates, scope/coverage, missing versus measured zero,
+  partial sums, two-complete-window deltas/sparks, zero-to-positive new status,
+  neutral decreases and the shared spark boundary remain. Existing caller
+  gates, helpers, shared UI, scrolling/focus/reveal/motion and old tests stay.
+- New verification requires independent complete CSS/AST adversaries, a strict
+  two-window RAW/LF inverse and actual current component/Surface SSR with
+  supplied calendars, alongside unchanged executable weekly regressions.
+  No restored historic owner is executed; source/SSR/assets are not native
+  geometry, keyboard, zoom, coarse-input, AT or subjective acceptance evidence.
+- Canonical source version is 0.4.1.9. Rebuild matching assets, use the standard
+  hidden restart and reload existing tabs. Chronicle promotion readiness needs
+  both its exact unchanged current CSS and the new mirrored 1.9 note identity;
+  unchanged CSS alone cannot distinguish old 1.8 output from current output.
+- Native v0.4 H.1, recorded large Connection: close failure, prior high
+  build-only braces advisory (recorded alert #15) and chunk notice remain open
+  under accepted limited publication. Keep-alive diagnostics are not a repair;
+  historical GitHub push notices are not a fresh detailed advisory audit.
+- Published v0.4.1.8 notes move to Archive with only two affected URLs changed.
+  Actual review/CFT/test/build/live/commit/ref evidence belongs in the 1.9 plan;
+  no unrun results or historical test counts are asserted here.
+
 ## v0.4.1.8 - Chronicle Reader Canvas (2026-10-07)
 
 - The actual generated div.col-md-9[role=main] gains one panel-toned canvas,

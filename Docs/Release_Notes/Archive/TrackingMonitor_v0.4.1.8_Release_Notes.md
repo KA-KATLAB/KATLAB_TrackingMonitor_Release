@@ -72,12 +72,12 @@ review, CFT, test, build, restart, live, commit and remote-ref evidence belongs
 in `temp/Plan/PLAN_v0.4.1.8_Chronicle_Reader_Canvas.txt`; no completed results or
 historical test counts are invented here. New blocking regressions stop delivery.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Stop Tracker and demo before rebuilding matching React entry assets. Although
 React source is unchanged, canonical version 0.4.1.8 requires a matching build.
 Use the standard hidden restart, let the normal Chronicle generator/build/swap
 deliver its stylesheet, and reload existing tabs. Restarting Python alone does
 not rebuild frontend assets; never hand-edit Chronicle/runtime to change CSS.
 
-Previous [v0.4.1.7 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.1.7_Release_Notes.md)
+Previous [v0.4.1.7 notes](TrackingMonitor_v0.4.1.7_Release_Notes.md)
 retain every historical byte except their two move-affected Markdown URLs.

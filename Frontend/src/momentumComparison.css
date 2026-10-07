@@ -1,0 +1,44 @@
+/* Momentum comparison hierarchy only; data, dates and source order stay. */
+.ui-surface[data-momentum-deck="true"] > .ui-local-scroller > .grid {
+  min-width: 0;
+  gap: 16px;
+}
+.ui-surface[data-momentum-deck="true"] > .ui-local-scroller > .grid > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 8px;
+  background-color: rgb(var(--ui-surface-raised));
+}
+.ui-surface[data-momentum-deck="true"] > .ui-local-scroller > .grid > div > div:first-child > div:first-child {
+  font-size: 16px;
+  line-height: 24px;
+}
+.ui-surface[data-momentum-deck="true"] > .ui-local-scroller > .grid > div > div:first-child > div.flex {
+  flex-wrap: wrap;
+}
+.ui-surface[data-momentum-deck="true"] > .ui-local-scroller > .grid > div > div:first-child > div.flex > span:first-child {
+  min-width: 0;
+  font-family: "Azeret Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 32px;
+  line-height: 40px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-momentum-deck="true"] > .ui-local-scroller > .grid > div > div:first-child > div.flex > span:nth-child(2) {
+  min-width: 0;
+  font-size: 14px;
+  line-height: 21px;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-momentum-deck="true"] > .ui-local-scroller > .grid > div > div:first-child > div:last-child {
+  font-size: 14px;
+  line-height: 21px;
+  overflow-wrap: anywhere;
+}
+.ui-surface[data-momentum-deck="true"] > .ui-local-scroller > .grid > div > div:nth-child(2) {
+  margin-left: 0;
+}

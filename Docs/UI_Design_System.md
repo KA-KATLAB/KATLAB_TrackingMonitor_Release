@@ -587,6 +587,30 @@ reduced-motion behavior. Do not add scale, clipped/fixed height, sticky layers,
 motion or a scroll owner. CSS/source/SSR contracts do not certify native paint,
 geometry, focus, keyboard, zoom, coarse input or assistive technology acceptance.
 
+The Momentum Comparison Deck styles only the existing MomentumStrip Surface
+marked `data-momentum-deck="true"`, its real local scroller and direct metric
+card descendants. Its one stylesheet import is lazy Overview-owned alongside
+the Active Plan Gallery; discover the actual built lazy CSS identity, which
+changes even though Gallery source remains unchanged. Keep the original Now
+position, caller gates, SectionHeading, region name, tab stop and reveal owner.
+Remove only the outer grid's artificial 420px minimum; retain its existing
+one-column/sm-three-column template with 16px gaps. Each original card becomes
+one zero-minimum grid column with 16px padding/gaps, a shared 1px border,
+8px corners and raised tone. Existing items-center stays; rows are intrinsic.
+Use 16px/24px labels, 32px/40px tabular selected values in the existing Azeret
+Mono stack and 14px/21px delta/preceding copy. Retain the value-line baseline
+and 8px gap while allowing wrapping; long values and comparison copy wrap
+anywhere. Preserve muted/up/down text and color meanings, not color-only state.
+Only the optional second direct card child loses its automatic left margin;
+the spark wrapper retains max-width 130px and the SVG retains h-7 (1.75rem,
+nominally 28px at a 16px root), viewBox 100x28 and aria-hidden. Do not claim
+full-line spark stretching.
+Preserve supplied UTC periods/coverage, missing versus measured zero, partial
+sums, two-complete-window delta/spark gating and the existing shared-boundary
+normalization. No date, format, class, node, source order, hook, request, state,
+dependency, font service, focus, motion or scrolling owner changes. Source,
+SSR and assets do not certify native geometry, zoom, focus, keyboard or AT.
+
 The Active Plan Gallery styles only the existing PlanBoard Surface marked
 `data-active-plan-board="true"` and its direct list/card/header/spotlight owners.
 Its stylesheet import belongs to PlanBoard, loaded with lazy Overview only;

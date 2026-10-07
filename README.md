@@ -5,20 +5,21 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.1.8 - Chronicle Reader Canvas**
+Current source version: **v0.4.1.9 - Momentum Comparison Deck**
 
-The actual generated Chronicle gains one quiet reading canvas with a shared
-border, 8px corners and 24px padding, reduced to 16px at or below 640px.
-Direct prose uses a 72ch maximum measure; contained media/code/tables obey
-that parent width while retaining their existing wrapping. This is not a
-guaranteed character count or native accessibility certification.
-Only one literal CSS block in the pure generator changes. React, navigation,
-content, footer and existing UI owners stay unchanged; verify the generated
-and served Chronicle stylesheet, not only the React entry assets.
+Overview's existing Momentum cards put readable 16px labels above 32px tabular
+values in the configured Azeret Mono stack, with 14px comparison copy and the
+existing bounded spark below. Values wrap; the artificial 420px grid floor is
+removed while the original responsive columns, labelled local scroller and
+supplied UTC periods, sums, coverage and honest delta rules stay unchanged.
+The stylesheet is lazy Overview-owned alongside the unchanged Active Plan
+Gallery; discover its actual built assets rather than checking only entry CSS.
+Chronicle's reading canvas remains. Activation must verify both its exact
+retained stylesheet and the newly mirrored current release notes.
 Large Connection: close responses and native UI acceptance remain unresolved;
 the previously recorded high build-only braces advisory and chunk notice are not addressed.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.1.8_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.1.9_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -191,7 +192,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.1.8_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.1.9_Release_Notes.md)
 
 ## Guarantees
 
