@@ -360,6 +360,63 @@ preserve old 19+9 contexts/bodies and full external CSS, with thirteen compiled
 gates. Bytes prove preservation, not computed appearance. Native acceptance
 and known transport/zero-choice wording/async limitations remain open.
 
+### 3.4 Diagnostic Studio presentation overrides
+
+The identified `katlab-diagnostic-studio` fourth inline style follows complete
+Attribution Station and precedes the unchanged title. It supersedes ONLY the
+named System snapshot presentation below; retain 3.1/3.2/3.3 and all remaining
+contracts. System is portaled to document.body, not #root. Scope through
+`.ui-safe-dialog > [role="dialog"]` and the four exact section aria-labelledby
+values: health-server-heading, health-activity-heading, health-providers-heading
+and health-repositories-heading. Dynamic modal title IDs are not style hooks.
+
+Keep native section/h3 order and names. Activity and Providers are conditional,
+not guaranteed panels. Named sections use 20px padding/8px corners. Direct h3s
+use 20px/1.4, 16px bottom margin and 12px-bottom decorative divider. Direct Server
+div.grid Rows use 6px vertical padding and decorative separators. Missing-field,
+known-version-mismatch and invalid-Chronicle warning panels are excluded.
+
+Activity uses a one-column grid/12px gap, two zero-minimum columns from 640px.
+Its h3 spans 1/-1 with bottom margin 0. Its four direct Row grids remain adjacent
+label/value pairs but stack even above 640px, with 8px gap/16px canvas padding,
+one-pixel decorative border/8px corners. Labels use 14px/1.4; values 28px/1.25/600
+use the exact existing configured Azeret Mono and installed mono fallback stack,
+retaining tabular figures, anywhere wrapping and nested warning colors. Preserve
+pending/rejected/unscoped ignored/registry mismatch text and units; no inferred
+metric, availability, freshness or universal positive health indicator.
+
+Existing direct provider div.mb-3 cards use 16px padding/8px corners; their direct
+div.grid Rows use 6px vertical padding. Repository #health-repos >div cards use
+12px top separation/12px padding, decorative border/8px corners/canvas background.
+Their first repo-ID span uses semantic text/600; offline child color owns itself.
+The new border intentionally overrides last:border-0 on the last card. Preserve
+all four spans, exact timestamps/log-write titles/log sizes/warning counts, original 640px
+two-column zero-minimum tracks, full wrapping and fifty-repository paging.
+
+Keep UI-build/receipt/Refresh/Retry/status/loading/error/retained-stale notices
+untouched. Retain the 672px cap, maxheight, safe areas, single existing body
+scroller and all request/decoder/focus/close/background-inertness owners. Do not
+add clipping, fixed dimensions, order, controls, state, API, token/MODE override,
+font resource/dependency, motion or :has. Non-Activity Row value typography stays.
+
+Require complete fourth-window HTML inverse and exactly two approved windows
+in each of three old suites. Old pure helpers stay byte-identical. Actual-current
+SSR/AST and an independent thirteen-rule CSS inventory prove source contracts;
+the first two rules have four ordered selectors each. Fourteen compiled gates
+validate four exact ordered direct-head styles, all new declarations/cascade and
+the fourth body BEFORE projecting only the proven fourth node into retained
+Station3/Changes2 checks. Retain complete prior bodies/eager/lazy CSS and all
+historic assertions; unchanged bytes do not mean unchanged computed appearance.
+
+Forward erratum: the deferred zero-choice caption change has a verified 21-suite
+fixed-point closure in published 2.2, not 19. Current 2.3 closure is verified at 22:
+15 direct App-pin owners, five historical owners and two transitive whole-test
+owners. The new Studio suite adds the direct owner. Do not present the baseline
+as the current total or claim the unchanged caption is repaired.
+Retain historical release-note bytes. Native/operator paint, reflow, keyboard,
+coarse input, zoom and AT acceptance remain open; source/SSR/built/HTTP evidence
+does not certify them or repair the known large Connection:close body fault.
+
 ## 4. Shared component contract
 
 Shared primitives are small implementation helpers, not a component framework. They forward native props and refs, preserve native disabled/focus behavior, and accept `className` only for local layout.

@@ -1,5 +1,41 @@
 # Version Notes
 
+## v0.4.2.3 - Diagnostic Studio (2026-10-07)
+
+- Refine only the accepted System snapshot: stronger named section headings,
+  server separators, Activity metric cards and provider/repository cards.
+  Activity and Providers remain conditional; every original value and unit stays.
+- Add one identified fourth inline style after complete Attribution Station.
+  Complete 13548-byte/295LF HTML inverts through 3651 bytes to all 9897 prior bytes.
+  The independent 3152-byte/74LF literal has twelve root rules and one 640px rule;
+  first two ordered selector lists each have four exact named section targets.
+- Use 20px section padding/8px corners and 20px/1.4 headings. Server/provider
+  direct Row padding is 6px vertically. Activity stacks each label/value pair;
+  section grid is one column, two from 640px. Labels 14px/1.4; values 28px/1.25/600
+  use the existing Azeret Mono/full installed fallback stack and tabular wrapping.
+- Keep 16px provider cards and 12px repository cards, original four repository
+  spans/640px tracks/50-item pager, offline color and exact date/log/warning data.
+  UI-build/receipt/status/Refresh/Retry/error/stale notices remain untouched.
+- Keep all App/health/API/TSX/JS/stylesheets and six dependencies unchanged.
+  Three old suites use exactly two preservation windows each; actual-current
+  behavioral SSR/AST never executes restored historical JS. Preserve both old
+  pure adapters and the existing Station projection entirely.
+- Require fourteen compiled gates, exact four ordered built styles, independently
+  validated fourth-only projection before the original Station/Changes chain,
+  complete old body/eager/lazy bytes and full isolated/production JSON parity.
+- Correct the previous 19 caption-coupling estimate forward: published 2.2 closure
+  is 21 suites. Current 2.3 fixed-point closure is verified at 22: 15 direct
+  App-pin owners, five historical owners and two transitive whole-test owners.
+  The new Studio suite adds the direct owner; caption/assignment logic stays.
+  Archived 2.2 notes retain their historical estimate and all bytes except two URLs.
+- Canonical build/source 0.4.2.3; native-owned literal OLD 2.2 stop/BOTH ports clear,
+  production gates and Hidden parent restart, then current Studio notes AND full
+  8784-byte Chronicle CSS/full 4772af readiness and bounded reachable-asset parity.
+- Native/operator beauty, large Connection:close, high build-only alert 15/chunk
+  notice and pre-existing async/empty/legend limitations stay open. No native,
+  security/transport repair or unrun gate/test/live/publication result is claimed.
+  Actual results and commit ID belong in the ignored 2.3 detailed plan.
+
 ## v0.4.2.2 - Attribution Station (2026-10-07)
 
 - Refine the existing manual attribution queue as one station: bulk canvas

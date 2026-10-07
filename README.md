@@ -5,22 +5,25 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.2.2 - Attribution Station**
+Current source version: **v0.4.2.3 - Diagnostic Studio**
 
-The manual attribution queue is now one clear station: a bulk toolbar,
-separate assignment cards and complete file paths on their own line.
-Direct labels/buttons use 44px minimum height; task choices and feedback wrap.
-Keep the full unfiltered queue, selection, validation, locks, partial/retry
-behavior, dialogs and paging. Workbench 2.0 and Changes Review Desk stay.
-The full product name, loaded build version and System action remain visible.
-Three bounded styles own presentation; all App/API/TSX/JS/stylesheets and
-dependencies stay unchanged. Preserve both old suites through exact adapters,
-all prior oracles, thirteen compiled gates and complete eager/lazy CSS bytes.
+System's accepted snapshot has clearer section titles, Activity metric cards,
+server separators and consistent provider/repository cards. Activity and
+Providers remain conditional; no missing data becomes a zero or healthy state.
+Keep the visible loaded build, receipt time, Refresh/Retry and retained-response
+warnings. The existing 672px modal cap, body scroller, focus and paging stay.
+Workbench 2.0, Changes Review Desk and Attribution Station remain complete.
+Four bounded styles own presentation; all App/health/API/TSX/JS/stylesheets and
+dependencies stay unchanged. Preserve three legacy suites through exact
+adapters, all prior oracles, fourteen compiled gates and full eager/lazy CSS.
+The deferred caption-fix closure was 21 suites in published 2.2, not the
+previous 19 estimate. Current 2.3 has a verified 22-suite fixed-point closure:
+15 direct App-pin owners, five historical owners and two transitive owners.
+The extra direct owner is the new Studio suite. No caption repair here.
 Activation requires current notes AND exact Chronicle CSS. Native/operator
 beauty, Connection:close and prior advisory/chunk notices remain open.
-Pre-existing zero-choice wording and async boundaries are not fixed here.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.2.2_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.2.3_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -193,7 +196,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.2.2_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.2.3_Release_Notes.md)
 
 ## Guarantees
 

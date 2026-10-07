@@ -67,7 +67,7 @@ are not repaired or certified. Do not interpret green visual checks as proof
 of all asynchronous assignment outcomes. Six dependencies remain unchanged.
 Limited publication remains explicit; a new blocking regression stops delivery.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../../Docs/Installation_Guideline.md#safe-stop-and-restart).
 Prove literal OLD 2.1 ownership and demo clear; owned stop then BOTH 8100+8101clear
 before actual production 2.2 build and all thirteen gates/full JSON parity.
 Use the standard Hidden CMD parent restart, not a visible window/child-tree wait.
@@ -80,5 +80,5 @@ are not a hard wall-time cancellation or native interaction test.
 Remain main; ONE scoped commit/three existing normalFF targets only.
 No branch lifecycle, force, merge, tag, default change or hosted Release.
 
-Previous [v0.4.2.1 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.2.1_Release_Notes.md)
+Previous [v0.4.2.1 notes](../../../Docs/Release_Notes/Archive/TrackingMonitor_v0.4.2.1_Release_Notes.md)
 preserve all historical bytes except their two move-affected Markdown URLs.

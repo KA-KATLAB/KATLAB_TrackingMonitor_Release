@@ -7,6 +7,7 @@ import { after, before, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { restoreChangesReviewDeskHtml } from "./helpers/changesReviewDesk.mjs";
 import { restoreAttributionStationHtml, restoreAttributionWorkbenchSuite } from "./helpers/attributionStation.mjs";
+import { studioHtml, studioWorkbench } from "./helpers/diagnosticStudio.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), ".."), frontend = resolve(root, "Frontend");
 const require = createRequire(resolve(frontend, "package.json"));
@@ -14,8 +15,8 @@ const ts = require("typescript"), postcss = require("postcss"), React = require(
 const { renderToStaticMarkup } = require("react-dom/server");
 const read = name => {
   const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(readFileSync(resolve(root, name)));
-  if (name === "Frontend/index.html") return restoreAttributionStationHtml(text);
-  if (name === "Tests/test_workbench_2_0.mjs") return restoreAttributionWorkbenchSuite(text);
+  if (name === "Frontend/index.html") return restoreAttributionStationHtml(studioHtml(text));
+  if (name === "Tests/test_workbench_2_0.mjs") return restoreAttributionWorkbenchSuite(studioWorkbench(text));
   return text;
 };
 const sha = value => createHash("sha256").update(value).digest("hex"), lf = value => value.replace(/\r\n/g, "\n");

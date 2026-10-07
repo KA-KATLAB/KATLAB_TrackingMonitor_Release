@@ -6,12 +6,19 @@ import { dirname, resolve } from "node:path";
 import { after, before, test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { restoreAttributionStationHtml, restoreAttributionWorkbenchSuite } from "./helpers/attributionStation.mjs";
+import { studioHtml, studioWorkbench, studioChanges } from "./helpers/diagnosticStudio.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), ".."), frontend = resolve(root, "Frontend");
 const require = createRequire(resolve(frontend, "package.json"));
 const ts = require("typescript"), postcss = require("postcss"), React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
-const read = name => new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(readFileSync(resolve(root, name)));
+const read = name => {
+  const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(readFileSync(resolve(root, name)));
+  if (name === "Frontend/index.html") return studioHtml(text);
+  if (name === "Tests/test_workbench_2_0.mjs") return studioWorkbench(text);
+  if (name === "Tests/test_changes_review_desk.mjs") return studioChanges(text);
+  return text;
+};
 const sha = value => createHash("sha256").update(value).digest("hex"), lf = text => text.replace(/\r\n/g, "\n");
 // Independent preservation literals. No adapter, production or ignored-plan oracle.
 const CSS = String.raw`/* Attribution Station: queue hierarchy; existing assignment behavior stays. */
