@@ -5,20 +5,20 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.1.6 - Active Plan Gallery**
+Current source version: **v0.4.1.7 - Repository Scope Picker**
 
-Overview's existing Active plans become separate, readable cards with full plan
-names, repository/progress summaries, active-task spotlights and next-up text.
-The gallery stacks below 1024px and uses two equal columns from that boundary.
-Only a PlanBoard stylesheet import and its existing Surface marker are added;
-grouping, source order, zero hiding, 50-item paging and exact file actions stay.
-Styles load with lazy Overview, not the Tasks drawer or initial application boot.
-The command frame, Mission gallery, Overview deck, System panels and History
-ledger retain their existing owners; shared controls and CSS stay unchanged.
+The existing Repository scope modal gains a fully wrapping selected identity,
+clearer labelled search and readable 16px/24px native choice labels. Selected
+choices keep primary fill/white text with a focus-token border and primary-hover
+feedback. Search, exact identities, 50-choice paging and separate remembered/query
+pages keep their existing owners; Close remains the initial focus target.
+Only a RepositorySwitcher stylesheet import and existing panel class change.
+Picker CSS loads eagerly with App; the Overview Active Plan Gallery remains
+lazy. Shared modal/control foundations, all six views and prior styling stay.
 Large Connection: close responses and native UI acceptance remain unresolved;
 the previously recorded high build-only braces advisory and chunk notice are not addressed.
 Rebuild after version changes; restarting Python alone does not update UI assets.
-See the [current release notes](TrackingMonitor_v0.4.1.6_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.1.7_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -191,7 +191,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.1.6_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.1.7_Release_Notes.md)
 
 ## Guarantees
 

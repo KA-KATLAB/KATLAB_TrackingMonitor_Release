@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { DialogShell } from "./dialog";
+import "./repositoryScopePicker.css";
 
 /** The existing scope collection owns choices and paging; this owns no route state. */
 export function RepositorySwitcher ({ children, onClose }: {
@@ -9,7 +10,7 @@ export function RepositorySwitcher ({ children, onClose }: {
   return (
     <DialogShell title="Repository scope" description="Choose a repository or the whole workspace."
       onClose={onClose} closeLabel="Close repository scope" backdropClose
-      panelClassName="max-w-lg">
+      panelClassName="max-w-lg repository-scope-picker">
       {children}
     </DialogShell>
   );

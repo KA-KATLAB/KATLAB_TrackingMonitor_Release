@@ -1,5 +1,47 @@
 # Version Notes
 
+## v0.4.1.7 - Repository Scope Picker (2026-10-07)
+
+- The existing scope summary wraps with 8px gaps/top alignment, 16px bottom
+  margin, 12px padding, a shared 1px border, 8px corners and canvas tone. Its
+  full selected identity takes a complete flex line at 16px/24px/anywhere wrap,
+  overriding visual ellipsis; the scope label/validating text retain 12px.
+- Search's existing label uses 14px/21px primary text and 16px bottom margin.
+  The native search field and choice buttons use 12px padding, 16px/24px values
+  and normal 44px minimum-height declarations. Existing coarse 44px-important
+  minima, 6px control corners, focus rings and native behaviors remain.
+- Choice gaps are 8px; native labels are top/left aligned. Selected choices
+  retain actual primary fill/white text, gain a focus-token border and use
+  primary-hover on enabled hover. Unpressed backgrounds and shared hover are
+  not overridden; disabled/active/pressed state and cursor owners stay.
+- One eager stylesheet import follows DialogShell in RepositorySwitcher, and
+  only its existing panel class gains repository-scope-picker. All other wrapper
+  bytes/props/children/callbacks remain. The eight-rule 56-line stylesheet has
+  no at-rule, network import or new runtime owner. The Active Plan Gallery stays
+  lazy Overview-owned; verify both entry CSS and discovered lazy assets.
+- Exact All repos versus a literal ALL repository, selected-missing choices,
+  hydration/count/no-match text, NFKC/token search, 50-choice bounds, independent
+  query/entry page memory and Back/Forward/reorder/shrink behavior remain.
+  Membership validation does not newly disable choices. Search prominence
+  does not move initial focus from Close or reorder source content.
+- App/dialog/ui/navigation, six views, shared CSS and prior tests stay untouched.
+  Modal naming, lease/inertness, Escape/backdrop, stale-safe focus return,
+  max-w-lg width, outer/body scrolling, safe areas and reduced motion retain
+  their owners. No API, data, route, configuration or dependency change occurs.
+- New verification checks complete independent CSS/selector/declaration
+  contracts, strict two-window AST inverse/RAW-LF pins and actual current wrapper
+  forwarding, alongside the unchanged executable scope/dialog regressions.
+  Separate build/live checks verify eager rules, retained styling and matching
+  assets; source/SSR/assets do not certify native geometry, focus, targets or AT.
+- Native v0.4 H.1, recorded large Connection: close failure, prior high
+  build-only braces advisory (recorded alert #15) and chunk notice remain open
+  under accepted limited publication. Keep-alive diagnostics are not a repair;
+  historical GitHub push notices are not a fresh advisory-detail audit.
+- Published v0.4.1.6 notes move to Archive with only two affected URLs changed.
+  Actual review/CFT/test/build/live/commit/ref evidence belongs in the 1.7 plan.
+  Rebuild matching source, use the standard hidden restart and reload existing
+  tabs; restarting Python alone does not update frontend assets.
+
 ## v0.4.1.6 - Active Plan Gallery (2026-10-07)
 
 - Overview's existing Active plans use one zero-minimum gallery column below

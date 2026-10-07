@@ -164,6 +164,32 @@ At very short viewport heights, an explicitly opened warning detail panel may sh
 
 Repo scopes are a labelled selection group with `aria-pressed`. The workspace control is visibly “All repos” and named “Scope: all repos.” A configured repo retains its exact visible id and is named “Scope: repo <id>”; a repo literally named `ALL` remains distinguishable.
 
+The Repository Scope Picker styles only the existing panel marked
+`repository-scope-picker`, its direct scope summary/search label and actual
+named scope group/native buttons. One eager stylesheet import belongs to
+RepositorySwitcher; App, DialogShell, shared UI and navigation remain unchanged.
+The existing summary wraps with 8px gaps/top alignment, 16px bottom margin,
+12px padding, a shared 1px border, 8px corners and canvas tone. Its second span
+shows the full actual selected identity on one flex line at 16px/24px/anywhere
+wrap, overriding ellipsis without a copied value or new state. The first label
+and validating text remain 12px. Search's label uses 14px/21px primary text and
+16px bottom margin. The native search value and choice labels use 16px/24px,
+12px padding and normal 44px minimum-height declarations; the existing coarse
+44px-important minima retain priority. Choice gaps are 8px with top/left text.
+Keep selected primary fill/white text, focus-token border and enabled
+primary-hover feedback. Do not override unpressed backgrounds/shared hover,
+focus rings, disabled opacity, pressed state, cursor or touch-action owners.
+Control corners remain 6px; panel corners remain 8px, with unchanged max-w-lg,
+modal outer/body scroll owners, labelled focusable options region and pager.
+Search prominence never means initial Search focus: Close remains the shared
+default target. Preserve source order, Close/Escape/backdrop, overlay lease,
+inertness, safe-area/reduced-motion and stale-safe focus return. Membership
+validation does not disable existing choices or imply complete/fresh data.
+No new wrapper, route/data owner, request, width/height cap, clipping, order,
+positioning or scroll owner is introduced. The picker CSS is eager; the Active
+Plan Gallery remains lazy Overview-owned. Verify actual entry and reachable
+lazy CSS separately; source/SSR/assets do not certify native UI or AT acceptance.
+
 Scope choices use a bounded 50-choice pager. Manual browsing must not snap back
 to the selected scope's page; the selected scope label remains visible even
 when its button is off-page. Without a remembered scope page, follow the selected

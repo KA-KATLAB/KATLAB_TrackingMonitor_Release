@@ -1,0 +1,56 @@
+/* Scoped repository picker; shared modal, focus and paging owners remain. */
+.repository-scope-picker > div:last-child > div > div:first-child {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 8px;
+  background-color: rgb(var(--ui-canvas));
+}
+
+.repository-scope-picker > div:last-child > div > div:first-child > span:nth-child(2) {
+  flex-basis: 100%;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  font-size: 16px;
+  line-height: 24px;
+  overflow-wrap: anywhere;
+}
+
+.repository-scope-picker > div:last-child > div > label {
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 21px;
+  color: rgb(var(--ui-text));
+}
+
+.repository-scope-picker input.ui-field[type="search"] {
+  min-height: 44px;
+  padding: 12px;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.repository-scope-picker [role="group"][aria-label="Repository scope"] {
+  gap: 8px;
+}
+
+.repository-scope-picker [role="group"][aria-label="Repository scope"] > button.ui-control[aria-pressed] {
+  min-height: 44px;
+  padding: 12px;
+  align-items: flex-start;
+  text-align: left;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.repository-scope-picker [role="group"][aria-label="Repository scope"] > button.ui-control[aria-pressed="true"] {
+  border-color: rgb(var(--ui-focus));
+}
+
+.repository-scope-picker [role="group"][aria-label="Repository scope"] > button.ui-control[aria-pressed="true"]:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-color: rgb(var(--ui-primary-hover));
+}
