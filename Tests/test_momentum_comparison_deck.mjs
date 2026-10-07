@@ -1,3 +1,4 @@
+import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { activePlanDocketPreservation } from "./helpers/activePlanDocket.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { cityBriefPreservation } from "./helpers/cityDistrictBrief.mjs";
@@ -249,7 +250,7 @@ test("valid unrelated source and calculation changes survive the inverse and fai
 });
 test("unchanged caller, helpers, tokens, gallery, Chronicle, lifecycle, prior suites and dependencies keep RAW/LF pins", () => {
   for (const [path, raw, normalized] of PINS) {
-    const bytes = deskPreservation(path, mastheadPreservation(path, cityBriefPreservation(path, purposeNavigationPreservation(path, activePlanDocketPreservation(path, readFileSync(resolve(root, path))))))); assert.equal(sha(bytes), raw, path + " RAW");
+    const bytes = deskPreservation(path, mastheadPreservation(path, cityBriefPreservation(path, purposeNavigationPreservation(path, activePlanDocketPreservation(path, historyStationPreservation(path, readFileSync(resolve(root, path)))))))); assert.equal(sha(bytes), raw, path + " RAW");
     assert.equal(sha(lf(bytes.toString("utf8"))), normalized, path + " LF");
   }
 });

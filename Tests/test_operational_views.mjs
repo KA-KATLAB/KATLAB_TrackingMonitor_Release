@@ -1,3 +1,4 @@
+import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import assert from "node:assert/strict";
@@ -108,8 +109,10 @@ test("production History only exposes cards for the current online repository sn
     export const visibleEntries = (loadedRepoRef, repoId, entries) => (${initializer("shownEntries")});
     export const canMount = (membershipReady, workspaceReady, view) => (${mount.left.getText(app)});
     export function cards(React, shownEntries, repoId, repos) {
-      const HistoryCommitCard = () => null, pager = { start: 0, end: 50 };
+      const HistoryCommitCard = () => null, HistoryReviewStation = () => null;
+      const pager = { start: 0, end: 50 };
       const scopeKeyValue = '["all"]', onStatus = () => {};
+      const historyHydrating = false, onSelectionIntent = () => {};
       return (${enclosingExpression(capturedRegion).getText(app)});
     }
   `);
@@ -142,11 +145,18 @@ test("production History only exposes cards for the current online repository sn
     if (visible) assert.equal(shownEntries, entries, "matching accepted snapshot is retained exactly");
     const region = cards(React, shownEntries, repoId, repos);
     if (visible) {
-      const rows = React.Children.toArray(region.props.children);
-      assert.equal(rows.length, 1, name);
-      assert.equal(rows[0].props.entry, entries[0]);
-      assert.equal(rows[0].props.repoId, expectedRepo);
-      assert.equal(rows[0].props.repos, repos);
+      const stations = React.Children.toArray(region.props.children);
+      assert.equal(stations.length, 1, name);
+      const station = stations[0];
+      assert.deepEqual(station.props.entries, entries);
+      assert.equal(station.props.pageStart, 0);
+      assert.equal(station.props.fetchedCount, entries.length);
+      const occurrence = JSON.stringify(["history-review-commit", '["all"]', repoId, 0, entries[0].commit.hash]);
+      const row = station.props.renderInspected(entries[0], occurrence);
+      assert.equal(row.key, occurrence);
+      assert.equal(row.props.entry, entries[0]);
+      assert.equal(row.props.repoId, expectedRepo);
+      assert.equal(row.props.repos, repos);
     } else assert.equal(region, false, `${name}: old cards are absent before effects run`);
   }
 });
@@ -187,7 +197,7 @@ test("operational restyling preserves all original computation and async-owner b
     FolderRepoCard: "ec305e48ca03d3a63eb854894f83eb1237aaef42c9581e19aa6466d35240b3a4",
   };
   const preservationApp = ts.createSourceFile("App.tsx",
-    reviewLanesPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", app.text))), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    reviewLanesPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", historyStationPreservation("Frontend/src/App.tsx", app.text)))), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   for (const [name, hash] of Object.entries(expected)) {
     const code = preRenderCode(preservationApp, name);
     assert.equal(createHash("sha256").update(code).digest("hex"), hash, name);
@@ -202,7 +212,7 @@ test("actual operational components preserve hierarchy, complete models and acti
     optimizeDeps: { noDiscovery: true, entries: [] } });
   try {
     const modules = await Promise.all(["ui.tsx", "theme.ts", "format.ts", "fileTree.ts", "mermaidGraph.ts",
-      "dialog.tsx", "accessibleData.tsx", "dialogStatus.tsx", "icons.tsx"]
+      "dialog.tsx", "accessibleData.tsx", "dialogStatus.tsx", "icons.tsx", "HistoryReviewStation.tsx"]
       .map((name) => vite.ssrLoadModule(`/src/${name}`)));
     const deps = Object.assign({}, ...modules);
     const names = ["PAGE", "tupleKey", "taskIdentity", "taskIdentityParts", "assignmentCandidates",
@@ -217,7 +227,7 @@ test("actual operational components preserve hierarchy, complete models and acti
         MermaidModuleLoadError, MODE_BADGE, MODE_COLOR, SWEPT_COLOR, eventSessionIdentity,
         sameSessionIdentity, sessionIdentityKey, sessionColor, prefersReducedMotion,
         fmtMinutes, fmtTs, fmtRel, fmtAge, EFFORT_GAP_MAX_MIN, UNCOMMITTED_AGE_H,
-        BellIcon, useDisclosureBehavior, suppressDisclosureFocusRestore } = deps;
+        BellIcon, useDisclosureBehavior, suppressDisclosureFocusRestore, HistoryReviewStation } = deps;
       const useReveal = () => {};
       const api = {}, createActionDeadline = () => { throw new Error("No network actions in SSR"); };
       const isAbortError = () => false, flushSync = (callback) => callback();

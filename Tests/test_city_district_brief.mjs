@@ -1,3 +1,4 @@
+import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { activePlanDocketPreservation } from "./helpers/activePlanDocket.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import assert from "node:assert/strict";
@@ -654,8 +655,8 @@ test("reviewed City source and fifteen suite inputs preserve every published byt
   assert.equal(EXPECTED.sources.length, 1); assert.equal(EXPECTED.suites.length, 15);
   assert.equal(EXPECTED.suites.reduce((sum, spec) => sum + spec.windows.length, 0), 37);
   for (const spec of [...EXPECTED.sources, ...EXPECTED.suites]) {
-    nativeIdentity(spec.after, purposeNavigationPreservation(spec.path, activePlanDocketPreservation(spec.path, read(spec.path))));
-    const current = lf(purposeNavigationPreservation(spec.path, activePlanDocketPreservation(spec.path, text(spec.path))));
+    nativeIdentity(spec.after, purposeNavigationPreservation(spec.path, activePlanDocketPreservation(spec.path, historyStationPreservation(spec.path, read(spec.path)))));
+    const current = lf(purposeNavigationPreservation(spec.path, activePlanDocketPreservation(spec.path, historyStationPreservation(spec.path, text(spec.path)))));
     for (const eol of ["LF", "CRLF"]) for (const buffer of [false, true]) {
       const input = physical(current, eol), value = buffer ? Buffer.from(input) : input;
       const output = cityBriefPreservation(spec.path, value);
@@ -674,7 +675,7 @@ test("reviewed City source and fifteen suite inputs preserve every published byt
 
 test("strict preservation rejects altered windows, outside edits, invalid encodings and malformed paths", () => {
   for (const spec of [...EXPECTED.sources, ...EXPECTED.suites]) {
-    const current = lf(purposeNavigationPreservation(spec.path, activePlanDocketPreservation(spec.path, text(spec.path)))), window = spec.windows[0];
+    const current = lf(purposeNavigationPreservation(spec.path, activePlanDocketPreservation(spec.path, historyStationPreservation(spec.path, text(spec.path))))), window = spec.windows[0];
     const adversaries = [current.replace(window.after, window.before),
       current.replace(window.after, window.after + window.after),
       current.replace(window.after, window.after + "/* changed reviewed window */"),

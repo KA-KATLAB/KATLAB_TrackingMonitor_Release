@@ -1,5 +1,30 @@
 # Version Notes
 
+## v0.4.6.0 - History Review Station (2026-10-08)
+
+- Replace History's repeated expanded evidence stack with one uniform searchable
+  current-page chooser, previous/next controls and one original commit card.
+- Use scope, repository, full hash and absolute fetched ordinal for selection.
+  Repeated hashes remain separate accepted occurrences; do not deduplicate.
+- Keep the last explicit occurrence in local context. If absent, derive the
+  first available row without overwriting that choice; if the exact occurrence
+  returns in the same context, resume it. Scope/repository/page changes and
+  History remount reset context. Fallback selection does not focus or announce.
+- Keep accepted same-page rows usable during later loading/failure. Empty
+  restored-depth hydration is pending, never accepted-empty History.
+- Preserve graph, request/recovery/fetch-depth, repository and outer-page owners.
+  The unchanged card retains exact identity, event actions and its remembered
+  50-event pager. Switching cards unmounts local diff/disclosure state.
+- Cancel pending App route focus on explicit selection, actual chooser opening
+  and manual outer-page navigation only. Exclude portal events by DOM containment.
+- Add no stylesheet, request, storage, URL state or dependency. Prove actual
+  retained CSS/compiled owners rather than assuming emission is unchanged.
+- Require whole CDD/CFT5, current-runtime and negative regressions, focused/full
+  checks, compiled ownership/parity and owned activation. Record actual outcomes
+  and release identity in the detailed plan after execution.
+- Native/operator, unresolved large Connection:close and existing high
+  dependency/chunk/Tailwind/SSR limits remain OPEN.
+
 ## v0.4.5.0 - Active Plan Docket (2026-10-08)
 
 - Present Overview's existing Active plans as a compact work-first docket, with

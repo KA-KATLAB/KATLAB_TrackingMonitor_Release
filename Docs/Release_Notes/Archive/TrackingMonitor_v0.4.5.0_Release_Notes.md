@@ -37,7 +37,7 @@ and negative cases, focused/full tests, builds and compiled ownership checks.
 Record actual outcomes and the full commit ID in the detailed plan after running
 them, not in advance.
 
-Follow the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Follow the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Reprove the old v0.4.4.2 instance and native ownership, stop it normally, and
 confirm both tracker/demo ports clear before production build. Use the standard
 Hidden restart and verify the new canonical version, complete reachable assets,
@@ -53,5 +53,5 @@ not establish native acceptance. The known large Connection:close body fault
 and existing high advisory 15, chunk, Tailwind and SSR diagnostics remain OPEN.
 Those accepted limitations never waive a new failure.
 
-Previous [v0.4.4.2 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.4.2_Release_Notes.md)
+Previous [v0.4.4.2 notes](TrackingMonitor_v0.4.4.2_Release_Notes.md)
 remain archived with only their moved relative documentation URLs corrected.

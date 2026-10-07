@@ -1,3 +1,4 @@
+import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
@@ -66,7 +67,7 @@ const OLD_SUITE_PINS = {
 
 test("two reviewed workbench windows retain the entire original App and ancestral graph copy in LF/CRLF", () => {
   for (const eol of ["\n", "\r\n"]) {
-    const current = lf(deskPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", appSource)))).replace(/\n/g, eol), restored = restoreChangesWorkbench(current);
+    const current = lf(deskPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", historyStationPreservation("Frontend/src/App.tsx", appSource))))).replace(/\n/g, eol), restored = restoreChangesWorkbench(current);
     assert.equal(sha(lf(restored)), ORIGINAL_APP_LF);
     if (eol === "\r\n") assert.equal(sha(restored), ORIGINAL_APP_RAW);
     const currentAst = parse(current), previousAst = parse(restored);
@@ -81,7 +82,7 @@ test("two reviewed workbench windows retain the entire original App and ancestra
 });
 
 test("workbench inverse rejects missing/duplicate/relocated/partial and changed-expression TSX fixtures", () => {
-  const source = lf(deskPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", appSource)))), actualOwner = owner(parse(source), "ChangesView");
+  const source = lf(deskPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", historyStationPreservation("Frontend/src/App.tsx", appSource))))), actualOwner = owner(parse(source), "ChangesView");
   const withoutDeck = replaceOnce(source, CHANGES_COMMAND_DECK + "\n", "");
   const variants = [
     replaceOnce(source, NEW_CHANGES_ROOT, OLD_CHANGES_ROOT), withoutDeck,
@@ -115,7 +116,7 @@ test("workbench inverse preserves unrelated pre-render, owner and outside mutati
     ["Explore commit history and its linked captured events.", "Independent History sentinel."],
     ["function WarningsBanner (", "function IndependentWarningsBanner ("],
   ]) for (const eol of ["\n", "\r\n"]) {
-    const source = lf(deskPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", appSource)))).replace(/\n/g, eol), modified = replaceOnce(source, before, after);
+    const source = lf(deskPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", historyStationPreservation("Frontend/src/App.tsx", appSource))))).replace(/\n/g, eol), modified = replaceOnce(source, before, after);
     parse(modified);
     const restored = restoreChangesWorkbench(modified);
     assert.equal(restored, replaceOnce(restoreChangesWorkbench(source), before, after));
@@ -126,12 +127,12 @@ test("workbench inverse preserves unrelated pre-render, owner and outside mutati
 test("exact 2/6/3/4 adapters retain all complete original suites and the immutable Diff prefix", () => {
   assert.deepEqual(Object.values(CHANGES_WORKBENCH_ORACLE_ADAPTERS).map(windows => windows.length), [2, 6, 3, 4]);
   for (const [name, expected] of Object.entries(OLD_SUITE_PINS)) for (const eol of ["\n", "\r\n"]) {
-    const source = lf(deskPreservation(`Tests/${name}`, mastheadPreservation(`Tests/${name}`, purposeNavigationPreservation(`Tests/${name}`, read(`Tests/${name}`))))).replace(/\n/g, eol);
+    const source = lf(deskPreservation(`Tests/${name}`, mastheadPreservation(`Tests/${name}`, purposeNavigationPreservation(`Tests/${name}`, historyStationPreservation(`Tests/${name}`, read(`Tests/${name}`)))))).replace(/\n/g, eol);
     const restored = restoreChangesWorkbenchOracleAdapters(name, source);
     assert.equal(sha(lf(restored)), expected, "complete original suite, not a rebased owner fragment");
     assert.equal(restored.includes("\r\n"), eol === "\r\n");
   }
-  const prefix = Buffer.from(lf(deskPreservation("Tests/test_diff_availability.mjs", mastheadPreservation("Tests/test_diff_availability.mjs", purposeNavigationPreservation("Tests/test_diff_availability.mjs", read("Tests/test_diff_availability.mjs")))))).subarray(0, 15449);
+  const prefix = Buffer.from(lf(deskPreservation("Tests/test_diff_availability.mjs", mastheadPreservation("Tests/test_diff_availability.mjs", purposeNavigationPreservation("Tests/test_diff_availability.mjs", historyStationPreservation("Tests/test_diff_availability.mjs", read("Tests/test_diff_availability.mjs"))))))).subarray(0, 15449);
   assert.equal(sha(prefix), "83d4e95e949a912fdf73b708526f514ed5a73e7afcdd91b79fc4da6639a28bd5");
   assert.equal(prefix.toString("utf8").split("\n").length - 1, 311);
   assert.equal((prefix.toString("utf8").match(/^test\(/gm) ?? []).length, 6);
@@ -139,7 +140,7 @@ test("exact 2/6/3/4 adapters retain all complete original suites and the immutab
 
 test("adapter inverses reject missing/duplicate/partial/comment sites and retain unrelated assertions", () => {
   for (const [name, expected] of Object.entries(OLD_SUITE_PINS)) {
-    const source = lf(deskPreservation(`Tests/${name}`, mastheadPreservation(`Tests/${name}`, purposeNavigationPreservation(`Tests/${name}`, read(`Tests/${name}`)))));
+    const source = lf(deskPreservation(`Tests/${name}`, mastheadPreservation(`Tests/${name}`, purposeNavigationPreservation(`Tests/${name}`, historyStationPreservation(`Tests/${name}`, read(`Tests/${name}`))))));
     for (const { before, after, fn } of CHANGES_WORKBENCH_ORACLE_ADAPTERS[name]) {
       assert.ok(!after.includes("*/"));
       const variants = [replaceOnce(source, after, before), source + "\n/*\n" + after + "\n*/\n",

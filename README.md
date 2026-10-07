@@ -5,22 +5,29 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.5.0 - Active Plan Docket**
+Current source version: **v0.4.6.0 - History Review Station**
 
-Overview's Active plans becomes a compact, work-first docket. Each plan keeps its
-full repository/plan identity, exact done/total and marked-in-progress context
-visible. Independent native disclosures reveal the existing task explanations,
-declared-file actions and next pending task when needed.
+History now offers one searchable current-page commit chooser with previous/next
+controls, followed by one inspected commit's existing evidence. Position and
+coverage describe the current page, not the complete repository history or a
+freshness guarantee.
 
-All plans and tasks remain in the model. The existing 50-plan pager and complete
-exact-data table remain, and each plan's marked-in-progress task list now uses
-its own 50-item pager. Closing a disclosure is not DOM virtualization.
+Selection identifies the exact accepted occurrence using scope, repository,
+full hash and absolute fetched ordinal. Keep the last explicit occurrence in
+local context; if absent, display the first available row without replacing
+that remembered choice. Retained same-page rows remain usable;
+empty restored-depth hydration is not an accepted-empty History result.
+The repository chooser, graph, outer 50-commit pager, fetch depth, full commit ID,
+shared event actions and remembered 50-event paging keep their existing owners.
 
-The change is Overview-lazy. Navigation, other views, data requests, dependencies
-and the seven entry styles remain unchanged. Native/operator acceptance, the
-known large HTTP Connection:close fault and prior advisory/build limits remain
-OPEN. Reload existing tabs after upgrade.
-See the [current release notes](TrackingMonitor_v0.4.5.0_Release_Notes.md).
+No new requests, storage, URL state, stylesheet or dependencies are added.
+Explicit commit navigation cancels pending route focus; automatic fallback does
+not move focus or announce a selection. Switching the inspected occurrence
+unmounts its local event/diff and native disclosure state.
+Native/operator acceptance, the known large HTTP Connection:close fault and
+prior high dependency/build-warning limits remain OPEN. Reload existing tabs
+after upgrade.
+See the [current release notes](TrackingMonitor_v0.4.6.0_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -193,7 +200,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.5.0_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.6.0_Release_Notes.md)
 
 ## Guarantees
 

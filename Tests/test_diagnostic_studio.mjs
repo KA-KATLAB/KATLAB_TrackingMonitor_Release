@@ -1,3 +1,4 @@
+import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { activePlanDocketPreservation } from "./helpers/activePlanDocket.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { cityBriefPreservation } from "./helpers/cityDistrictBrief.mjs";
@@ -414,7 +415,7 @@ test("all ordered selector lists/direct declarations reject escapes and incomple
 });
 test("three exact two-window suite adapters preserve all original RAW/LF bytes and outside assertions", () => {
   for (const spec of SUITES) {
-    const source = deskPreservation(spec[1], mastheadPreservation(spec[1], cityBriefPreservation(spec[1], purposeNavigationPreservation(spec[1], activePlanDocketPreservation(spec[1], read(spec[1])))))), [, , restore, bytes, lines, pin, , imported, current] = spec;
+    const source = deskPreservation(spec[1], mastheadPreservation(spec[1], cityBriefPreservation(spec[1], purposeNavigationPreservation(spec[1], activePlanDocketPreservation(spec[1], historyStationPreservation(spec[1], read(spec[1]))))))), [, , restore, bytes, lines, pin, , imported, current] = spec;
     for (const eol of ["\n", "\r\n"]) {
       const fixture = physical(lf(source), eol), original = independentSuiteInverse(fixture, spec);
       assert.equal(restore(fixture), original); assert.equal(sha(lf(original)), pin);
@@ -438,7 +439,7 @@ test("three exact two-window suite adapters preserve all original RAW/LF bytes a
 });
 test("whole current diagnostic, capture, shared helper and six dependency pins remain distinct RAW/LF", () => {
   for (const [name, rawPin, lfPin] of PINS) {
-    const raw = deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, purposeNavigationPreservation(name, activePlanDocketPreservation(name, readFileSync(resolve(root, name))))))), text = deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, purposeNavigationPreservation(name, activePlanDocketPreservation(name, read(name))))));
+    const raw = deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, purposeNavigationPreservation(name, activePlanDocketPreservation(name, historyStationPreservation(name, readFileSync(resolve(root, name)))))))), text = deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, purposeNavigationPreservation(name, activePlanDocketPreservation(name, historyStationPreservation(name, read(name)))))));
     assert.equal(sha(raw), rawPin, "whole actual RAW " + name); assert.equal(sha(lf(text)), lfPin, "whole LF " + name);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(physical(lf(text), eol))), lfPin);
   }

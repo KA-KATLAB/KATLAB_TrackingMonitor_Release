@@ -1,3 +1,4 @@
+import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
@@ -236,7 +237,7 @@ test("valid outside mutations pass through the inverse and fail full original pi
     }
   }
   for (const [name, rawPin, lfPin] of PINS) {
-    const text = deskPreservation(name, mastheadPreservation(name, purposeNavigationPreservation(name, read(name)))); ending(text); assert.equal(sha(text), rawPin, name); assert.equal(sha(lf(text)), lfPin, name);
+    const text = deskPreservation(name, mastheadPreservation(name, purposeNavigationPreservation(name, historyStationPreservation(name, read(name))))); ending(text); assert.equal(sha(text), rawPin, name); assert.equal(sha(lf(text)), lfPin, name);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(text).replace(/\n/g, eol))), lfPin);
   }
 });
@@ -249,7 +250,7 @@ const attr = (n, name) => one([...opening(n).attributes.properties], a => ts.isJ
 const value = (n, name) => attr(n, name).initializer.getText(app);
 const elements = n => all(n).filter(ts.isJsxElement);
 const direct = n => n.children.filter(ts.isJsxElement);
-test("actual private History AST preserves direct cards, hash/title/time order, full identity and linked-event pagers", () => {
+test("actual private History AST keeps one station inspector, hash/title/time order, full identity and linked-event pagers", () => {
   const history = owner("HistoryView"), card = owner("HistoryCommitCard");
   const rootNode = one([...history.body.statements], ts.isReturnStatement, "one History return").expression.expression;
   assert.equal(rootNode.openingElement.tagName.getText(app), "section");
@@ -262,9 +263,12 @@ test("actual private History AST preserves direct cards, hash/title/time order, 
   while (boundary.parent && !ts.isJsxExpression(boundary.parent)) boundary = boundary.parent;
   assert.ok(ts.isJsxExpression(boundary.parent)); assert.equal(boundary.parent.parent, rootNode);
   assert.ok(boundary.parent.getText(app).startsWith("{shownEntries.length > 0 &&"));
-  assert.ok(region.getText(app).includes("shownEntries.slice(pager.start, pager.end).map"));
-  const call = one(all(region), n => ts.isJsxSelfClosingElement(n) && n.tagName.getText(app) === "HistoryCommitCard", "one card map");
-  for (const [name, expected] of [["key", "{entry.commit.hash}"], ["entry", "{entry}"], ["repos", "{repos}"],
+  const station = one(all(region), n => ts.isJsxSelfClosingElement(n) && n.tagName.getText(app) === "HistoryReviewStation", "one current station");
+  for (const [name, expected] of [["entries", "{shownEntries.slice(pager.start, pager.end)}"],
+    ["pageStart", "{pager.start}"], ["fetchedCount", "{shownEntries.length}"], ["hydrating", "{historyHydrating}"],
+    ["onSelectionIntent", "{onSelectionIntent}"]]) assert.equal(value(station, name), expected);
+  const call = one(all(region), n => ts.isJsxSelfClosingElement(n) && n.tagName.getText(app) === "HistoryCommitCard", "one unchanged card callback");
+  for (const [name, expected] of [["key", "{occurrenceKey}"], ["entry", "{entry}"], ["repos", "{repos}"],
     ["scopeKeyValue", "{scopeKeyValue}"], ["repoId", "{repoId}"], ["onStatus", "{onStatus}"]]) assert.equal(value(call, name), expected);
   const article = one(elements(card), n => n.openingElement.tagName.getText(app) === "article", "one actual article");
   assert.equal(value(article, "className"), '"ui-work-row"');

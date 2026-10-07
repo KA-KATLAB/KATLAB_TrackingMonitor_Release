@@ -1,3 +1,4 @@
+import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { activePlanDocketPreservation } from "./helpers/activePlanDocket.mjs";
 import { PURPOSE_NAVIGATION_SOURCES, PURPOSE_NAVIGATION_SUITES, purposeNavigationPreservation, restorePurposeNavigationSource, restorePurposeNavigationSuite } from "./helpers/purposeLedNavigation.mjs";
 import assert from "node:assert/strict";
@@ -38,7 +39,7 @@ test("two exact source and twenty-eight suite inverses preserve every native/LF 
  assert.deepEqual(PURPOSE_NAVIGATION_SOURCES,EXPECTED.sources);assert.deepEqual(PURPOSE_NAVIGATION_SUITES,EXPECTED.suites);
  assert.equal(EXPECTED.sources.length,2);assert.equal(EXPECTED.suites.length,28);assert.equal(EXPECTED.suites.reduce((sum,spec)=>sum+spec.windows.length,0),100);
  for(const record of [...EXPECTED.sources,...EXPECTED.suites]){
-  const raw=activePlanDocketPreservation(record.path,read(record.path));assert.equal(sha(raw),record.after.RAW);assert.equal(raw.length,record.after.bytes);
+  const raw=activePlanDocketPreservation(record.path, historyStationPreservation(record.path, read(record.path)));assert.equal(sha(raw),record.after.RAW);assert.equal(raw.length,record.after.bytes);
   for(const eol of ["LF","CRLF"])for(const buffer of [false,true]){
    const value=physical(lf(raw.toString("utf8")),eol),input=buffer?Buffer.from(value):value;
    const expected=independentInverse(record,input);
@@ -50,7 +51,7 @@ test("two exact source and twenty-eight suite inverses preserve every native/LF 
 });
 test("full-input preservation cannot erase owner/window/outside/encoding drift or negative mutations",()=>{
  for(const record of [...EXPECTED.sources,...EXPECTED.suites]){
-  const value=lf(activePlanDocketPreservation(record.path,text(record.path)));
+  const value=lf(activePlanDocketPreservation(record.path, historyStationPreservation(record.path, text(record.path))));
   const bad=["/* outside approved windows */\n"+value,value+"\n",value.slice(0,-1),"\uFEFF"+value,value+"\0",value.replace("\n","\r"),value.replace("\n","\r\n"),Buffer.concat([Buffer.from(value),Buffer.from([0xff])])];
   for(const window of record.windows){bad.push(value.replace(window.after,window.before),value.replace(window.after,window.after+window.after),value.replace(window.after,window.after+"/* changed reviewed window */\n"));}
   for(const input of bad){assert.notDeepEqual(input,value);assert.throws(()=>purposeNavigationPreservation(record.path,input));}
@@ -117,7 +118,7 @@ test("seventh inline owner has six scoped contexts while all six previous bodies
 test("current source adds no hook, resource, global mapping, route or native interaction mutation",()=>{
  const purpose=one(all(nav,ts.isVariableDeclaration),node=>node.name.getText(app)==="purposes");assert.equal(purpose.parent.parent.parent,nav.body);
  assert.equal(all(nav,ts.isCallExpression).filter(node=>/use[A-Z]|fetch|api\.|setTimeout|Date\.|Math\.random/.test(node.expression.getText(app))).length,0);
- const original=independentInverse(EXPECTED.sources[0],appText),old=parse("App.tsx",original);
+ const original=independentInverse(EXPECTED.sources[0],historyStationPreservation("Frontend/src/App.tsx",appText)),old=parse("App.tsx",original);
  const oldNav=one(old.statements,node=>ts.isFunctionDeclaration(node)&&node.name?.text==="ViewNavigation");
  const attributeValues=node=>one(all(node,ts.isJsxElement),element=>element.openingElement.tagName.getText(element.getSourceFile())==="button").openingElement.attributes.getText(node.getSourceFile());
  assert.equal(attributeValues(nav),attributeValues(oldNav));

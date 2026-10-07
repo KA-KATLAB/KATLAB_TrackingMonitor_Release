@@ -1,3 +1,4 @@
+import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
@@ -408,7 +409,7 @@ test("valid outside and pre-render mutations remain visible rather than swallowe
 
 test("complete original dependencies and five old suites retain distinct immutable RAW and LF pins", () => {
   for (const [name, rawPin, lfPin] of IMMUTABLE_PINS) {
-    const text = deskPreservation(name, mastheadPreservation(name, purposeNavigationPreservation(name, read(name)))); ending(text);
+    const text = deskPreservation(name, mastheadPreservation(name, purposeNavigationPreservation(name, historyStationPreservation(name, read(name))))); ending(text);
     assert.equal(sha(text), rawPin, "whole physical original bytes: " + name);
     assert.equal(sha(lf(text)), lfPin, "whole original LF bytes: " + name);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(text).replace(/\n/g, eol))), lfPin);

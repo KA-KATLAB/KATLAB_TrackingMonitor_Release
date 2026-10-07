@@ -1,3 +1,4 @@
+import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
@@ -216,7 +217,7 @@ test("complete Mission, shared stylesheet and four old suites preserve distinct 
     ["Tests/test_mission_owner_retirement.mjs", "9adaf72a29ba6e582d7a0fe0227863e4efbbb38d19ecdf8cc07293881231ca1f",
       "9adaf72a29ba6e582d7a0fe0227863e4efbbb38d19ecdf8cc07293881231ca1f"],
   ]) {
-    const raw = deskPreservation(name, mastheadPreservation(name, purposeNavigationPreservation(name, read(name)))); ending(raw);
+    const raw = deskPreservation(name, mastheadPreservation(name, purposeNavigationPreservation(name, historyStationPreservation(name, read(name))))); ending(raw);
     assert.equal(sha(raw), rawPin, "whole actual physical bytes: " + name);
     assert.equal(sha(lf(raw)), lfPin, "whole original LF bytes: " + name);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(raw).replace(/\n/g, eol))), lfPin);

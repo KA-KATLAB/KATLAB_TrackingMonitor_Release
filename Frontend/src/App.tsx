@@ -12,6 +12,7 @@ import { CommandPalette, paletteEntryId } from "./CommandPalette";
 import type { PaletteEntry } from "./CommandPalette";
 import { AppShell, AppShellNavigation, ConnectionStatus, WorkspaceContext } from "./AppShell";
 import { RepositorySwitcher } from "./RepositorySwitcher";
+import { HistoryReviewStation } from "./HistoryReviewStation";
 import { prepareDigest } from "./digest";
 import { DisclosureTable } from "./accessibleData";
 import { requestNoopenerTab, startBlobDownload } from "./download";
@@ -2601,7 +2602,7 @@ export default function App () {
           {membershipReady && workspaceReady && view === "history" && (
             <HistoryView key={`history:${entryIdRef.current}`} repos={visibleRepos.filter((r) => !r.offline)}
               scopeKeyValue={currentScopeKey} state={historyUi} onStateChange={setHistoryUi}
-              onStatus={announceStatus} />
+              onStatus={announceStatus} onSelectionIntent={cancelMissionRouteFocus} />
           )}
           {view === "city" && ( /* v0.2.0.0 D3 (B.3): workspace-wide by
               design — full repos/tasks/events, never tab-filtered; the
@@ -4612,12 +4613,14 @@ function historyGraphKey (repoId: string, branch: string,
 }
 
 // History keeps its API fetch depth independent from its visible 50-commit page.
-function HistoryView ({ repos, scopeKeyValue, state, onStateChange, onStatus }: {
+function HistoryView ({ repos, scopeKeyValue, state, onStateChange, onStatus,
+  onSelectionIntent }: {
   repos: Repo[];
   scopeKeyValue: string;
   state: HistoryUiState;
   onStateChange: (state: HistoryUiState) => void;
   onStatus: (message: string) => void;
+  onSelectionIntent?: () => void;
 }) {
   const repoId = repos.some((repo) => repo.id === state.repoId)
     ? state.repoId
@@ -5030,16 +5033,27 @@ function HistoryView ({ repos, scopeKeyValue, state, onStateChange, onStatus }: 
         <div className="ui-skeleton min-h-48 rounded-panel p-4 text-sm text-ui-muted">Loading History…</div>
       )}
       {shownEntries.length > 0 && (
-        <div className="ui-work-list" role="region" aria-label="Captured commits">
-          {shownEntries.slice(pager.start, pager.end).map((entry) => (
-            <HistoryCommitCard key={entry.commit.hash} entry={entry} repos={repos}
-              scopeKeyValue={scopeKeyValue} repoId={repoId} onStatus={onStatus} />
-          ))}
+        <div className="ui-work-list" role="region" aria-label="Captured commits"
+          data-history-review-station="true">
+          <HistoryReviewStation
+            key={JSON.stringify(["history-review-page", scopeKeyValue, repoId, pager.start])}
+            entries={shownEntries.slice(pager.start, pager.end)}
+            scopeKeyValue={scopeKeyValue} repoId={repoId} pageStart={pager.start}
+            fetchedCount={shownEntries.length} hydrating={historyHydrating}
+            onSelectionIntent={onSelectionIntent} onStatus={onStatus}
+            renderInspected={(entry, occurrenceKey) => (
+              <HistoryCommitCard key={occurrenceKey} entry={entry} repos={repos}
+                scopeKeyValue={scopeKeyValue} repoId={repoId} onStatus={onStatus} />
+            )} />
         </div>
       )}
       {!historyHydrating && shownEntries.length > 50 && (
         <CollectionPager collectionLabel="History commits" page={pager}
-          onPageChange={pager.setPage} />
+          onPageChange={(page) => {
+            if (!Number.isInteger(page) || page < 1 || page > pager.pageCount || page === pager.page) return;
+            onSelectionIntent?.();
+            pager.setPage(page);
+          }} />
       )}
       {!historyHydrating && (!repoId || loadedRepoRef.current === repoId)
           && !loading && !loadError && shownEntries.length === 0 && (

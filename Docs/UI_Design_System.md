@@ -1172,18 +1172,20 @@ zoom, motion or subjective acceptance.
 
 ### 6.3 History
 
-- Style only the existing data-history-ready owner's direct Captured commits
-  region and its direct card/header/disclosure elements. Attribute presence,
-  not a true value, applies the same appearance to accepted and same-repo
-  retained rows without suggesting freshness. Graph, error, skeleton, empty
-  guidance, nested EventRows and shared controls are outside the selector scope.
-- Use a transparent, borderless one-column region with 16px gaps. Each direct
-  commit article uses a zero-minimum grid column, 16px inner gaps, 20px padding,
-  a 1px shared border, 8px corners and the shared surface. No shadow, status
-  tint, timeline connector or ancestry inference. Grid uses existing elements;
-  do not add DOM wrappers, fixed height, clipping, scrolling owners, positioning
-  or CSS containment. Import the scoped stylesheet once from AppShell, without
-  changing App, bootstrap, shared CSS or existing view/state/control owners.
+- Retain the existing data-history-ready owner's direct Captured commits region
+  and the inspected card as its direct child, so the existing scoped History
+  ledger stylesheet remains applicable. Attribute presence, not a true value,
+  gives accepted and same-repo retained evidence the same appearance without
+  implying freshness. Graph, error, skeleton, empty guidance, nested EventRows
+  and shared controls stay outside that stylesheet's selector scope.
+- Preserve the transparent, borderless region and original direct commit card:
+  zero-minimum grid column, 16px inner gaps, 20px padding, shared 1px border,
+  8px corners and shared surface. The History Review Station changes only the
+  choose-and-inspect composition and its explicit selection/focus contract;
+  the original HistoryCommitCard and ledger CSS stay unchanged. Add no shadow,
+  status tint, ancestry inference, fixed height, clipping, scroll owner,
+  positioning, CSS containment or new stylesheet. Bootstrap, shared controls,
+  data requests and graph owners remain unchanged.
 - Preserve hash, h3 title and timestamp DOM/read order. Below 640px stack them
   with 8px gaps; at 640-1439px use hash/title columns with 12px gaps and time
   spanning the next row. From 1440px use three columns with a zero-minimum
@@ -1197,8 +1199,38 @@ zoom, motion or subjective acceptance.
   default-closed native disclosure with a labelled, selectable read-only field.
   The exact value is not truncated or transformed; long values scroll inside
   the field. Scope/repo/full-hash changes remount the disclosure closed, while
-  unchanged identity and event paging retain native state. Do not fetch, write
-  the clipboard, autofocus or auto-select. The hover title is supplemental only.
+  within the same inspected occurrence, unchanged identity and event paging
+  retain native state. Do not fetch, write the clipboard, autofocus or auto-select.
+  The hover title is supplemental only.
+- Use one searchable CURRENT-PAGE commit chooser and previous/next controls at
+  every width, then inspect exactly one unchanged HistoryCommitCard. Do not add
+  a duplicate responsive navigator, incomplete tab/listbox pattern, new request,
+  URL state, storage, timer or persisted selection preference. Label position
+  and coverage as the current page of fetched entries, not complete history.
+  The chooser label uses Commit ordinal plus the short ten-character hash;
+  descriptions retain full message, full ID and timestamp. The original card
+  keeps its full subject visible once.
+- Selection identity includes scope, repository, FULL hash and absolute fetched
+  ordinal. Repeated hashes from accepted offset appends remain separate rows;
+  never deduplicate or locate selection by a short/full hash alone. Preserve
+  the last explicit occurrence in local context. When absent, derive the first
+  available row without overwriting the explicit choice; resume the exact
+  occurrence if it returns within that context. Scope/repository/page changes
+  and History remount reset local context. Fallback selection does not announce
+  or move focus.
+- During restored-depth hydration an empty current-page slice is pending, not
+  accepted-empty History. Keep current outer-page state/clamping and allow
+  retained same-page accepted rows during later loading/failure. The graph still
+  uses all fetched rows and its existing latest-20 boundary.
+- Key the inspected card by the exact accepted occurrence. Switching it unmounts
+  the old EventRow diff requests and local/native disclosure state. Returning
+  reuses the existing remembered 50-event page, not those local states; keep
+  the original card function and its event-memory key unchanged.
+- Explicit commit selection, actual chooser-trigger opening and manual outer
+  page navigation cancel the existing pending App route-focus intent. Automatic
+  fallback/clamp does not cancel, announce or focus. Wrapper capture must test
+  real DOM containment and exclude portal events. Do not focus the inspector
+  while an overlay lease is active or add automatic scrolling.
 - Keep API fetch depth separate from the visible 50-row page.
 - Commit graph loading, unavailable and preparation differ from accepted empty
   History. Show zero-row exact data and No commits only for the matching loaded
