@@ -1,5 +1,41 @@
 # Version Notes
 
+## v0.4.1.13 - Repository Profile Readability (2026-10-07)
+
+- Refine only six className windows in the existing Overview Repo identity.
+  Keep the real h4, server scope description, named keyboard-focusable local
+  scroller, Surface/reveal and original one/two/three-column parent owners.
+- Frame distribution, zero-distribution copy and the always-retained facts
+  with shared 1px borders, 8px corners and surface tone. Root spacing and
+  panel padding use 1rem; the empty paragraph keeps 1.5rem vertical padding.
+  Caption/facts use 1rem/1.5rem type, nominally 16px/24px at a 16px root.
+  Caption is semibold; facts wrap anywhere. Legend/count type stays 16px/12px.
+- Preserve captured file-edit event counts, plan exclusions, top-eight plus
+  remainder, ranked categorical palette, greater-than-five bar choice, donut
+  geometry, raw counts/rounded shares and decorative minimum bar width.
+  Sessions retain provider/session identity and legacy Claude fallback;
+  first capture is local via fmtTs, commits all-time and effort the positive
+  supplied UTC-calendar estimate. Zero/nonfinite predicates remain unchanged.
+- Add no import, stylesheet, wrapper, marker, data, state, hook, request,
+  resource, motion or scroll owner. New regression must require exact six
+  windows, complete RAW/LF inverse, unchanged class-stripped AST and actual
+  current SSR with frozen zero/scope/slice/date/effort/escaped inputs.
+  Keep all original read-surfaces and coupled operational suites unchanged.
+- Verify all 18 utilities in the approved class strings and actual reachable
+  IdentityCard ownership. Require complete eager and lazy CSS byte identity,
+  all nine previous compiled gates and their full historical inverses.
+  Source/SSR/declarations/assets are not native paint, geometry or AT evidence.
+- Canonical source version is 0.4.1.13. Build matching assets with both ports
+  clear, use the standard hidden restart and reload tabs. Chronicle readiness
+  requires retained exact CSS plus newly mirrored Repository Profile notes.
+- Native v0.4 H.1, large Connection: close failure, prior high build-only
+  braces advisory (recorded alert #15) and chunk notice remain open under
+  accepted limited publication. Keep-alive checks are not a repair; no fresh
+  detailed advisory audit or completed native acceptance is claimed.
+- Published v0.4.1.12 notes move to Archive with only two affected URLs changed.
+  Actual review/CFT/test/build/live/commit/ref outcomes belong in the 1.13 plan,
+  not unrun results or historical counts asserted in these notes.
+
 ## v0.4.1.12 - Provenance Evidence Desk (2026-10-07)
 
 - Overview's existing full-width Provenance card separates its measurement

@@ -611,6 +611,34 @@ normalization. No date, format, class, node, source order, hook, request, state,
 dependency, font service, focus, motion or scrolling owner changes. Source,
 SSR and assets do not certify native geometry, zoom, focus, keyboard or AT.
 
+Repository Profile Readability changes only six className windows in the
+existing IdentityCard. Keep its real level-4 Repo identity heading, scope
+description, named keyboard-focusable local scroller, Surface/reveal owners
+and one/two/three-column parent. Card width follows that containing block,
+not the entire viewport. Use existing Tailwind utilities, without an import,
+new stylesheet, wrapper, marker, breakpoint, motion, font or scroll owner.
+Frame distribution, zero-distribution copy and facts with shared 1px borders,
+8px corners and surface tone. Root spacing and panel padding use 1rem;
+the empty paragraph keeps 1.5rem vertical padding. Caption/facts use
+1rem/1.5rem type, nominally 16px/24px at a 16px root. Make the caption
+semibold and let facts wrap anywhere; existing legend/count type stays.
+The shared heading's existing !mb-0 override leaves root sibling spacing
+in control. Preserve all labels, DOM order, keys, decorative SVG/bar geometry,
+categorical rank colors, rounded percentages and raw count formatting.
+The distribution counts captured file-edit events, not distinct files,
+excludes plan files and keeps the server's top eight plus remainder. More
+than five positive slices use bars; otherwise use the original donut.
+Zero distribution retains facts when the existing Overview branch is mounted.
+Sessions keep provider/session identity, first capture uses local fmtTs,
+commits are all-time and positive effort is the supplied UTC-calendar estimate.
+Preserve zero/nonfinite gates, empty-string scope and retained-data/request
+owners. No new availability, productivity or fresh-snapshot claim is introduced.
+Require exact six-window RAW/LF preservation and the unchanged original
+class-stripped AST. Verify every utility in the approved class strings and
+actual compiled IdentityCard ownership while retaining every eager/lazy CSS
+byte and all previous compiled owners/historical inverses. Source/SSR/assets
+are not native paint, geometry, reflow, keyboard, zoom, AT or aesthetic proof.
+
 The Active Plan Gallery styles only the existing PlanBoard Surface marked
 `data-active-plan-board="true"` and its direct list/card/header/spotlight owners.
 Its stylesheet import belongs to PlanBoard, loaded with lazy Overview only;

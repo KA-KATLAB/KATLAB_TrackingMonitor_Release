@@ -25,14 +25,14 @@ export function IdentityCard ({ identity, calendar, scope }: {
   let acc = 0; // running offset for the dasharray segments
   const effort = calendar.reduce((a, d) => a + d.minutes, 0);
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 space-y-4">
       <SectionHeading level={4} title="Repo identity"
-        description={scope ?? "All repos"} />
+        description={scope ?? "All repos"} className="!mb-0" />
       {ext_total === 0 ? (
-        <p className="py-6 text-base text-ui-muted">No captures classified yet.</p>
+        <p className="py-6 px-4 rounded-panel border border-ui-border bg-ui-surface text-base text-ui-muted">No captures classified yet.</p>
       ) : (
-        <figure>
-          <figcaption className="mb-3 text-xs text-ui-muted">
+        <figure className="min-w-0 rounded-panel border border-ui-border bg-ui-surface p-4">
+          <figcaption className="mb-3 text-base font-semibold leading-6 text-ui-muted">
             File type distribution — {data.presentation === "bar" ? "horizontal bars" : "donut"}
           </figcaption>
           <div className={data.presentation === "bar"
@@ -82,7 +82,7 @@ export function IdentityCard ({ identity, calendar, scope }: {
           </div>
         </figure>
       )}
-      <p className="mt-4 break-words text-xs leading-relaxed text-ui-muted">
+      <p className="mt-4 break-words rounded-panel border border-ui-border bg-ui-surface p-4 text-base leading-6 text-ui-muted [overflow-wrap:anywhere]">
         {fmt(identity.sessions)} session{identity.sessions === 1 ? "" : "s"}
         {identity.first_event_ts &&
           ` · first capture ${fmtTs(identity.first_event_ts).slice(0, 10)}`}

@@ -93,7 +93,7 @@ advisory (recorded alert #15) and chunk notice are not addressed. Historical
 GitHub push notices are not a fresh detailed advisory audit. Limited publication
 with these constraints is accepted; new blocking regressions stop delivery.
 
-Use the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Use the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Stop the identified Tracker and confirm both Tracker/demo ports clear before
 building matching canonical 0.4.1.12 assets. Use the standard hidden restart
 and reload existing tabs; restarting Python alone cannot replace loaded UI.
@@ -108,5 +108,5 @@ External resources, constructed runtime URLs and native interaction remain
 outside that proof. Complete body draining, elapsed acceptance deadlines,
 remaining-time parity checks and final connection closure stay required.
 
-Previous [v0.4.1.11 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.1.11_Release_Notes.md)
+Previous [v0.4.1.11 notes](TrackingMonitor_v0.4.1.11_Release_Notes.md)
 retain every historical byte except their two move-affected Markdown URLs.
