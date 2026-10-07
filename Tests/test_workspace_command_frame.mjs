@@ -1,3 +1,4 @@
+import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
 import assert from "node:assert/strict";
@@ -201,7 +202,7 @@ test("unrelated valid edits survive inverse and cannot disappear behind immutabl
     assert.equal(restored, replaceOnce(original, old, next)); assert.notEqual(sha(lf(restored)), ORIGINAL_LF);
   }
   for (const [name, rawPin, lfPin] of PINS) {
-    const text = deskPreservation(name, mastheadPreservation(name, read(name))); ending(text); assert.equal(sha(text), rawPin, name); assert.equal(sha(lf(text)), lfPin, name);
+    const text = deskPreservation(name, mastheadPreservation(name, purposeNavigationPreservation(name, read(name)))); ending(text); assert.equal(sha(text), rawPin, name); assert.equal(sha(lf(text)), lfPin, name);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(text).replace(/\n/g, eol))), lfPin, name);
   }
 });
@@ -230,7 +231,7 @@ test("actual six-view navigation preserves every ready/current/disabled/label/ty
     assert.equal(tree.props.children.type, "div");
     const buttons = elements(tree).filter(n => n.type === "button"); assert.equal(buttons.length, 6);
     for (const [index, node] of buttons.entries()) {
-      assert.equal(node.key, KEYS[index]); assert.equal(node.props.type, "button"); assert.equal(node.props.children, LABELS[index]);
+      assert.equal(node.key, KEYS[index]); assert.equal(node.props.type, "button"); assert.equal(node.props.children.props.className, "purpose-led-navigation-copy"); assert.equal(node.props.children.props.children[0].props.className, "purpose-led-navigation-label"); assert.equal(node.props.children.props.children[0].props.children, LABELS[index]); assert.equal(node.props.children.props.children[1], " "); assert.equal(node.props.children.props.children[2].props.className, "purpose-led-navigation-purpose"); assert.equal(node.props.children.props.children[2].props.children, ["Review captured file changes","Plans, checks and evidence","Activity and project summaries","Browse captured commits","Workspace-wide districts","Documentation and release notes"][index]); assert.equal(node.props["aria-label"], undefined); assert.equal(node.props.children.props.children[2].props["aria-hidden"], undefined);
       assert.equal(node.props["aria-current"], view === KEYS[index] ? "page" : undefined);
       assert.equal(node.props.disabled, !membershipReady && ["mission", "overview", "history"].includes(KEYS[index]));
       assert.match(node.props.className, /\bui-control\b/); node.props.onClick();

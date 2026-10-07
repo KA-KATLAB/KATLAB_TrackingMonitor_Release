@@ -1,3 +1,4 @@
+import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { cityBriefPreservation } from "./helpers/cityDistrictBrief.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
@@ -214,7 +215,7 @@ function checkHtml (text) {
   assert.equal(sha(lf(text)), REVIEWED_HTML); assert.equal(sha(lf(original)), ORIGINAL_HTML);
   return original;
 }
-const html = restoreChangesReviewDeskHtml(restoreAttributionStationHtml(studioHtml(deskPreservation("Frontend/index.html", mastheadPreservation("Frontend/index.html", read("Frontend/index.html"))))));
+const html = restoreChangesReviewDeskHtml(restoreAttributionStationHtml(studioHtml(deskPreservation("Frontend/index.html", mastheadPreservation("Frontend/index.html", purposeNavigationPreservation("Frontend/index.html", read("Frontend/index.html")))))));
 test("independent exact insertion preserves the entire original HTML, Unicode and LF/CRLF inverses", () => {
   assert.equal(Buffer.byteLength(CSS), 2572); assert.equal(CSS.split("\n").length - 1, 73); assert.equal(sha(CSS), CSS_HASH);
   assert.equal(Buffer.byteLength(windowFor("\n")), 3060); assert.equal(sha(windowFor("\n")), WINDOW_HASH); checkCss(CSS);
@@ -268,7 +269,7 @@ test("complete CSS AST guard rejects changed, widened, reordered, nested and for
 });
 test("all actual source, old oracle and dependency RAW/LF pins remain immutable", () => {
   for (const [name, rawPin, lfPin] of PINS) {
-    const current = deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, read(name)))); ending(current); assert.equal(sha(current), rawPin, name); assert.equal(sha(lf(current)), lfPin, name);
+    const current = deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, purposeNavigationPreservation(name, read(name))))); ending(current); assert.equal(sha(current), rawPin, name); assert.equal(sha(lf(current)), lfPin, name);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(current).replace(/\n/g, eol))), lfPin, name);
   }
 });
@@ -336,7 +337,7 @@ test("actual six-view navigation preserves source sequence, labels, current/disa
     const tree = navigation.ViewNavigation(props), buttons = elements(tree).filter(n => n.type === "button");
     assert.equal(tree.type, "nav"); assert.equal(tree.props["aria-label"], "Primary views"); assert.equal(buttons.length, 6);
     buttons.forEach((node, index) => {
-      assert.equal(node.key, KEYS[index]); assert.equal(node.props.type, "button"); assert.equal(node.props.children, LABELS[index]);
+      assert.equal(node.key, KEYS[index]); assert.equal(node.props.type, "button"); assert.equal(node.props.children.props.className, "purpose-led-navigation-copy"); assert.equal(node.props.children.props.children[0].props.className, "purpose-led-navigation-label"); assert.equal(node.props.children.props.children[0].props.children, LABELS[index]); assert.equal(node.props.children.props.children[1], " "); assert.equal(node.props.children.props.children[2].props.className, "purpose-led-navigation-purpose"); assert.equal(node.props.children.props.children[2].props.children, ["Review captured file changes","Plans, checks and evidence","Activity and project summaries","Browse captured commits","Workspace-wide districts","Documentation and release notes"][index]); assert.equal(node.props["aria-label"], undefined); assert.equal(node.props.children.props.children[2].props["aria-hidden"], undefined);
       assert.equal(node.props["aria-current"], view === KEYS[index] ? "page" : undefined);
       assert.equal(node.props.disabled, !ready && ["mission", "overview", "history"].includes(KEYS[index])); node.props.onClick();
     });

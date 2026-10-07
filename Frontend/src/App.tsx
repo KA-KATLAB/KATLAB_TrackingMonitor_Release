@@ -2749,8 +2749,16 @@ function ViewNavigation ({
   membershipReady: boolean;
   onSelect: (view: View) => void;
 }): JSX.Element {
+  const purposes: Record<View, string> = {
+    changes: "Review captured file changes",
+    mission: "Plans, checks and evidence",
+    overview: "Activity and project summaries",
+    history: "Browse captured commits",
+    city: "Workspace-wide districts",
+    chronicle: "Documentation and release notes",
+  };
   return (
-    <nav aria-label="Primary views" className="min-w-0">
+    <nav aria-label="Primary views" className="min-w-0 purpose-led-navigation">
       <div className="flex min-w-0 flex-col gap-1">
         {(Object.keys(VIEW_LABELS) as View[]).map((choice) => {
           const scoped = choice === "mission" || choice === "overview" || choice === "history";
@@ -2765,7 +2773,10 @@ function ViewNavigation ({
                 ? "bg-ui-primary text-white"
                 : "bg-ui-raised text-ui-text"}`}
             >
-              {VIEW_LABELS[choice]}
+              <span className="purpose-led-navigation-copy">
+                <span className="purpose-led-navigation-label">{VIEW_LABELS[choice]}</span>{" "}
+                <span className="purpose-led-navigation-purpose">{purposes[choice]}</span>
+              </span>
             </button>
           );
         })}

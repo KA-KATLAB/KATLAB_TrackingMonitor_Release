@@ -5,24 +5,24 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.4.1 - City District Brief**
+Current source version: **v0.4.4.2 - Purpose-Led Navigation**
 
-City now pairs its existing scene with a readable native brief for the same
-visible district page. Full repository identities open the existing scoped
-Overview. Each district states offline, unavailable Git status, clean, or its
-exact uncommitted count, followed by the number of tasks marked in progress.
+The six existing view choices now pair their exact destination labels with
+short, static purpose copy. The same navigation serves the desktop Workspace
+rail and the Navigation drawer. Visible label-first text supplies each native
+button's accessible name; meaningful purpose copy is not hidden.
 
-The brief remains workspace-wide, follows the configured six-district page,
-and shows the existing repository range. It adds no productivity, freshness or
-readiness inference. The scene, pager, stale/Retry states, export and exact-data
-disclosure keep their existing ownership and behavior.
+Order, current-page markers, membership restrictions and callbacks stay
+unchanged. Purpose copy describes a destination, not fresh data, readiness or
+successful verification. Labels and descriptions wrap within the existing
+scroll owners. The navigation remains one tier, with no new routes or requests.
 
-One City-lazy presentation module and scoped stylesheet are added. All six
-entry styles and complete eager, Overview and Mission CSS remain unchanged.
-No new data request, timer, persistence, dependency or font is introduced.
+One bounded seventh entry style is added. All six previous style bodies and
+complete eager, Overview, Mission and City CSS remain unchanged. No new font,
+image/icon asset, package, state, timer or persistence is introduced.
 Native/operator acceptance, the known large HTTP Connection:close fault and
 prior advisory/build limits remain OPEN. Reload existing tabs after upgrade.
-See the [current release notes](TrackingMonitor_v0.4.4.1_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.4.2_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -195,7 +195,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.4.1_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.4.2_Release_Notes.md)
 
 ## Guarantees
 

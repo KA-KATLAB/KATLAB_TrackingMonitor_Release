@@ -1,3 +1,4 @@
+import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { cityBriefPreservation } from "./helpers/cityDistrictBrief.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 // Current source executes below; published 3.0 references are immutable DATA only.
@@ -442,7 +443,7 @@ const CSS_GOLDEN = "/* Changes Review Lanes: file-first hierarchy in normal grou
 
 test("whole App/HTML/25 suite data inverses preserve full originals and reject all outside drift", () => {
   for (const record of PINNED_INPUTS) {
-    const current = mastheadPreservation(record.path, cityBriefPreservation(record.path, readFileSync(resolve(ROOT, record.path))));
+    const current = mastheadPreservation(record.path, cityBriefPreservation(record.path, purposeNavigationPreservation(record.path, readFileSync(resolve(ROOT, record.path)))));
     assert.equal(sha(lf(current.toString("utf8"))), record.currentLF, record.path);
     assert.equal(Buffer.byteLength(lf(current.toString("utf8"))), record.currentLFBytes);
     if(record.currentRaw) assert.equal(sha(current),record.currentRaw);
@@ -497,7 +498,7 @@ function cssRecordTree (css) {
 }
 
 test("fifth inline source CSS is exact scoped normal-row oracle with no widened rule or priority", () => {
-  const html=mastheadPreservation("Frontend/index.html", htmlRaw).toString("utf8");
+  const html=mastheadPreservation("Frontend/index.html", purposeNavigationPreservation("Frontend/index.html", htmlRaw)).toString("utf8");
   const styles=[...html.matchAll(/<style id="([^"]+)">([\s\S]*?)<\/style>/g)];
   assert.deepEqual(styles.map(match=>match[1]),[
     "katlab-workbench-v2","katlab-changes-review-desk","katlab-attribution-station",

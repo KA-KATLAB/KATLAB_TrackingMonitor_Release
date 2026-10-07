@@ -1,3 +1,4 @@
+import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { cityBriefPreservation } from "./helpers/cityDistrictBrief.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -1330,7 +1331,7 @@ const rowProps = extra => ({ event: event({}), tasks, choice: "", checked: false
 test("three independent whole native/LF source inverses retain every unrelated byte", () => {
   assert.deepEqual(MASTHEAD_SOURCES, SOURCE_EXPECTATIONS);
   for (const record of SOURCE_EXPECTATIONS) {
-    const current = read(record.path); assert.equal(sha(current), record.after.RAW);
+    const current = purposeNavigationPreservation(record.path, read(record.path)); assert.equal(sha(current), record.after.RAW);
     assert.equal(current.length, record.after.bytes);
     for (const crlf of [false, true]) for (const buffer of [false, true]) {
       const value = physical(lf(current.toString("utf8")), crlf), input = buffer ? Buffer.from(value) : value;
@@ -1343,7 +1344,7 @@ test("three independent whole native/LF source inverses retain every unrelated b
 });
 test("strict source owner/copy/style/outside bytes and encoding adversaries cannot be erased", () => {
   for (const record of SOURCE_EXPECTATIONS) {
-    const value = lf(text(record.path)), old = independentInverse(record.path, value), window = record.windows[0];
+    const value = lf(purposeNavigationPreservation(record.path, text(record.path))), old = independentInverse(record.path, value), window = record.windows[0];
     const bad = [old, value.replace(window.after, ""), value.replace(window.after, window.after + window.after),
       value.replace(window.after, window.after.replace(record.path.endsWith(".html") ? "<style" : "className=",
         record.path.endsWith(".html") ? "<script" : "data-wrong=")),
@@ -1371,7 +1372,7 @@ test("26 old suites preserve complete original RAW/LF oracles and negative input
   assert.deepEqual(MASTHEAD_SUITES.map(record => ({ path: record.path, before: record.before, after: record.after,
     windows: record.windows.map(window => ({ name: window.name, count: window.count })) })), SUITE_EXPECTATIONS);
   for (const pin of SUITE_EXPECTATIONS) {
-    const input = cityBriefPreservation(pin.path, read(pin.path)); assert.equal(sha(input), pin.after.RAW);
+    const input = cityBriefPreservation(pin.path, purposeNavigationPreservation(pin.path, read(pin.path))); assert.equal(sha(input), pin.after.RAW);
     for (const crlf of [false, true]) for (const buffer of [false, true]) {
       const value = physical(lf(input.toString("utf8")), crlf), current = buffer ? Buffer.from(value) : value;
       const original = restoreWorkspaceCommandMastheadSuite(pin.path, current);
@@ -1396,7 +1397,7 @@ test("sixth inline CSS has independent twelve-context scoped reflow and rejects 
   assert.equal(Buffer.byteLength(CSS), 2183); assert.equal(CSS.split("\n").length - 1, 69);
   assert.equal(sha(CSS), "ef191a32d0af4b299a7770f918863a7d69dbcbab33087251793debfed89fdd30");
   cssContract(CSS);
-  const html = text("Frontend/index.html"), styles = [...html.matchAll(/<style\b([^>]*)>([\s\S]*?)<\/style>/g)];
+  const html = purposeNavigationPreservation("Frontend/index.html", text("Frontend/index.html")), styles = [...html.matchAll(/<style\b([^>]*)>([\s\S]*?)<\/style>/g)];
   assert.equal(styles.length, 6); assert.equal(styles[5][1], ' id="' + STYLE_ID + '"');
   cssContract(styles[5][2]); assert.ok(html.slice(styles[5].index + styles[5][0].length).startsWith("\n  </head>"));
   const original = independentInverse("Frontend/index.html", html);

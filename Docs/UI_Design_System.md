@@ -593,6 +593,52 @@ masthead contract plus 17 retained compiled gates and full build parity.
 Source/SSR/compiled/HTTP checks do not certify native first-viewport fit, visual
 quality, reflow, focus, keyboard, coarse input, zoom or assistive technology.
 
+### 3.9 Purpose-Led Navigation
+
+The same ViewNavigation supplies the persistent Workspace rail and Navigation
+DialogShell. Keep the exact labels and order: Changes, Mission, Overview,
+History, City, Chronicle. Preserve keys, native type, aria-current, the existing
+three-choice membership restriction and every onSelect argument. Add no route,
+scope change, new tier, request, state, effect, clock, timer or persistence.
+
+Use a source-local static purpose mapping inside ViewNavigation, so current
+function extraction reads the actual complete owner. Purpose copy is:
+Changes, Review captured file changes; Mission, Plans, checks and evidence;
+Overview, Activity and project summaries; History, Browse captured commits;
+City, Workspace-wide districts; Chronicle, Documentation and release notes.
+These explain destinations, not current data availability or verification.
+Preserve the configured workspace-wide City and captured-only History meaning.
+
+Each button keeps one presentation wrapper containing a label span, an explicit
+separating space and a purpose span. Both are visible. The native accessible
+name contains label first, then purpose. Add no fixed IDs across hosts,
+conflicting aria-label, aria-describedby or hidden meaningful copy. Current
+regressions must inspect the actual label and purpose nodes and native serialized
+contents; do not execute restored historical navigation.
+
+Scope the seventh entry style to nav.purpose-led-navigation with the existing
+Primary views label. Do not prefix with #root: DialogShell renders in a body
+portal outside the application's root. Apply six root rules to that owner's
+list, native buttons and private copy/label/purpose spans only. Keep DOM order,
+normal flow, zero-minimum children and full anywhere wrapping. Use 0.75rem
+list gaps, 1rem/600 labels and 0.8125rem/400 purpose text with 1.5 line height.
+At the default 16px root these are 12px gaps, 16px labels and 13px purposes.
+The existing 3rem fine-input minimum height is retained, equivalent to 48px
+at the default root; coarse-important rules keep their existing ownership.
+
+Do not override semantic colors, selected/hover backgrounds, border markers,
+disabled opacity, focus rings, transitions or coarse-input declarations. Keep
+the >=1280px 14rem desktop rail's local scroll and the drawer's existing body
+scroll, close/initial-focus/Tab/Escape/inertness/restoration owners unchanged.
+Additional text can increase navigation height; do not claim native fit.
+
+Keep all six previous entry style bodies and full eager, Overview, Mission and
+City CSS byte-identical. Add no new Tailwind utility candidate, dependency,
+font or image/icon asset. Validate exact full source/suite inverses separately
+from raw current behavioral rendering, the actual seventh compiled style and
+all nineteen retained compiled contracts. Native geometry, keyboard, focus,
+coarse input, zoom, AT and subjective visual quality remain unverified.
+
 ## 4. Shared component contract
 
 Shared primitives are small implementation helpers, not a component framework. They forward native props and refs, preserve native disabled/focus behavior, and accept `className` only for local layout.

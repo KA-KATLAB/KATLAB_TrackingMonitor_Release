@@ -1,5 +1,26 @@
 # Version Notes
 
+## v0.4.4.2 - Purpose-Led Navigation (2026-10-08)
+
+- Pair each existing view label with truthful static purpose copy in both the
+  desktop rail and the portal-based Navigation drawer. Keep the six labels,
+  configured order, native button type, current-page marker and exact callbacks.
+- Keep three membership-dependent choices disabled under the existing guard.
+  Static purpose copy never asserts freshness, readiness or successful checks.
+- Use visible label-first text and an explicit separating space for the native
+  accessible name. Add no conflicting aria-label, fixed IDs or hidden purpose.
+- Scope six CSS rules to the new private navigation class. Keep labels at
+  1rem/600 and purpose copy at 0.8125rem/400 with 1.5 line height and full wrapping.
+  Retain the existing fine-input 3rem minimum-height declaration, equal to 48px
+  at the default root, and shared coarse-important, focus, hover and disabled owners.
+- Preserve both scroll containers, routing, membership, overlay focus and all
+  six old entry style bodies. Full eager/Overview/Mission/City CSS stays unchanged.
+- Require whole CDD/CFT5, exact old preservation-input adapters, current-render
+  regressions, focused/full checks, nineteen retained compiled contracts plus
+  the new navigation gate, complete build parity and owned activation.
+  Actual outcomes and release identity belong in the detailed plan.
+- Native/operator, Connection:close and prior advisory/build limits remain OPEN.
+
 ## v0.4.4.1 - City District Brief (2026-10-08)
 
 - Add a pure native brief above the current City scene, using the same visible

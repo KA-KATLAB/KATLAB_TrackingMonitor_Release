@@ -418,6 +418,47 @@
         }
       }
     </style>
+    <style id="katlab-purpose-led-navigation">
+      /* Purpose-led navigation: shared native choices, no new route or status owner. */
+      nav.purpose-led-navigation[aria-label="Primary views"] {
+        min-width: 0;
+      }
+
+      nav.purpose-led-navigation[aria-label="Primary views"] > div {
+        gap: 0.75rem;
+      }
+
+      nav.purpose-led-navigation[aria-label="Primary views"] > div > button.ui-control {
+        align-items: flex-start;
+        justify-content: flex-start;
+        min-height: 3rem;
+        white-space: normal;
+        text-align: left;
+      }
+
+      nav.purpose-led-navigation[aria-label="Primary views"] > div > button.ui-control > .purpose-led-navigation-copy {
+        display: block;
+        min-width: 0;
+        width: 100%;
+      }
+
+      nav.purpose-led-navigation[aria-label="Primary views"] > div > button.ui-control > .purpose-led-navigation-copy > .purpose-led-navigation-label {
+        display: block;
+        font-size: 1rem;
+        font-weight: 600;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+      }
+
+      nav.purpose-led-navigation[aria-label="Primary views"] > div > button.ui-control > .purpose-led-navigation-copy > .purpose-led-navigation-purpose {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.8125rem;
+        font-weight: 400;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+      }
+    </style>
   </head>
   <body class="bg-slate-950 text-slate-100">
     <div id="root"></div>

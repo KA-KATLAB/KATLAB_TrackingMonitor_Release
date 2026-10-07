@@ -38,7 +38,7 @@ retained compiled contracts and the new City brief gate. Compare complete
 isolated and production results. Actual outcomes and full commit identity
 belong in the detailed plan after execution, not in advance of verification.
 
-Follow the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Follow the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Reprove the deployed v0.4.4.0 instance and native ownership before standard stop.
 Both tracker and demo ports must be clear before production build. Use the
 standard Hidden restart, then verify the current version, all six entry styles,
@@ -56,5 +56,5 @@ response-body fault remains unresolved. Existing high advisory 15, chunk,
 Tailwind and SSR diagnostics are qualified historical limits, not release fixes.
 Accepted limitations do not waive any new regression.
 
-Previous [v0.4.4.0 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.4.0_Release_Notes.md)
+Previous [v0.4.4.0 notes](TrackingMonitor_v0.4.4.0_Release_Notes.md)
 remain archived with only their two moved relative documentation URLs corrected.

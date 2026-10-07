@@ -1,3 +1,4 @@
+import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { cityBriefPreservation } from "./helpers/cityDistrictBrief.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
 import { deskPreservation } from "./helpers/changesReviewLanes.mjs";
@@ -268,7 +269,7 @@ test("valid outside-window edits survive inverse and fail complete original/resu
 test("coupled current owners, old suites and six dependencies preserve whole RAW/LF", () => {
   assert.equal(PINS.length, 57); assert.equal(new Set(PINS.map(([name]) => name)).size, PINS.length);
   for (const [name, raw, normalized] of PINS) {
-    const value = deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, read(name)))); assert.equal(sha(value), raw, name + " RAW"); assert.equal(sha(lf(value)), normalized, name + " LF");
+    const value = deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, purposeNavigationPreservation(name, read(name))))); assert.equal(sha(value), raw, name + " RAW"); assert.equal(sha(lf(value)), normalized, name + " LF");
     assert.equal(sha(lf(value).replace(/\n/g, "\r\n").replace(/\r\n/g, "\n")), normalized, name + " CRLF round trip");
   }
 });
