@@ -1,3 +1,4 @@
+import { changesBriefPreservation } from "./helpers/changesTaskReviewBrief.mjs";
 import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { activePlanDocketPreservation } from "./helpers/activePlanDocket.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
@@ -257,7 +258,7 @@ test("valid unrelated source changes survive the inverse but fail complete histo
 test("all unchanged caller, data, shared UI, previous suites, Chronicle, lifecycle and six dependency pins retain RAW/LF", () => {
   assert.equal(PINS.length, 49); assert.equal(new Set(PINS.map(([name]) => name)).size, 49);
   for (const [name, raw, normalized] of PINS) {
-    const bytes = deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, purposeNavigationPreservation(name, activePlanDocketPreservation(name, historyStationPreservation(name, readFileSync(resolve(root, name)))))))); assert.equal(sha(bytes), raw, name + " RAW");
+    const bytes = deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, purposeNavigationPreservation(name, activePlanDocketPreservation(name, historyStationPreservation(name, changesBriefPreservation(name, readFileSync(resolve(root, name))))))))); assert.equal(sha(bytes), raw, name + " RAW");
     assert.equal(sha(lf(bytes.toString("utf8"))), normalized, name + " LF");
   }
 });

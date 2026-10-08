@@ -1,3 +1,4 @@
+import { changesBriefPreservation } from "./helpers/changesTaskReviewBrief.mjs";
 import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -44,7 +45,7 @@ test("three source windows and seventeen explicit suite inputs retain all publis
  assert.equal(EXPECTED.sources.length,1);assert.equal(EXPECTED.sources[0].windows.length,3);assert.equal(EXPECTED.suites.length,17);
  assert.equal(EXPECTED.suites.reduce((sum,record)=>sum+record.windows.length,0),48);
  for(const record of [...EXPECTED.sources,...EXPECTED.suites]){
-  const raw=historyStationPreservation(record.path,read(record.path));assert.equal(raw.length,record.after.bytes);assert.equal(sha(raw),record.after.RAW);
+  const raw=historyStationPreservation(record.path, changesBriefPreservation(record.path, read(record.path)));assert.equal(raw.length,record.after.bytes);assert.equal(sha(raw),record.after.RAW);
   for(const eol of ["LF","CRLF"])for(const buffer of [false,true]){
    const value=physical(lf(raw.toString("utf8")),eol), input=buffer?Buffer.from(value):value;
    const expected=inverse(record,input);assert.deepEqual(activePlanDocketPreservation(record.path,input),expected);
@@ -56,7 +57,7 @@ test("three source windows and seventeen explicit suite inputs retain all publis
 });
 test("strict preservation rejects outside edits, stale/duplicate/malformed windows and all byte ambiguities",()=>{
  for(const record of [...EXPECTED.sources,...EXPECTED.suites]){
-  const value=lf(historyStationPreservation(record.path,text(record.path)));const bad=["// outside approved windows\n"+value,value+"\n",value.slice(0,-1),"\uFEFF"+value,value+"\0",value.replace("\n","\r"),value.replace("\n","\r\n"),Buffer.concat([Buffer.from(value),Buffer.from([0xff])])];
+  const value=lf(historyStationPreservation(record.path, changesBriefPreservation(record.path, text(record.path))));const bad=["// outside approved windows\n"+value,value+"\n",value.slice(0,-1),"\uFEFF"+value,value+"\0",value.replace("\n","\r"),value.replace("\n","\r\n"),Buffer.concat([Buffer.from(value),Buffer.from([0xff])])];
   for(const window of record.windows){bad.push(value.replace(window.after,window.before),value.replace(window.after,window.after+window.after),value.replace(window.after,window.after+"/* changed reviewed site */\n"));}
   for(const input of bad){assert.notDeepEqual(input,value);assert.throws(()=>activePlanDocketPreservation(record.path,input));}
  }

@@ -3834,7 +3834,7 @@ function ChangesView ({ events, tasks, repos, effortByTask, taskFilter, onClearF
                 <div key={key} id={`sec-g${i}`} className="scroll-mt-12">
                   <TaskGroup refLabel={ref} repoId={group[0].repo_id} group={group}
                     scopeKeyValue={scopeKeyValue} groupIdentity={key}
-                    why={task?.why} repos={repos}
+                    taskTitle={task?.title} why={task?.why} repos={repos}
                     planFileSet={planFilesByRepo.get(group[0].repo_id)}
                     onSessionClick={onSessionClick}
                     onOpenFileStory={onOpenFileStory}
@@ -3991,9 +3991,9 @@ function FolderRepoCard ({ repoId, events, scopeKeyValue }: {
 }
 
 // D8: plan-file edits collapse to one expandable line inside each group.
-function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet, onSessionClick,
+function TaskGroup ({ refLabel, taskTitle, repoId, group, why, repos, planFileSet, onSessionClick,
   onOpenFileStory, effort, scopeKeyValue, groupIdentity, onStatus }:
-  { refLabel: string; repoId: string; group: TrackedEvent[]; why?: string;
+  { refLabel: string; taskTitle?: string; repoId: string; group: TrackedEvent[]; why?: string;
     repos: Repo[]; planFileSet?: Set<string>;
     scopeKeyValue: string; groupIdentity: string;
     onSessionClick?: (identity: EventSessionIdentity) => void;
@@ -4016,13 +4016,20 @@ function TaskGroup ({ refLabel, repoId, group, why, repos, planFileSet, onSessio
     totalItems: planEdits.length,
     pageSize: 50,
   });
+  const hasTaskTitle = typeof taskTitle === "string" && taskTitle.trim().length > 0;
   return (
     <div data-reveal className="ui-work-list mb-4 p-4">
-      <div className="flex min-w-0 flex-wrap items-baseline gap-2">
-        {/* F48: task-ref link "<plan filename> - <task id>" */}
-        <h4 className="min-w-0 break-all font-mono text-base font-semibold text-sky-300">{refLabel}</h4>
-        <span className="text-xs text-slate-400">{repoId}</span>
-        <EffortLine effort={effort} /> {/* v0.1.6.0 D1 (C.1) */}
+      <div data-task-review-brief="true" className="min-w-0">
+        <h4 className={`min-w-0 break-words text-base font-semibold text-ui-text [overflow-wrap:anywhere]${hasTaskTitle ? "" : " font-mono"}`}>
+          {hasTaskTitle ? taskTitle : refLabel}
+        </h4>
+        <div className="mt-1 flex min-w-0 flex-wrap items-baseline gap-2">
+          {hasTaskTitle && (
+            <span className="min-w-0 break-all font-mono text-xs text-slate-400">{refLabel}</span>
+          )}
+          <span className="text-xs text-slate-400">{repoId}</span>
+          <EffortLine effort={effort} /> {/* v0.1.6.0 D1 (C.1) */}
+        </div>
       </div>
       {why && <p className="mt-1 text-xs text-slate-400">Why: {why}</p>}
       <div className="mt-4">

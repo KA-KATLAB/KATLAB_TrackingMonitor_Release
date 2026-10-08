@@ -5,29 +5,22 @@ It captures bounded Claude Code and Codex metadata, attributes file changes to t
 plan task that explains why, correlates declared verification evidence with
 read-only Git state, and keeps uncertain work visible instead of guessing.
 
-Current source version: **v0.4.6.0 - History Review Station**
+Current source version: **v0.4.7.0 - Changes Task Review Brief**
 
-History now offers one searchable current-page commit chooser with previous/next
-controls, followed by one inspected commit's existing evidence. Position and
-coverage describe the current page, not the complete repository history or a
-freshness guarantee.
+Grouped Changes shows the actual task title before its complete technical
+reference, repository and existing effort. Missing or blank titles retain the
+full-reference heading fallback; no task identity or status is invented.
+Why, event evidence, filters, anchors, both 50-item event pagers and every
+Diff/session/File Story action keep their existing owners.
 
-Selection identifies the exact accepted occurrence using scope, repository,
-full hash and absolute fetched ordinal. Keep the last explicit occurrence in
-local context; if absent, display the first available row without replacing
-that remembered choice. Retained same-page rows remain usable;
-empty restored-depth hydration is not an accepted-empty History result.
-The repository chooser, graph, outer 50-commit pager, fetch depth, full commit ID,
-shared event actions and remembered 50-event paging keep their existing owners.
-
-No new requests, storage, URL state, stylesheet or dependencies are added.
-Explicit commit navigation cancels pending route focus; automatic fallback does
-not move focus or announce a selection. Switching the inspected occurrence
-unmounts its local event/diff and native disclosure state.
+No requests, API/schema changes, state, effects, storage, URL state, stylesheet
+or dependencies are added. Preserve current styles and verify actual emission,
+rather than assuming unchanged output. Queue assignment, folder grouping and
+other views are outside this presentation change.
 Native/operator acceptance, the known large HTTP Connection:close fault and
 prior high dependency/build-warning limits remain OPEN. Reload existing tabs
 after upgrade.
-See the [current release notes](TrackingMonitor_v0.4.6.0_Release_Notes.md).
+See the [current release notes](TrackingMonitor_v0.4.7.0_Release_Notes.md).
 
 ## What v0.4 changes
 
@@ -200,7 +193,7 @@ provider snippets, evidence commands, rollback, and troubleshooting.
 - [UI design system](Docs/UI_Design_System.md)
 - [Working discipline](Docs/Tracking_Discipline.md)
 - [Repository guide](Codex_Info/Repository_Guide.md)
-- [Current source release notes](TrackingMonitor_v0.4.6.0_Release_Notes.md)
+- [Current source release notes](TrackingMonitor_v0.4.7.0_Release_Notes.md)
 
 ## Guarantees
 

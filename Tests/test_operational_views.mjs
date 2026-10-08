@@ -1,3 +1,4 @@
+import { changesBriefPreservation } from "./helpers/changesTaskReviewBrief.mjs";
 import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
@@ -197,7 +198,7 @@ test("operational restyling preserves all original computation and async-owner b
     FolderRepoCard: "ec305e48ca03d3a63eb854894f83eb1237aaef42c9581e19aa6466d35240b3a4",
   };
   const preservationApp = ts.createSourceFile("App.tsx",
-    reviewLanesPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", historyStationPreservation("Frontend/src/App.tsx", app.text)))), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    reviewLanesPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", historyStationPreservation("Frontend/src/App.tsx", changesBriefPreservation("Frontend/src/App.tsx", app.text))))), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   for (const [name, hash] of Object.entries(expected)) {
     const code = preRenderCode(preservationApp, name);
     assert.equal(createHash("sha256").update(code).digest("hex"), hash, name);

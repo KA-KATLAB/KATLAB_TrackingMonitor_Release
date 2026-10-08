@@ -1,3 +1,4 @@
+import { changesBriefPreservation } from "./helpers/changesTaskReviewBrief.mjs";
 import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
@@ -237,7 +238,7 @@ test("valid outside mutations pass through the inverse and fail full original pi
     }
   }
   for (const [name, rawPin, lfPin] of PINS) {
-    const text = deskPreservation(name, mastheadPreservation(name, purposeNavigationPreservation(name, historyStationPreservation(name, read(name))))); ending(text); assert.equal(sha(text), rawPin, name); assert.equal(sha(lf(text)), lfPin, name);
+    const text = deskPreservation(name, mastheadPreservation(name, purposeNavigationPreservation(name, historyStationPreservation(name, changesBriefPreservation(name, read(name)))))); ending(text); assert.equal(sha(text), rawPin, name); assert.equal(sha(lf(text)), lfPin, name);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(text).replace(/\n/g, eol))), lfPin);
   }
 });

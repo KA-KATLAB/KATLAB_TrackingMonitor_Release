@@ -1,3 +1,4 @@
+import { changesBriefPreservation } from "./helpers/changesTaskReviewBrief.mjs";
 import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { activePlanDocketPreservation } from "./helpers/activePlanDocket.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
@@ -445,7 +446,7 @@ const CSS_GOLDEN = "/* Changes Review Lanes: file-first hierarchy in normal grou
 
 test("whole App/HTML/25 suite data inverses preserve full originals and reject all outside drift", () => {
   for (const record of PINNED_INPUTS) {
-    const current = mastheadPreservation(record.path, cityBriefPreservation(record.path, purposeNavigationPreservation(record.path, activePlanDocketPreservation(record.path, historyStationPreservation(record.path, readFileSync(resolve(ROOT, record.path)))))));
+    const current = mastheadPreservation(record.path, cityBriefPreservation(record.path, purposeNavigationPreservation(record.path, activePlanDocketPreservation(record.path, historyStationPreservation(record.path, changesBriefPreservation(record.path, readFileSync(resolve(ROOT, record.path))))))));
     assert.equal(sha(lf(current.toString("utf8"))), record.currentLF, record.path);
     assert.equal(Buffer.byteLength(lf(current.toString("utf8"))), record.currentLFBytes);
     if(record.currentRaw) assert.equal(sha(current),record.currentRaw);

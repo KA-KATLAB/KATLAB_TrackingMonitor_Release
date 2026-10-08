@@ -1,3 +1,4 @@
+import { changesBriefPreservation } from "./helpers/changesTaskReviewBrief.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -143,7 +144,7 @@ function mount(overrides = {}) {
 
 test("independent whole source/table identities and immutable existing styling/dependencies", () => {
   assert.equal(sha(read(MODULE)), MODULE_RAW); assert.equal(read(MODULE).length, 5826);
-  assert.equal(sha(read(APP)), APP_RAW); assert.equal(sha(lf(appSource)), APP_LF);
+  assert.equal(sha(changesBriefPreservation(APP, read(APP))), APP_RAW); assert.equal(sha(lf(changesBriefPreservation(APP, appSource))), APP_LF);
   assert.equal(sha(read("Tests/helpers/historyReviewStation.mjs")), HELPER_RAW);
   assert.equal(sha(JSON.stringify([HISTORY_STATION_SOURCES, HISTORY_STATION_SUITES])), TABLE_SHA);
   assert.equal(HISTORY_STATION_SOURCES.length, 1); assert.equal(HISTORY_STATION_SUITES.length, 30);
@@ -155,10 +156,10 @@ test("independent whole source/table identities and immutable existing styling/d
   const historicalInput = one(purpose.windows, window => window.name === "independent pre-navigation App input", "explicit independent inverse input");
   assert.equal(historicalInput.before, ' const original=independentInverse(EXPECTED.sources[0],appText),old=parse("App.tsx",original);\n');
   assert.equal(historicalInput.after, ' const original=independentInverse(EXPECTED.sources[0],historyStationPreservation("Frontend/src/App.tsx",appText)),old=parse("App.tsx",original);\n');
-  const purposeCurrent = text(purpose.path);
+  const purposeCurrent = changesBriefPreservation(purpose.path, text(purpose.path));
   assert.ok(purposeCurrent.includes(historicalInput.after));
   assert.ok(purposeCurrent.includes('const appText=text("Frontend/src/App.tsx"),app=parse("App.tsx",appText);'), "actual runtime/AST input remains raw current App");
-  assert.equal(sha(lf(historyStationPreservation(APP, appSource))), HISTORY_STATION_SOURCES[0].before.LF);
+  assert.equal(sha(lf(historyStationPreservation(APP, changesBriefPreservation(APP, appSource)))), HISTORY_STATION_SOURCES[0].before.LF);
   assert.throws(() => restoreHistoryStationSuite(purpose.path, purposeCurrent.replace(historicalInput.after, historicalInput.before)), "missing historical-input wrapper rejects");
   for (const [name, raw, normalized] of PINS) {
     assert.equal(sha(read(name)), raw, name + " raw");
@@ -172,7 +173,7 @@ test("independent whole source/table identities and immutable existing styling/d
 
 test("all thirty-one strict current preservation inputs restore whole native and normalized originals", () => {
   for (const record of records) {
-    const raw = read(record.path), current = lf(raw.toString("utf8"));
+    const raw = changesBriefPreservation(record.path, read(record.path)), current = lf(raw.toString("utf8"));
     assert.equal(raw.length, record.after.bytes, record.path);
     assert.equal(sha(raw), record.after.RAW, record.path);
     const restore = record.path === APP ? restoreHistoryStationSource : restoreHistoryStationSuite;
@@ -198,7 +199,7 @@ test("all thirty-one strict current preservation inputs restore whole native and
 
 test("whole-preservation rejection closes byte, outside-window, owner and cardinality loopholes", () => {
   for (const record of records) {
-    const current = lf(text(record.path)), restore = record.path === APP
+    const current = lf(changesBriefPreservation(record.path, text(record.path))), restore = record.path === APP
       ? restoreHistoryStationSource : restoreHistoryStationSuite;
     const bad = ["// unrelated valid edit\n" + current, current + "\n", current.slice(0, -1),
       "\uFEFF" + current, current + "\0", current.replace("\n", "\r"),

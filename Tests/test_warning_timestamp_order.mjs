@@ -1,3 +1,4 @@
+import { changesBriefPreservation } from "./helpers/changesTaskReviewBrief.mjs";
 import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
@@ -241,7 +242,7 @@ const originalPins = {
 
 test("strict one-arrow inverse preserves complete original App/owner/pre-render/outside in LF and CRLF", () => {
   assert.equal(sha(WARNING_TIMESTAMP_ARROW), WARNING_TIMESTAMP_ARROW_SHA);
-  const lf = restoreGitGraphBoundaryCopy(restoreChangesWorkbench(deskPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", historyStationPreservation("Frontend/src/App.tsx", source)))))).replace(/\r\n/g, "\n");
+  const lf = restoreGitGraphBoundaryCopy(restoreChangesWorkbench(deskPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", historyStationPreservation("Frontend/src/App.tsx", changesBriefPreservation("Frontend/src/App.tsx", source))))))).replace(/\r\n/g, "\n");
   const printer = ts.createPrinter({ removeComments: true });
   for (const newline of ["\n", "\r\n"]) {
     const current = lf.replace(/\n/g, newline), restored = restoreWarningTimestampOrder(current);
@@ -265,7 +266,7 @@ test("strict one-arrow inverse preserves complete original App/owner/pre-render/
 });
 
 test("strict comparator inverse rejects missing, duplicate, wrong-site and partial structural/physical changes", () => {
-  const lf = restoreGitGraphBoundaryCopy(restoreChangesWorkbench(deskPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", historyStationPreservation("Frontend/src/App.tsx", source)))))).replace(/\r\n/g, "\n"), ast = parse(lf), warningOwner = declaration(ast, "WarningsBanner");
+  const lf = restoreGitGraphBoundaryCopy(restoreChangesWorkbench(deskPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", historyStationPreservation("Frontend/src/App.tsx", changesBriefPreservation("Frontend/src/App.tsx", source))))))).replace(/\r\n/g, "\n"), ast = parse(lf), warningOwner = declaration(ast, "WarningsBanner");
   const items = warningOwner.body.statements[14].getText(ast);
   const changes = [
     [WARNING_TIMESTAMP_ARROW, ORIGINAL_WARNING_ARROW],
@@ -312,7 +313,7 @@ test("strict comparator inverse rejects missing, duplicate, wrong-site and parti
 });
 
 test("comparator inverse leaves unrelated valid owner and outside mutations visible to original hashes", () => {
-  const lf = restoreGitGraphBoundaryCopy(restoreChangesWorkbench(deskPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", historyStationPreservation("Frontend/src/App.tsx", source)))))).replace(/\r\n/g, "\n");
+  const lf = restoreGitGraphBoundaryCopy(restoreChangesWorkbench(deskPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", historyStationPreservation("Frontend/src/App.tsx", changesBriefPreservation("Frontend/src/App.tsx", source))))))).replace(/\r\n/g, "\n");
   const changes = [
     ["Warning details", "Changed warning heading"],
     ['pendingEscapeFocusRef.current = reason === "escape";', 'pendingEscapeFocusRef.current = reason !== "escape";'],
@@ -369,14 +370,14 @@ function undoOracleAdapters (name, text) {
 
 test("only exact oracle adapters invert to both complete HEAD34 suites without rebasing any old assertion", () => {
   for (const [name, expected] of oldTests) {
-    const text = restoreGitGraphOracleAdapters(name, restoreChangesWorkbenchOracleAdapters(name, deskPreservation(`Tests/${name}`, mastheadPreservation(`Tests/${name}`, purposeNavigationPreservation(`Tests/${name}`, historyStationPreservation(`Tests/${name}`, readFileSync(resolve(root, "Tests", name), "utf8"))))))).replace(/\r\n/g, "\n");
+    const text = restoreGitGraphOracleAdapters(name, restoreChangesWorkbenchOracleAdapters(name, deskPreservation(`Tests/${name}`, mastheadPreservation(`Tests/${name}`, purposeNavigationPreservation(`Tests/${name}`, historyStationPreservation(`Tests/${name}`, changesBriefPreservation(`Tests/${name}`, readFileSync(resolve(root, "Tests", name), "utf8")))))))).replace(/\r\n/g, "\n");
     for (const newline of ["\n", "\r\n"]) assert.equal(sha(undoOracleAdapters(name, text.replace(/\n/g, newline))), expected);
   }
 });
 
 test("test adapter inverse rejects malformed windows and retains unrelated old-test changes", () => {
   for (const [name, expected] of oldTests) {
-    const text = restoreGitGraphOracleAdapters(name, restoreChangesWorkbenchOracleAdapters(name, deskPreservation(`Tests/${name}`, mastheadPreservation(`Tests/${name}`, purposeNavigationPreservation(`Tests/${name}`, historyStationPreservation(`Tests/${name}`, readFileSync(resolve(root, "Tests", name), "utf8"))))))).replace(/\r\n/g, "\n");
+    const text = restoreGitGraphOracleAdapters(name, restoreChangesWorkbenchOracleAdapters(name, deskPreservation(`Tests/${name}`, mastheadPreservation(`Tests/${name}`, purposeNavigationPreservation(`Tests/${name}`, historyStationPreservation(`Tests/${name}`, changesBriefPreservation(`Tests/${name}`, readFileSync(resolve(root, "Tests", name), "utf8")))))))).replace(/\r\n/g, "\n");
     const windows = name === oldTests[0][0] ? [HISTORY_IMPORT, HISTORY_NEW_CALL] : [DIFF_IMPORT, DIFF_LF_NEW, DIFF_HISTORY_UNDO];
     for (const window of windows) for (const replacement of ["", window + window, window.replace("restoreWarningTimestampOrder", "wrongRestore")]) {
       assert.throws(() => undoOracleAdapters(name, replaceOnce(text, window, replacement)), assert.AssertionError);

@@ -53,7 +53,7 @@ builds, retained/new compiled gates and full isolated/production parity.
 Actual outcomes and the full commit ID belong in the detailed plan after the
 checks run. No future verification or native acceptance is claimed here.
 
-Follow the [safe upgrade procedure](Docs/Installation_Guideline.md#safe-stop-and-restart).
+Follow the [safe upgrade procedure](../../Installation_Guideline.md#safe-stop-and-restart).
 Reprove the old v0.4.5.0 instance and its native owned process forest, stop it
 normally and confirm tracker/demo ports clear before the production build.
 Use the standard Hidden restart and verify canonical version, complete reachable
@@ -70,5 +70,5 @@ fault, existing high dependency alerts and inherited chunk, Tailwind and SSR
 diagnostics remain OPEN. Accepted limits never waive a new failure or authorize
 an ad-hoc dependency, browser, OS or transport workaround.
 
-Previous [v0.4.5.0 notes](Docs/Release_Notes/Archive/TrackingMonitor_v0.4.5.0_Release_Notes.md)
+Previous [v0.4.5.0 notes](TrackingMonitor_v0.4.5.0_Release_Notes.md)
 remain archived with only their moved relative documentation URLs corrected.

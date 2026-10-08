@@ -1,5 +1,24 @@
 # Version Notes
 
+## v0.4.7.0 - Changes Task Review Brief (2026-10-08)
+
+- Lead normal Changes task groups with the actual resolved task title in the
+  existing h4 rank; retain the complete technical reference as secondary context.
+- Use only the repository/task composite lookup. Missing, deleted, empty,
+  whitespace-only or invalid title values fall back to the full reference.
+  Never invent title, status, confidence, readiness or attribution.
+- Preserve repository, effort, direct Why, the normal event body, filters,
+  anchors, both 50-item pagers, plan-file disclosure and every existing action.
+- Add no state, effect, request, API/schema, storage, URL, dependency or shared
+  control. Prove actual emitted CSS and inline-style preservation.
+- Historical assertion inputs use exact full-native/LF inverses; current source
+  AST, runtime and compiled artifacts stay raw. Never execute reconstructed App.
+- Require whole CDD/CFT5, current-source and negative checks, formal focused/full
+  verification, builds, retained/current compiled gates, full parity and owned
+  activation. Record actual outcomes and commit identity in the detailed plan.
+- Native/operator, unresolved large Connection:close and existing high
+  dependency/chunk/Tailwind/SSR limits remain OPEN.
+
 ## v0.4.6.0 - History Review Station (2026-10-08)
 
 - Replace History's repeated expanded evidence stack with one uniform searchable

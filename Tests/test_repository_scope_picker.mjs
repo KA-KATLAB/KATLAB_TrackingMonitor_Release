@@ -1,3 +1,4 @@
+import { changesBriefPreservation } from "./helpers/changesTaskReviewBrief.mjs";
 import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { activePlanDocketPreservation } from "./helpers/activePlanDocket.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
@@ -246,7 +247,7 @@ test("valid unrelated changes survive inverse and cannot evade original whole-mo
 });
 test("all thirty scope/shared/six-view owners and original executable regression suites remain whole-pinned", () => {
   for (const [path, rawPin, lfPin] of PINS) {
-    const current = deskPreservation(path, mastheadPreservation(path, cityBriefPreservation(path, purposeNavigationPreservation(path, activePlanDocketPreservation(path, historyStationPreservation(path, read(path))))))); ending(current); assert.equal(sha(current), rawPin, path); assert.equal(sha(lf(current)), lfPin, path);
+    const current = deskPreservation(path, mastheadPreservation(path, cityBriefPreservation(path, purposeNavigationPreservation(path, activePlanDocketPreservation(path, historyStationPreservation(path, changesBriefPreservation(path, read(path)))))))); ending(current); assert.equal(sha(current), rawPin, path); assert.equal(sha(lf(current)), lfPin, path);
     for (const eol of ["\n", "\r\n"]) assert.equal(sha(lf(lf(current).replace(/\n/g, eol))), lfPin, path);
   }
   assert.equal(PINS.length, 30);

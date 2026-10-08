@@ -1,3 +1,4 @@
+import { changesBriefPreservation } from "./helpers/changesTaskReviewBrief.mjs";
 import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
 import { mastheadPreservation } from "./helpers/workspaceCommandMasthead.mjs";
@@ -276,7 +277,7 @@ test("seed inverse rejects missing/duplicate/wrong-owner/site/partial guards and
 
 const ORIGINAL_APP_RAW = "980c2bd84687bc64cc19a50ac2034e3b758795a82d3786fb625e90d50116154d";
 const ORIGINAL_APP_LF = "c75c8b8721ccd36259c6acf243717db91aad793f271d94ac954a4fc6f724a370";
-const appSource = restoreChangesWorkbench(deskPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", historyStationPreservation("Frontend/src/App.tsx", read("Frontend/src/App.tsx"))))));
+const appSource = restoreChangesWorkbench(deskPreservation("Frontend/src/App.tsx", mastheadPreservation("Frontend/src/App.tsx", purposeNavigationPreservation("Frontend/src/App.tsx", historyStationPreservation("Frontend/src/App.tsx", changesBriefPreservation("Frontend/src/App.tsx", read("Frontend/src/App.tsx")))))));
 const oldSuites = {
   "test_history_graph_read_states.mjs": "71315482955f5f32e22e7c72905b7652d6c576b3e039afaf29693ce3aa1f937b",
   "test_warning_timestamp_order.mjs": "6d0e94cda677e13d1df7fb9be9bfe419ce8ea6d92fda5347c855b8b33a7fc5fc",
@@ -324,12 +325,12 @@ test("History copy inverse rejects physical/structural partial changes without h
 
 test("exact adapters retain all three whole HEAD35 suites, old GitGraph/helpers and original Diff prefix", () => {
   for (const [name, expected] of Object.entries(oldSuites)) for (const eol of ["\n", "\r\n"]) {
-    const text = lf(restoreChangesWorkbenchOracleAdapters(name, deskPreservation(`Tests/${name}`, mastheadPreservation(`Tests/${name}`, purposeNavigationPreservation(`Tests/${name}`, historyStationPreservation(`Tests/${name}`, read(`Tests/${name}`))))))).replace(/\n/g, eol);
+    const text = lf(restoreChangesWorkbenchOracleAdapters(name, deskPreservation(`Tests/${name}`, mastheadPreservation(`Tests/${name}`, purposeNavigationPreservation(`Tests/${name}`, historyStationPreservation(`Tests/${name}`, changesBriefPreservation(`Tests/${name}`, read(`Tests/${name}`)))))))).replace(/\n/g, eol);
     assert.equal(sha(lf(restoreGitGraphOracleAdapters(name, text))), expected);
   }
   assert.equal(sha(readFileSync(resolve(root, "Tests/test_git_graph.mjs"))),
     "f2b00e4dc1b85f8d382f451e04e34feaa2f54a336aec3c679a87d5f889f8f7ed");
-  const prefix = Buffer.from(lf(deskPreservation("Tests/test_diff_availability.mjs", mastheadPreservation("Tests/test_diff_availability.mjs", purposeNavigationPreservation("Tests/test_diff_availability.mjs", historyStationPreservation("Tests/test_diff_availability.mjs", read("Tests/test_diff_availability.mjs"))))))).subarray(0, 15449);
+  const prefix = Buffer.from(lf(deskPreservation("Tests/test_diff_availability.mjs", mastheadPreservation("Tests/test_diff_availability.mjs", purposeNavigationPreservation("Tests/test_diff_availability.mjs", historyStationPreservation("Tests/test_diff_availability.mjs", changesBriefPreservation("Tests/test_diff_availability.mjs", read("Tests/test_diff_availability.mjs")))))))).subarray(0, 15449);
   assert.equal(sha(prefix), "83d4e95e949a912fdf73b708526f514ed5a73e7afcdd91b79fc4da6639a28bd5");
   assert.equal(prefix.toString("utf8").split("\n").length - 1, 311);
   for (const [name, expected] of [["warningTimestampOrder.mjs", "e7f462d41553c8475f294917d1746c58073294502ad71c3735a09446311a2606"],
@@ -341,7 +342,7 @@ test("exact adapters retain all three whole HEAD35 suites, old GitGraph/helpers 
 
 test("adapter inverses reject missing/duplicate/wrong windows and retain unrelated original assertions", () => {
   for (const [name, expected] of Object.entries(oldSuites)) {
-    const source = lf(restoreChangesWorkbenchOracleAdapters(name, deskPreservation(`Tests/${name}`, mastheadPreservation(`Tests/${name}`, purposeNavigationPreservation(`Tests/${name}`, historyStationPreservation(`Tests/${name}`, read(`Tests/${name}`)))))));
+    const source = lf(restoreChangesWorkbenchOracleAdapters(name, deskPreservation(`Tests/${name}`, mastheadPreservation(`Tests/${name}`, purposeNavigationPreservation(`Tests/${name}`, historyStationPreservation(`Tests/${name}`, changesBriefPreservation(`Tests/${name}`, read(`Tests/${name}`))))))));
     for (const { before, after } of GIT_GRAPH_ORACLE_ADAPTERS[name]) {
       assert.ok(!after.includes("*/"), "bounded duplicate contextual window is valid comment text");
       const variants = [replaceOnce(source, after, before), source + "\n/*\n" + after + "\n*/\n",

@@ -1,3 +1,4 @@
+import { changesBriefPreservation } from "./helpers/changesTaskReviewBrief.mjs";
 import { historyStationPreservation } from "./helpers/historyReviewStation.mjs";
 import { activePlanDocketPreservation } from "./helpers/activePlanDocket.mjs";
 import { purposeNavigationPreservation } from "./helpers/purposeLedNavigation.mjs";
@@ -22,7 +23,7 @@ const { renderToStaticMarkup } = require("react-dom/server");
 const read = name => {
   const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(readFileSync(resolve(root, name)));
   if (name === "Frontend/index.html") return restoreAttributionStationHtml(studioHtml(deskPreservation(name, mastheadPreservation(name, purposeNavigationPreservation(name, text)))));
-  if (name === "Tests/test_workbench_2_0.mjs") return restoreAttributionWorkbenchSuite(studioWorkbench(deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, purposeNavigationPreservation(name, activePlanDocketPreservation(name, historyStationPreservation(name, text))))))));
+  if (name === "Tests/test_workbench_2_0.mjs") return restoreAttributionWorkbenchSuite(studioWorkbench(deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, purposeNavigationPreservation(name, activePlanDocketPreservation(name, historyStationPreservation(name, changesBriefPreservation(name, text)))))))));
   return text;
 };
 const sha = value => createHash("sha256").update(value).digest("hex"), lf = value => value.replace(/\r\n/g, "\n");
@@ -385,7 +386,7 @@ test("exact two old-suite adapters preserve all original assertions and 37 curre
   assert.notEqual(sha(lf(oldSuiteInverse(outside))), OLD_SUITE, "unrelated assertion stays visible");
   assert.equal(PINS.length, 37);
   for (const [name, raw, normalized] of PINS) {
-    const text = deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, purposeNavigationPreservation(name, activePlanDocketPreservation(name, historyStationPreservation(name, read(name))))))); assert.equal(sha(text), raw, name + " RAW");
+    const text = deskPreservation(name, mastheadPreservation(name, cityBriefPreservation(name, purposeNavigationPreservation(name, activePlanDocketPreservation(name, historyStationPreservation(name, changesBriefPreservation(name, read(name)))))))); assert.equal(sha(text), raw, name + " RAW");
     assert.equal(sha(lf(text)), normalized, name + " LF");
   }
 });

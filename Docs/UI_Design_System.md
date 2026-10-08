@@ -288,9 +288,10 @@ focus, keyboard, coarse input, zoom, AT and operator aesthetic acceptance.
 
 The identified `katlab-changes-review-desk` inline style follows the unchanged
 Workbench 2.0 block in the HTML entry. It supersedes only the named Changes
-summary and grouped-ledger presentation below. Keep every TSX/JS/global/private
-stylesheet and semantic token unchanged. Retained stylesheet bytes prove
-preservation, not unchanged computed appearance after these explicit overrides.
+summary and grouped-ledger presentation below. This style-only owner preserves
+existing styles and semantic tokens; the intentional title-first TaskGroup
+markup change is specified separately in section 6.1. Retained stylesheet bytes
+prove preservation, not unchanged computed appearance after explicit overrides.
 
 The actual captured-work dl becomes one surface panel with 20px padding, 1px
 decorative border and 8px corners. Flatten its three metrics' outer framing,
@@ -312,8 +313,9 @@ Exclude the attribution queue and assignment rows, active-filter panel, sticky
 section navigation, History/other work lists, pagers, dialogs and local scrollers.
 Retain the 1440px positive-pick queue/list split, saved task/session filters,
 unfiltered queue/folder view, 50-item paging, reveal/reduced motion and current
-diff/session/file-story recovery. No new wrapper, data/control/request/state,
-motion, font, resource, cap, clipping, position/order or scroll owner is added.
+diff/session/file-story recovery. This style-only override adds no wrapper,
+data/control/request/state, motion, font, resource, cap, clipping, position/order
+or scroll owner; section 6.1 separately governs title-first header composition.
 
 Require the complete second-window inverse to Workbench 2.0 HTML, the old
 Workbench suite's exact two-adapter inverse, independent current-source SSR/
@@ -900,6 +902,26 @@ These rules extend the global shell; they do not replace it.
 
 ### 6.1 Changes
 
+- In by-task grouped Changes, lead each normal TaskGroup with its actual resolved
+  task title in the existing h4 rank. Source it only from the repository/task
+  composite lookup; missing, deleted, empty, whitespace-only or defensively
+  invalid values use the complete technical reference as heading fallback.
+  Test trimmed text only for validity and display a valid title unchanged.
+  Show the complete reference as secondary monospaced context even if it equals
+  that title. Fallback headings do not repeat an extra reference. Do not truncate
+  either value, insert HTML or invent a task status.
+- Keep repository and existing effort visible, followed by the unique direct
+  Why paragraph and unchanged direct div.mt-4 event body. Preserve DOM order,
+  anchors, reveal/reduced motion, both 50-item pagers, plan-file disclosure and
+  all Diff, Retry, Hide, session and File Story actions. This title-first header
+  is an intentional markup change, not part of the Changes Review Desk's
+  style-only preservation claim. Queue, folder grouping and other views stay
+  unchanged; add no state, effects, requests or shared-control owner.
+- Verify full native/LF App inverses for historical assertion inputs and keep
+  current source/runtime/artifact readers raw. Preserve all existing styles,
+  prove actual emitted CSS identity and retain long/escaped/fallback/update and
+  current paging/callback cases. Deterministic checks do not prove native paint,
+  keyboard, zoom, coarse input or assistive acceptance.
 - Tasks is available through the shared drawer at every width.
 - Immediately after the unchanged Changes heading, a labelled definition list
   presents Needs attribution, Captured edits and Task groups. Use exact current
